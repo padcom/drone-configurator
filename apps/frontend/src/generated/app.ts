@@ -225,10 +225,10 @@ function validateLogsProgressInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-progress, or null. */
 export const validateLogsProgress = (value: unknown) => run(validateLogsProgressInto, value)
 
-export type LocalLog = { "key": string, "vehicle": string, "id": number, "size": number | bigint, "modified": number | bigint, "crc": string, "source": "dataflash" | "tlog", "summary"?: LocalLogSummary }
+export type LocalLog = { "key": string, "vehicle": string, "id": number, "size": number | bigint, "modified": number | bigint, "crc": string, "source": "dataflash" | "tlog", "started"?: number | bigint, "live"?: boolean, "summary"?: LocalLogSummary }
 
 function validateLocalLogInto(value: any, path: string): boolean {
-  return map(value, path, ["key","vehicle","id","size","modified","crc","source","summary"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["modified"] === undefined ? fail(`${path}.modified`, 'present') : nested(value["modified"], `${path}.modified`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["crc"] === undefined ? fail(`${path}.crc`, 'present') : nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["dataflash","tlog"]))) && (value["summary"] === undefined || nested(value["summary"], `${path}.summary`, (value, path) => validateLocalLogSummaryInto(value, path)))
+  return map(value, path, ["key","vehicle","id","size","modified","crc","source","started","live","summary"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["modified"] === undefined ? fail(`${path}.modified`, 'present') : nested(value["modified"], `${path}.modified`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["crc"] === undefined ? fail(`${path}.crc`, 'present') : nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["dataflash","tlog"]))) && (value["started"] === undefined || nested(value["started"], `${path}.started`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["live"] === undefined || nested(value["live"], `${path}.live`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["summary"] === undefined || nested(value["summary"], `${path}.summary`, (value, path) => validateLocalLogSummaryInto(value, path)))
 }
 
 /** The first problem with `value` as a local-log, or null. */
@@ -1332,6 +1332,33 @@ function validateLinkStatsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a link-stats, or null. */
 export const validateLinkStats = (value: unknown) => run(validateLinkStatsInto, value)
 
+export type RecordingState = { "enabled": boolean, "folder": string, "limitMb": number, "key"?: string, "path"?: string, "bytes": number | bigint, "failure"?: RecordingFailure, "removed": number, "removedBytes": number | bigint }
+
+function validateRecordingStateInto(value: any, path: string): boolean {
+  return map(value, path, ["enabled","folder","limitMb","key","path","bytes","failure","removed","removedBytes"]) && (value["enabled"] === undefined ? fail(`${path}.enabled`, 'present') : nested(value["enabled"], `${path}.enabled`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["folder"] === undefined ? fail(`${path}.folder`, 'present') : nested(value["folder"], `${path}.folder`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["limitMb"] === undefined ? fail(`${path}.limitMb`, 'present') : nested(value["limitMb"], `${path}.limitMb`, (value, path) => uint(value, path, 0xffffffff))) && (value["key"] === undefined || nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["path"] === undefined || nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["bytes"] === undefined ? fail(`${path}.bytes`, 'present') : nested(value["bytes"], `${path}.bytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["failure"] === undefined || nested(value["failure"], `${path}.failure`, (value, path) => validateRecordingFailureInto(value, path))) && (value["removed"] === undefined ? fail(`${path}.removed`, 'present') : nested(value["removed"], `${path}.removed`, (value, path) => uint(value, path, 0xffffffff))) && (value["removedBytes"] === undefined ? fail(`${path}.removedBytes`, 'present') : nested(value["removedBytes"], `${path}.removedBytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a recording-state, or null. */
+export const validateRecordingState = (value: unknown) => run(validateRecordingStateInto, value)
+
+export type RecordingFailure = { "code": RecordingFailureCode, "message": string }
+
+function validateRecordingFailureInto(value: any, path: string): boolean {
+  return map(value, path, ["code","message"]) && (value["code"] === undefined ? fail(`${path}.code`, 'present') : nested(value["code"], `${path}.code`, (value, path) => validateRecordingFailureCodeInto(value, path))) && (value["message"] === undefined ? fail(`${path}.message`, 'present') : nested(value["message"], `${path}.message`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a recording-failure, or null. */
+export const validateRecordingFailure = (value: unknown) => run(validateRecordingFailureInto, value)
+
+export type RecordingFailureCode = "disk-full" | "write-failed" | "no-folder" | "limit"
+
+function validateRecordingFailureCodeInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["disk-full","write-failed","no-folder","limit"])
+}
+
+/** The first problem with `value` as a recording-failure-code, or null. */
+export const validateRecordingFailureCode = (value: unknown) => run(validateRecordingFailureCodeInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -1408,6 +1435,9 @@ export interface Services {
   "map.sources": { kind: 'method', request: null, response: MapSources }
   "map.clear": { kind: 'method', request: null, response: MapCleared }
   "map.status": { kind: 'event', payload: MapStatus }
+  "recording.state": { kind: 'method', request: null, response: RecordingState }
+  "recording.dismiss": { kind: 'method', request: null, response: RecordingState }
+  "recording.changed": { kind: 'event', payload: RecordingState }
   "forward.status": { kind: 'subscription', params: null, value: ForwardStatus }
 }
 
@@ -1698,6 +1728,17 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "map.status": {
     payload: (value: any, path: string) => validateMapStatusInto(value, path),
+  },
+  "recording.state": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateRecordingStateInto(value, path),
+  },
+  "recording.dismiss": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateRecordingStateInto(value, path),
+  },
+  "recording.changed": {
+    payload: (value: any, path: string) => validateRecordingStateInto(value, path),
   },
   "forward.status": {
     params: (value: any, path: string) => value === null || fail(path, 'null'),

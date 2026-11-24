@@ -132,6 +132,13 @@
       "stateImportedChanged": "Importato, copia modificata dopo l'importazione",
       "importedMark": "Importato, non verificato con un veicolo. I valori sono quelli registrati dal programma che ha scritto il file.",
       "notVerifiedImported": "Questa copia non è il file importato (il suo checksum è cambiato): non se ne ricava nulla. Apri di nuovo il file di log.",
+      "recordedRow": "Registrato {time}",
+      "recordedHeading": "Registrazione del {time}",
+      "recordedMark": "Registrato da questa app dal collegamento con il veicolo. I valori sono quelli inviati dal veicolo.",
+      "notVerifiedRecorded": "Questa registrazione non è terminata (è in corso, o l'app si è chiusa durante la registrazione): per ora non se ne prende nulla. Viene chiusa quando inizia la registrazione successiva.",
+      "stateRecording": "In registrazione",
+      "stateRecorded": "Registrato, file integro",
+      "stateRecordedUnfinished": "Registrato, non terminato o modificato in seguito",
       "reportRead": "Record letti: {records}. Saltati: {skipped} byte di danni, {crc} frame con checksum errato, {unknown} frame di tipi di messaggio che questa app non conosce.",
       "reportSegments": "Tratti di tempo nella registrazione: {count}. Un vuoto o un salto indietro dell'orologio ne inizia uno nuovo.",
       "reportCutEnd": "Il file termina a metà di un record. Così finisce una registrazione interrotta (mancanza di corrente, programma chiuso): non è un danno.",
@@ -924,7 +931,33 @@
     "stop": "Arresto di emergenza",
     "current": "ora"
   },
+  "recording": {
+    "stopped": "Registrazione della telemetria interrotta: {reason}.",
+    "linkCarriesOn": "Il collegamento con il veicolo continua.",
+    "failure": { "disk-full": "il disco è pieno", "write-failed": "non è stato possibile scrivere il file", "no-folder": "non è possibile usare la cartella", "limit": "la registrazione ha raggiunto da sola il limite di dimensione" },
+    "next": { "disk-full": "Libera spazio o scegli un'altra cartella in Impostazioni.", "write-failed": "Controlla la cartella in Impostazioni, poi connettiti di nuovo.", "no-folder": "Scegli in Impostazioni una cartella in cui si possa scrivere.", "limit": "Aumenta il limite in Impostazioni, poi connettiti di nuovo." },
+    "openSettings": "Apri Impostazioni",
+    "removedToast": "Registrazioni vecchie rimosse per restare nel limite: {count}."
+  },
   "settings": {
+    "recording": {
+      "title": "Registrazione",
+      "acts": "Ogni connessione viene registrata in un log di telemetria (tlog), con il nome dell'ora di inizio. Le registrazioni sono elencate in Log, sotto Voli.",
+      "enabled": "Registra ogni connessione",
+      "enabledHelp": "Vale dalla connessione successiva. Una registrazione che non riesce non interrompe mai il collegamento.",
+      "folder": "Cartella delle registrazioni",
+      "folderHelp": "Lascia vuoto per la cartella dei dati dell'app. Vale dalla connessione successiva.",
+      "folderInUse": "In uso: {path}. Lascia vuoto per la cartella dei dati dell'app. Vale dalla connessione successiva.",
+      "limit": "Limite per tutte le registrazioni",
+      "limitHelp": "Se le registrazioni occupassero di più, le più vecchie vengono rimosse. Quella in corso non viene mai rimossa.",
+      "noLimit": "Nessun limite",
+      "now": "Registrazione in {file}: {size} finora.",
+      "off": "Nessuna registrazione: disattivata.",
+      "idle": "La registrazione inizia con la connessione successiva.",
+      "recording": "Registrazione in corso.",
+      "failed": "Registrazione interrotta.",
+      "removed": "Registrazioni vecchie rimosse per restare nel limite dall'avvio dell'app: {count} ({size})."
+    },
     "metadata": {
       "title": "Metadati dei parametri",
       "path": "File dei metadati",
