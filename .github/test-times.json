@@ -94,6 +94,7 @@
     "plan.e2e.ts": 8,
     "radio.e2e.ts": 20,
     "reboot.e2e.ts": 5,
+    "serial-bridge.e2e.ts": 6,
     "setup-initial.e2e.ts": 9,
     "setup.e2e.ts": 9,
     "shell.e2e.ts": 2,
@@ -119,6 +120,7 @@
     "sitl-logs.e2e.ts": 141,
     "sitl-plan.e2e.ts": 32,
     "sitl-reconnect.e2e.ts": 22,
+    "sitl-serial-bridge.e2e.ts": 40,
     "sitl-vehicles.e2e.ts": 60,
     "sitl.e2e.ts": 20
   }

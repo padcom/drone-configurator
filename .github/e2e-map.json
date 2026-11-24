@@ -107,6 +107,14 @@
         "apps/frontend/src/composables/{useVehicle,useConfigurator}.ts"
       ],
       "specs": ["telemetry-speed.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/backend/serialbridge.pi", "apps/backend/e2e/tcp-vehicle.pi", "apps/frontend/src/composables/useSerialBridge.ts",
+        "apps/frontend/src/lib/setup/bridge.ts", "apps/frontend/src/screens/setup/SetupBridge.vue",
+        "apps/frontend/src/components/shell/SerialBridgeBadge.vue", "apps/frontend/e2e/local-program.ts"
+      ],
+      "specs": ["serial-bridge.e2e.ts", "sitl-serial-bridge.e2e.ts"]
     }
   ]
 }
