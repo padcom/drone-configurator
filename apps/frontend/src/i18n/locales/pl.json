@@ -13,6 +13,18 @@
     "simulator": "Łączy z wbudowanym symulatorem: sprzęt nie jest potrzebny.",
     "last": "Okno otwiera się na ostatnim połączeniu, więc zwykle wystarczy Enter.",
     "cancel": "Anuluj",
+    "again": "Połącz ponownie",
+    "detect": {
+      "device": "Znajdź autopilota",
+      "deviceFound": "Znajdź autopilota (teraz {path})",
+      "baud": "Wypróbuj typowe prędkości",
+      "next": {
+        "NO_SERIAL_PORT": "Podłącz kontroler lotu albo radio telemetrii i połącz ponownie.",
+        "NO_AUTOPILOT_PORT": "Jest kilka portów i żaden nie wygląda na kontroler lotu: wybierz jego port i połącz ponownie.",
+        "PORT_GONE": "Port zniknął: sprawdź kabel, podłącz kontroler lotu z powrotem i połącz ponownie.",
+        "NO_MAVLINK": "Sprawdź, czy port wysyła MAVLink (jego SERIALn_PROTOCOL w pojeździe), albo wybierz jego prędkość, i połącz ponownie."
+      }
+    },
     "open": "Połącz z pojazdem lub zobacz łącze",
     "next": {
       "udp": "Sprawdź, czy pojazd lub symulator wysyła dane na ten host i port, a potem połącz się ponownie.",
@@ -1436,6 +1448,10 @@
       "label": "Połącz z pojazdem…",
       "keywords": "łącze szeregowy tcp udp port otwórz"
     },
+    "connectAgain": {
+      "label": "Połącz ponownie z ostatnim pojazdem",
+      "keywords": "ponownie ostatni połączenie łącze reconnect"
+    },
     "disconnect": {
       "keywords": "rozłącz zamknij łącze zakończ sesję"
     },
@@ -1476,6 +1492,8 @@
       "noParameters": "Nie ma jeszcze parametrów.",
       "busy": "Parametry są zapisywane lub pobierane albo restart już trwa.",
       "notConnected": "Najpierw połącz się z pojazdem.",
+      "linkUp": "Łącze już działa albo jest nawiązywane.",
+      "noLastConnection": "Nie nawiązano jeszcze żadnego połączenia: użyj Połącz z pojazdem.",
       "stateUnknown": "Stan pojazdu jest nieznany (brak świeżego heartbeat).",
       "armed": "Najpierw rozbrój pojazd. Pojazd w locie nigdy nie jest restartowany.",
       "writing": "Poczekaj, aż parametry zostaną zapisane.",

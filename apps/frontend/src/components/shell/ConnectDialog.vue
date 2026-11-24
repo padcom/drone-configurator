@@ -20,6 +20,7 @@
         <label class="connect-field">{{ t('connection.device') }}
           <Select id="device" v-model="form.device" :options="devices" />
         </label>
+        <p v-if="fields.ports.value.length === 0" class="connect-note">{{ t('connection.noPorts') }}</p>
         <label class="connect-field">{{ t('connection.baud') }}
           <Select id="baud" v-model="form.baud" :options="bauds" />
         </label>
@@ -34,7 +35,7 @@
       </template>
     </form>
     <Banner v-if="failure" id="connect-error" tone="error" urgent>
-      {{ failure }} {{ t(`connect.next.${form.transport}`) }}
+      {{ failure }} {{ nextStep }}
     </Banner>
     <p class="connect-note">{{ t('connect.last') }}</p>
     <template #actions>
@@ -49,7 +50,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { type ConnectionForm, LAST_KEY, TRANSPORTS, deviceAmong, parseLast, requestFor } from '@/lib/app/connectionForm'
+import {
+  type ConnectionForm, FIRST_FORM, LAST_KEY, TRANSPORTS, deviceAmong, parseLast, requestFor,
+} from '@/lib/app/connectionForm'
+import { DETECT_CODES, likelyPath } from '@/lib/app/detect'
 import type { SerialPort } from '@/generated/app'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
@@ -61,33 +65,48 @@ import { useConnectDialog } from '@/composables/useConnectDialog'
 
 // The Connect dialog, opened from the top bar's vehicle cell: a tab for each kind of link (UDP, TCP, Serial, Simulator),
 // the fields of the one chosen, and Connect. The last connection that was made is kept in the settings and is what the
-// dialog shows next time, so Enter is usually all it takes. It closes itself when the link is up. When the attempt fails, the
-// backend's own words are shown with what to try next.
+// dialog shows next time, so Enter is usually all it takes (and the `connect.last` command makes it one key from anywhere).
+// Before the first connection it is UDP on the default port. For serial, the port and the rate may be left to the backend,
+// which finds the autopilot by its USB identity and tries the common rates (#27). It closes itself when the link is up. When
+// the attempt fails, the backend's own words are shown with what to try next.
 const BAUD_RATES = ['57600', '115200', '230400', '460800', '921600']
 
 const { t } = useI18n()
 const { vehicle, fields, settings } = useConfigurator()
 const dialog = useConnectDialog()
-const form = reactive<ConnectionForm>({ transport: 'simulator', host: '', port: '', device: '', baud: '115200' })
+const form = reactive<ConnectionForm>({ ...FIRST_FORM })
 const serial = computed(() => form.transport === 'serial')
 const state = computed(() => fields.connection.value.state)
-const bauds = BAUD_RATES.map(rate => ({ value: rate, label: rate }))
+const bauds = computed(() => [
+  { value: '', label: t('connect.detect.baud') },
+  ...BAUD_RATES.map(rate => ({ value: rate, label: rate })),
+])
 
 /**
- * How a serial port is listed: its path, and the description the system gives it.
+ * How a serial port is listed: its path, and what its USB identity says it is (else the description the system gives it).
  *
  * @param port the port
  * @returns the text of its option
  */
 function portText(port: SerialPort): string {
-  return port.description ? t('connection.portWithDescription', { path: port.path, description: port.description }) : port.path
+  const description = port.board ?? port.description
+
+  return description ? t('connection.portWithDescription', { path: port.path, description }) : port.path
 }
 
-// The ports the backend's machine has, or one line saying there are none.
+// The ports the backend's machine has, after the choice to let the backend find the autopilot (naming the port it would use).
 const devices = computed(() => {
-  const ports = fields.ports.value.map(port => ({ value: port.path, label: portText(port) }))
+  const likely = likelyPath(fields.ports.value)
+  const detect = likely ? t('connect.detect.deviceFound', { path: likely }) : t('connect.detect.device')
 
-  return ports.length > 0 ? ports : [{ value: '', label: t('connection.noPorts') }]
+  return [{ value: '', label: detect }, ...fields.ports.value.map(port => ({ value: port.path, label: portText(port) }))]
+})
+
+// What to try next after a failure: for a serial port or rate that was not found, what the backend could not find.
+const nextStep = computed(() => {
+  const code = fields.connection.value.errorCode
+
+  return code && DETECT_CODES.includes(code) ? t(`connect.detect.next.${code}`) : t(`connect.next.${form.transport}`)
 })
 
 // The error that was on screen when the dialog was opened: it is an old one, and is not shown again.

@@ -1,6 +1,7 @@
 // The serial service: which serial ports the machine has.
 import { Cbor, Communicator, RequestContext } from "pico-desktop/communicator"
-import { listPorts } from "padcom/serialport"
+import { PortInfo, listPorts } from "padcom/serialport"
+import { identify, likelyPort } from "./autodetect"
 import { SerialPort, SerialPorts, encodeSerialPorts } from "./generated/app"
 
 /// Registers the service's method on `c`.
@@ -10,13 +11,27 @@ export function register(c: Communicator): void {
 
 /// The machine's serial ports, USB adapters described.
 async function serialPorts(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  encodeSerialPorts(described(await listPorts()))
+}
+
+/// The ports as the dashboard is told them: what their USB identity says they are, and which one a serial connection
+/// without a device uses (autodetect.pi).
+export function described(found: PortInfo[]): SerialPorts {
+  const likely = likelyPort(found)
   const ports: SerialPort[] = []
-  for (const p of await listPorts()) {
+  for (const p of found) {
     const port = SerialPort { path: p.path }
     if (p.vendorId != null) {
       port.description = `USB ${p.vendorId!}:${p.productId ?? "?"} ${p.product ?? ""}`.trim()
     }
+    const known = identify(p)
+    if (known != null) {
+      port.board = known!.name
+    }
+    if (likely != null && likely!.path == p.path) {
+      port.likely = true
+    }
     ports.push(port)
   }
-  encodeSerialPorts(SerialPorts { ports: ports })
+  return SerialPorts { ports: ports }
 }

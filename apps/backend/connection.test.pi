@@ -20,6 +20,7 @@ import {
   encodeConnectRequest,
   encodeParamWrite,
 } from "./generated/app"
+import { link } from "./session"
 import { start } from "./testing"
 
 async function connectsListsAndWrites(): Promise<void> throws Error {
@@ -139,12 +140,26 @@ async function badDevice(): Promise<void> throws Error {
   const fe = await start()
   const request = ConnectRequest { transport: ConnectRequestTransport.Serial, device: "/dev/no-such-tty" }
   const c = decodeConnection((await fe.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
-  expect(c.error ?? "").toBe("can't open serial /dev/no-such-tty at 115200: /dev/no-such-tty: opening it: No such file or directory")
+  expect(c.error ?? "").toBe("can't open serial /dev/no-such-tty (trying the common rates): /dev/no-such-tty: opening it: No such file or directory")
+}
+
+/// A serial request without a rate (#27): the first common rate that brings MAVLink is used, and kept for reconnects.
+async function findsTheRate(): Promise<void> throws Error {
+  const pty = new PtyMaster()
+  const sim = new SimulatedAutopilot(pty)
+  sim.start(100)
+  const fe = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.Serial, device: pty.path }
+  const c = decodeConnection((await fe.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
+  expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""} ${link.request?.device == pty.path} ${link.request?.baud ?? 0}`).toBe("true  true 115200")
+  await fe.call("vehicle.disconnect")
+  sim.stop()
 }
 
 describe("the connection service", () => {
   it("talks MAVLink over a serial port (a pseudo-terminal), and refuses calls when unplugged", overSerial)
   it("says why a serial port didn't open", badDevice)
+  it("finds the baud rate of a serial port when none is given", findsTheRate)
   it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
   it("reports a link with no heartbeat", noHeartbeat)
   it("tells the dashboard a link that ends is being reconnected, and connects again", losesALinkThatEnds)
