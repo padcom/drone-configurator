@@ -120,7 +120,7 @@ it('offers nothing while the vehicle is armed or its state is not known', async 
   feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
   await flushPromises()
 
-  expect(wrapper.get('#signing-blocked').text()).toContain('The vehicle is armed')
+  expect(wrapper.get('#signing-blocked .said').text()).toContain('The vehicle is armed')
   expect(wrapper.get('#signing-on').attributes('disabled')).toBeDefined()
   await wrapper.get('#signing-form').trigger('submit')
   await flushPromises()

@@ -21,7 +21,7 @@
     {
       "when": [
         "apps/frontend/src/components/params/**", "apps/frontend/src/components/fields/**", "apps/frontend/src/lib/params/**",
-        "apps/frontend/src/composables/{useParam*,useStaged,useSnapshots,useCompare,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
+        "apps/frontend/src/composables/{useParam*,useStaged,useSnapshots,useCompare,renameSource,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
         "apps/frontend/src/composables/useMetadataDownload.ts",
         "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,paramcache,paramstore,groups,files,settings,tuning,metadata}.pi"
       ],
@@ -29,7 +29,7 @@
         "param-*.e2e.ts", "configurator.e2e.ts", "confirm.e2e.ts", "favourites.e2e.ts", "view.e2e.ts", "initial.e2e.ts", "bitmask.e2e.ts",
         "lists.e2e.ts", "list-top.e2e.ts", "value-rounding.e2e.ts", "groups-setting.e2e.ts", "combobox-scrollbar.e2e.ts", "sitl.e2e.ts",
         "calibration.e2e.ts", "sitl-calibration.e2e.ts", "metadata-autoload.e2e.ts", "reconnect.e2e.ts", "sitl-param-speed.e2e.ts",
-        "sitl-ftp.e2e.ts", "metadata-download.e2e.ts", "sitl-metadata.e2e.ts", "tcp-vehicle.e2e.ts"
+        "sitl-ftp.e2e.ts", "metadata-download.e2e.ts", "sitl-metadata.e2e.ts", "tcp-vehicle.e2e.ts", "sitl-param-renamed.e2e.ts"
       ]
     },
     {
@@ -49,9 +49,10 @@
     {
       "when": [
         "apps/frontend/src/components/shell/LinkIndicator.vue", "apps/frontend/src/lib/fly/linkQuality.ts",
-        "apps/frontend/src/composables/useLinkStats.ts", "apps/frontend/src/mock/mock-link.ts", "apps/backend/linkstats.pi"
+        "apps/frontend/src/composables/useLinkStats.ts", "apps/frontend/src/mock/mock-link.ts", "apps/backend/linkstats.pi",
+        "apps/frontend/src/lib/fly/flyCards.ts", "apps/frontend/src/components/fly/FlyAside.vue", "apps/frontend/src/components/fields/TruthValue.vue"
       ],
-      "specs": ["link-quality.e2e.ts", "shell.e2e.ts"]
+      "specs": ["link-quality.e2e.ts", "sitl-link-quality.e2e.ts", "shell.e2e.ts"]
     },
     {
       "when": [
@@ -105,6 +106,10 @@
     {
       "when": ["apps/backend/{telemetry,session}.pi", "apps/frontend/e2e/bridge-client.ts"],
       "specs": ["sitl-landed.e2e.ts"]
+    },
+    {
+      "when": ["apps/backend/{telemetry,groups,session}.pi", "apps/frontend/e2e/{bridge-client,sitl-truth}.ts"],
+      "specs": ["sitl-telemetry.e2e.ts"]
     },
     {
       "when": ["apps/backend/{missions,planverify,planfiles,arming,session,messages}.pi", "apps/frontend/e2e/bridge-client.ts"],

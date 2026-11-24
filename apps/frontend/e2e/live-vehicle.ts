@@ -171,12 +171,14 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     const label = 'document.querySelector(\'.hud\').getAttribute(\'aria-label\')'
     await app.waitFor(`/roll -?\\d/u.test(${label})`, vehicle.downloadTimeoutMs)
     expect(await app.waitForText('#top-bar', /MODE\s*(?:STABILIZE|LOITER)/u)).toMatch(/STATE/u)
-    // The heartbeat age of the LINK card changes with every frame, also on a vehicle that stands still (the display's
-    // whole degrees do not).
+    // The LINK card shows the link's quality once the backend has measured it. What changes with every frame, also on a vehicle
+    // that stands still (the display's whole degrees do not): the horizon, turned by the attitude's exact numbers, and the age
+    // of the heartbeat that the LINK card gives when the vehicle answers no ping.
     const link = `[...document.querySelectorAll('#telemetry > *')].find(card => /LINK/u.test(card.textContent)).textContent`
-    await app.waitFor(`/\\d+ ms ago/u.test(${link})`)
-    const before = await app.evaluate<string>(link)
-    await app.waitFor(`${link} !== ${JSON.stringify(before)}`)
+    await app.waitFor(`/\\d+%/u.test(${link})`)
+    const shown = `${link} + (document.querySelector('.hud .horizon g')?.getAttribute('transform') ?? '')`
+    const before = await app.evaluate<string>(shown)
+    await app.waitFor(`${shown} !== ${JSON.stringify(before)}`)
   })
 
   it('shows it in the aside of the Fly screen, beside the map', async () => {

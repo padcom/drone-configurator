@@ -1,7 +1,10 @@
 <template>
   <TunePage :tune="tune" :title="t('tune.section.filters')" id-prefix="tune-filters">
     <p class="muted">{{ t('tune.filters.summary') }}</p>
-    <Banner v-if="panel.armed.value" id="tune-filters-armed" tone="warn">{{ t('tune.filters.armed') }}</Banner>
+    <!-- Its line is always kept, so the controls below stay put (#562); the arming is announced by the Tune screen. -->
+    <Banner id="tune-filters-armed" tone="warn" :empty="!armedText" :room="[t('tune.filters.armed')]" role="presentation">
+      {{ armedText }}
+    </Banner>
     <p v-if="tracking" id="tune-filters-tracking" class="muted">{{ t('tune.filters.tracking') }}</p>
     <Banner v-if="misses" id="tune-filters-misses" tone="warn">
       {{ t('tune.filters.misses', { log: openId, peaks: peaksText, bands: bandsText }) }}
@@ -67,6 +70,8 @@ const { spectrum, flights } = handle
 const ids = TUNE_PARAMS.filter(param => GROUPS.includes(param.group)).map(param => param.id)
 const tune = useTunePanel(ids, handle)
 const { panel, missing } = tune
+/** What the banner says while the vehicle is armed, nothing otherwise (its line is kept either way). */
+const armedText = computed(() => (panel.armed.value ? t('tune.filters.armed') : ''))
 
 /**
  * The parameters of a group that the vehicle has.

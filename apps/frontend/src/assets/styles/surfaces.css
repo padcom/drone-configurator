@@ -70,6 +70,7 @@
 
 .kit-banner .text {
   flex: 1;
+  min-height: 1lh;
   color: var(--color-text);
 }
 
@@ -125,6 +126,30 @@
 /* The focus ring in the banner's dark words too: the cyan one is about 1.4:1 on amber. */
 .kit-banner.urgent .actions .kit-button:focus-visible {
   outline-color: currentcolor;
+}
+
+/* An empty banner keeps its line (one line of words high) and shows nothing in it: what is below it stays where it is. */
+.kit-banner.empty,
+.kit-banner.urgent.empty {
+  background: transparent;
+  border-color: transparent;
+}
+
+.kit-banner.empty .mark {
+  visibility: hidden;
+}
+
+/* A banner that keeps the room of every text it may say: they are laid on one another, and only the one said is seen. */
+.kit-banner .text.kept {
+  display: grid;
+}
+
+.kit-banner .text.kept > * {
+  grid-area: 1 / 1;
+}
+
+.kit-banner .text.kept .room {
+  visibility: hidden;
 }
 
 /* ProgressBar: 6 px, the fill grows from the left. */
@@ -223,4 +248,25 @@
 .truth.verified .value,
 .truth.verified .note {
   color: var(--color-ok);
+}
+
+/* A reported value that is not good: the value in the status colour, and beside it an icon and a word (never colour alone). */
+.truth .status {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  margin-left: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.truth.warn .value {
+  color: var(--color-warn);
+}
+
+.truth.error .value {
+  color: var(--color-error);
 }

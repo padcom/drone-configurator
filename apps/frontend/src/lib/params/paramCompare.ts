@@ -4,13 +4,14 @@
 // confirms is written (useSnapshots).
 import { say } from '@/i18n/say'
 import type { Param, VehicleInfo } from '@/generated/app'
-import { type Change, type DiffOptions, type WantedValue, changeFor } from './paramDiff'
+import { type Change, type DiffOptions, type WantedValue, changeFor, withRenames } from './paramDiff'
 import { groupOf } from './paramGroups'
 import type { ParamMeta } from './metadata'
 import { looksLikeJson, parseParamFile } from './paramFile'
 import { fileNotes, wantedOf } from './paramFileReview'
 import { type ReviewSource, parseSnapshot, warningFor } from './snapshot'
 import { showNumber } from './paramValue'
+import type { Renamed } from './renames'
 
 /** How a row compares: the same on both sides, different, or on one side only. */
 export type CompareStatus = 'same' | 'differs' | 'vehicleOnly' | 'otherOnly'
@@ -27,6 +28,8 @@ export interface CompareRow {
   status: CompareStatus
   /** What copying the other value across would change (with why it can't, if so), or null when there is nothing to copy. */
   change: Change | null
+  /** The old name and value, when the other side names the parameter as an older firmware did (#202). */
+  renamed?: Renamed
 }
 
 /** The other side of a comparison: where its values come from, and what they are. */
@@ -55,21 +58,6 @@ export interface CompareFilter {
 }
 
 /**
- * The status of a parameter the vehicle has.
- *
- * @param wanted the other side's value, if it has one
- * @param change what copying it would change, if anything
- * @returns the status
- */
-function statusOf(wanted: WantedValue | undefined, change: Change | null): CompareStatus {
-  if (!wanted) {
-    return 'vehicleOnly'
-  }
-
-  return change ? 'differs' : 'same'
-}
-
-/**
  * The row of a parameter the vehicle has.
  *
  * @param param the vehicle's parameter
@@ -78,9 +66,13 @@ function statusOf(wanted: WantedValue | undefined, change: Change | null): Compa
  * @returns the row
  */
 function vehicleRow(param: Param, wanted: WantedValue | undefined, options: DiffOptions): CompareRow {
-  const change = wanted ? changeFor(wanted, param, options) : null
+  if (!wanted) {
+    return { id: param.id, param, other: null, status: 'vehicleOnly', change: null }
+  }
+  const change = changeFor(wanted, param, options)
+  const renamed = wanted.renamed ? { renamed: wanted.renamed } : {}
 
-  return { id: param.id, param, other: wanted?.value ?? null, status: statusOf(wanted, change), change }
+  return { id: param.id, param, other: wanted.value, status: change ? 'differs' : 'same', change, ...renamed }
 }
 
 /**
@@ -99,11 +91,11 @@ function otherRow(wanted: WantedValue): CompareRow {
  *
  * @param wanted the other side's values
  * @param params the vehicle's parameters now
- * @param options the metadata, if loaded
+ * @param options the metadata, if loaded, and the renames: a name the vehicle's firmware renamed is compared under its new name
  * @returns the rows
  */
 export function compareValues(wanted: WantedValue[], params: Param[], options: DiffOptions = {}): CompareRow[] {
-  const byId = new Map(wanted.map(value => [value.id, value]))
+  const byId = new Map(withRenames(wanted, params, options).map(value => [value.id, value]))
   const onVehicle = new Set(params.map(param => param.id))
   const others = [...byId.values()].filter(value => !onVehicle.has(value.id))
 

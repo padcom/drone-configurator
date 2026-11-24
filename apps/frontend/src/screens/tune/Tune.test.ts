@@ -500,20 +500,21 @@ it('marks old data: the stream ended (the link was lost), says why, and does not
 
 it('shows a banner while the vehicle is armed, announces arming and disarming once each, politely, and not before', async () => {
   const rig = await screen()
-  expect(rig.wrapper.find('#tune-armed').exists()).toBe(false)
+  expect(rig.wrapper.get('#tune-armed').classes()).toContain('empty')
   expect(rig.wrapper.get('#tune-armed-status').text()).toBe('')
 
   rig.control.armed?.(true)
   feed(rig.handle, { telemetry: { ...telemetryAt(0), armed: true } })
   await flushPromises()
-  expect(rig.wrapper.get('#tune-armed').text()).toBe('Armed: changes apply in flight')
+  expect(rig.wrapper.get('#tune-armed .said').text()).toBe('Armed: changes apply in flight')
+  expect(rig.wrapper.get('#tune-armed').classes()).not.toContain('empty')
   expect(rig.wrapper.get('#tune-armed-status').text()).toBe('The vehicle is armed: changes apply in flight.')
   expect(rig.wrapper.get('#tune-armed-status').attributes('role')).toBe('status')
 
   rig.control.armed?.(false)
   feed(rig.handle, { telemetry: { ...telemetryAt(0), armed: false } })
   await flushPromises()
-  expect(rig.wrapper.find('#tune-armed').exists()).toBe(false)
+  expect(rig.wrapper.get('#tune-armed').classes()).toContain('empty')
   expect(rig.wrapper.get('#tune-armed-status').text()).toBe('The vehicle is disarmed.')
 })
 

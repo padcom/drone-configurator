@@ -813,6 +813,8 @@
     "heartbeatAge": "{ms} ms temu",
     "noHeartbeat": "brak heartbeatu",
     "lastHeartbeat": "ostatni {ms} ms przed ucichnięciem",
+    "latencyLost": "{latency} · {percent}% utracono",
+    "lostHeartbeat": "{percent}% utracono · heartbeat {ms} ms temu",
     "ekf": {
       "healthy": "Sprawny",
       "degraded": "Pogorszony",
@@ -1322,6 +1324,7 @@
     }
   },
   "compare": {
+    "renamed": "{value} (było {from} {old}, nowa nazwa od {since})",
     "file": "Porównaj z plikiem",
     "defaults": "Porównaj z domyślnymi",
     "region": "Porównanie",
@@ -1405,6 +1408,8 @@
     "itWas": "To było: {warning}.",
     "summary": "Różni się: {differ}, już takie same: {same}. Zaznacz te do zapisania.",
     "noValue": "—",
+    "renamed": "{from} → {to} (nowa nazwa od {since})",
+    "converted": "Przeliczono: {from} → {to}",
     "column": {
       "defaults": "Domyślna",
       "apply": "Zastosuj",

@@ -31,6 +31,7 @@ import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type CompareModel, useCompare } from './useCompare'
 import { type FramePresetsModel, useFramePresets } from './useFramePresets'
+import { renameSource } from './renameSource'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
 import { armedOf } from '@/lib/app/armed'
@@ -571,11 +572,13 @@ function snapshotsFor(
 ): Pick<ConfiguratorHandle, 'snapshots' | 'compare' | 'presets'> {
   const { connection } = vehicle
   const metadata = () => model.metadata.value
-  const snapshots = useSnapshots({ ...deps, connection, metadata, mayBeArmed: () => mayBeArmed(vehicle) })
-  const compare = useCompare({ client: deps.client, params: deps.parameters.params, connection, metadata, snapshots })
+  // ArduPilot's renames (#202): a file from an older firmware is reviewed and compared under the vehicle's names.
+  const renames = renameSource({ client: deps.client, connection })
+  const snapshots = useSnapshots({ ...deps, connection, metadata, mayBeArmed: () => mayBeArmed(vehicle), renames })
+  const compare = useCompare({ client: deps.client, params: deps.parameters.params, connection, metadata, snapshots, renames })
   const armed = () => mayBeArmed(vehicle)
   const presets = useFramePresets({
-    client: deps.client, params: deps.parameters.params, connection, metadata, snapshots, mayBeArmed: armed,
+    client: deps.client, params: deps.parameters.params, connection, metadata, snapshots, mayBeArmed: armed, renames,
   })
 
   return { snapshots, compare, presets }

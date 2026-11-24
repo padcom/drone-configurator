@@ -111,6 +111,13 @@
   color: var(--color-accent);
 }
 
+/* A value the firmware converts with its new name (#202): the value before and after, under the new value, in words. */
+.review-converted {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .review-table input[type='checkbox'] {
   width: 20px;
   height: 20px;

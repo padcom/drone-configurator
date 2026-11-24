@@ -18,7 +18,8 @@
           </template>
         </dl>
       </div>
-      <Banner v-if="blocked" id="signing-blocked" tone="info">{{ t(blocked) }}</Banner>
+      <!-- Its line is always kept: the form below stays put while a call is busy or the vehicle's state is not heard (#562). -->
+      <Banner id="signing-blocked" tone="info" :empty="!blockedText" :room="reasons">{{ blockedText }}</Banner>
       <Banner v-if="failure" id="signing-error" tone="error">{{ t(failure) }}</Banner>
       <form id="signing-form" class="signing-form" @submit.prevent="turnOn">
         <h4 class="setup-label">{{ t(signed ? 'setup.signing.changeHeading' : 'setup.signing.newHeading') }}</h4>
@@ -83,6 +84,10 @@ const signed = computed(() => status.value.state === 'signed')
 const setAt = computed(() => (status.value.setAt === undefined ? '' : format.dateTime(new Date(Number(status.value.setAt)))))
 const connected = computed(() => handle.fields.connection.value.state === 'connected')
 const blocked = computed(() => signingBlocked(connected.value, armed.value, signing.busy.value))
+/** Why nothing can be changed now, in words; nothing when it can (the banner's line is kept either way). */
+const blockedText = computed(() => (blocked.value === null ? '' : t(blocked.value)))
+/** Every reason it may give: the banner keeps the room of the longest. */
+const reasons = computed(() => (['offline', 'unknown', 'armed', 'busy'] as const).map(why => t(`setup.signing.blocked.${why}`)))
 const source = shallowRef<'random' | 'passphrase'>('random')
 const sources = computed(() => [
   { value: 'random', label: t('setup.signing.random') },

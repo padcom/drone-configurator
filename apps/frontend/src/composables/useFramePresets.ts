@@ -11,6 +11,8 @@ import type { Connection, Param, PresetsList } from '@/generated/app'
 import type { Metadata } from '@/lib/params/metadata'
 import { type Against, presetsError, reviewPreset } from '@/lib/params/framePresets'
 import type { SnapshotsModel } from './useSnapshots'
+import type { RenameSource } from './renameSource'
+import { diffOptions } from '@/lib/params/paramDiff'
 
 /** What the presets need from the rest of the interface. */
 export interface FramePresetsDeps {
@@ -26,6 +28,8 @@ export interface FramePresetsDeps {
   mayBeArmed: () => boolean
   /** The review a preset goes to. */
   snapshots: Pick<SnapshotsModel, 'show'>
+  /** ArduPilot's renames: a name of a preset the vehicle's firmware renamed is reviewed under its new name (#202). */
+  renames?: RenameSource
 }
 
 /** A preset's text, once it is fetched. */
@@ -188,6 +192,8 @@ class FramePresets implements FramePresetsModel {
 
     try {
       const file = await this.deps.client.call('presets.fetch', { ref, path })
+      // The renames are there by the time the preset is reviewed (they never fail).
+      await this.deps.renames?.ready()
       if (this.selected.value === path) {
         this.preset.value = { path, ref, text: file.text }
       }
@@ -215,7 +221,7 @@ class FramePresets implements FramePresetsModel {
     return {
       params: this.deps.params.value,
       vehicle: this.deps.connection.value.vehicle,
-      options: metadata.size > 0 ? { metadata } : {},
+      options: diffOptions(metadata.size > 0 ? metadata : undefined, this.deps.renames?.now()),
     }
   }
 

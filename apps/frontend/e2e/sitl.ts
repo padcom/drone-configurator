@@ -61,6 +61,11 @@ export interface SitlOptions {
 export interface Sitl {
   /** Where the dashboard connects (SERIAL0). */
   readonly endpoint: Endpoint
+  /**
+   * SERIAL2 (MAVLink 2, like SERIAL0): a port of the test's own, for a second reader of the vehicle (the simulator's truth, see
+   * sitl-truth.ts) while the app is on SERIAL0 and the harness's commands use SERIAL1.
+   */
+  readonly spare: Endpoint
   readonly pid: number
   /** SITL's working directory: its EEPROM, logs and terrain. */
   readonly directory: string
@@ -416,7 +421,15 @@ for (const [signal, handler] of signalHandlers) {
   process.once(signal, handler)
 }
 
-function connect(port: number, timeoutMs: number, alive: () => boolean): Promise<Socket> {
+/**
+ * Connects to a TCP port on this machine, trying again until something listens there.
+ *
+ * @param port the port
+ * @param timeoutMs how long to keep trying
+ * @param alive whether what should listen there is still running
+ * @returns the connection
+ */
+export function connect(port: number, timeoutMs: number, alive: () => boolean): Promise<Socket> {
   const deadline = Date.now() + timeoutMs
 
   return new Promise((resolve, reject) => {
@@ -529,6 +542,7 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
   const port = instancePorts(instance).tcp
   const serial0 = port[0] ?? 5760
   const serial1 = port[2] ?? 5762
+  const serial2 = port[3] ?? 5763
   const alive = () => !spawnError && child.exitCode === null && child.signalCode === null
   try {
     // SERIAL0 holds SITL back until somebody connects, so this is also what lets it boot.
@@ -547,6 +561,7 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
 
   const sitl: Sitl = {
     endpoint: { transport: 'tcp', host: '127.0.0.1', port: serial0 },
+    spare: { transport: 'tcp', host: '127.0.0.1', port: serial2 },
     pid: child.pid ?? 0,
     directory,
     setParam: (name, value) => setParam(serial1, name, value, alive),

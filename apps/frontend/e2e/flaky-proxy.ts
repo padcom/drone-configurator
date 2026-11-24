@@ -1,4 +1,5 @@
-// A TCP proxy that can be cut and restored, between the app and a simulator: a cable pulled and plugged in again.
+// A TCP proxy that can be cut and restored, between the app and a simulator: a cable pulled and plugged in again. It can also
+// be lossy, as a radio link is: it drops a share of the vehicle's frames.
 import { type Server, type Socket, createServer, connect } from 'node:net'
 import type { Endpoint } from './endpoint'
 
@@ -7,6 +8,38 @@ export type Target = Pick<Endpoint, 'host' | 'port'>
 
 /** The messages that carry a parameter list: PARAM_VALUE and FILE_TRANSFER_PROTOCOL. */
 const DOWNLOAD_MESSAGES = new Set([22, 110])
+
+/** The message that is never dropped by a lossy proxy: the heartbeat, so that the app does not take the vehicle for gone. */
+const MSG_HEARTBEAT = 0
+
+/** The bytes a MAVLink frame starts with (2 and 1). */
+const MAGIC = [0xFD, 0xFE]
+
+/**
+ * A pseudo-random number generator with a seed (mulberry32): the same drops, frame for frame, from run to run.
+ *
+ * @param seed the seed
+ * @returns a function that gives the next number, from 0 to 1
+ */
+export function seeded(seed: number): () => number {
+  let state = seed >>> 0
+
+  return () => {
+    state = (state + 0x6D2B79F5) >>> 0
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state)
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)
+
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296
+  }
+}
+
+/** What a lossy proxy has done since `lose` was called: the vehicle's frames it passed and the ones it dropped. */
+export interface LossCount {
+  /** Frames passed. */
+  passed: number
+  /** Frames dropped. */
+  dropped: number
+}
 
 /**
  * The length of the frame that starts at a place: header, payload, checksum and signature.
@@ -64,6 +97,13 @@ export class FlakyProxy {
   #downloadOnly = false
   /** What came from the vehicle and is not a whole frame yet (for `cutInDownload`). */
   #pending: Buffer = Buffer.alloc(0)
+  /** The share of the vehicle's frames that is dropped (`lose`). */
+  #loss = 0
+  #random = seeded(29)
+  /** What came from the vehicle and is not a whole frame yet (while lossy). */
+  #held: Buffer = Buffer.alloc(0)
+  /** What the lossy proxy has passed and dropped since `lose`. */
+  #lossCount: LossCount = { passed: 0, dropped: 0 }
   readonly #cutDone: (() => void)[] = []
   readonly #server: Server
   readonly #sockets = new Set<Socket>()
@@ -161,6 +201,27 @@ export class FlakyProxy {
   }
 
   /**
+   * Drops a share of the vehicle's frames from now on, whole frames and at random (with a fixed seed), as a radio link that
+   * loses packets; heartbeats always pass, so the app keeps the vehicle. What goes to the vehicle is not touched. The counts
+   * start again.
+   *
+   * @param share from 0 (nothing is dropped) to 1
+   */
+  lose(share: number) {
+    this.#loss = share
+    this.#lossCount = { passed: 0, dropped: 0 }
+  }
+
+  /**
+   * What the lossy proxy has done since `lose` was called.
+   *
+   * @returns the frames it passed and dropped
+   */
+  get lossCount(): LossCount {
+    return { ...this.#lossCount }
+  }
+
+  /**
    * Forwards new connections somewhere else (another vehicle behind the same address). The ones made already stay.
    *
    * @param target the new place
@@ -215,11 +276,77 @@ export class FlakyProxy {
     if (this.#muted) {
       return
     }
-    to.write(data)
 
     if (towardsApp) {
-      this.#counted(this.#downloadOnly ? this.#downloadBytes(data) : data.length)
+      this.#toApp(data, to)
+    } else {
+      to.write(data)
     }
+  }
+
+  /**
+   * Passes the vehicle's bytes to the app (less what a lossy proxy drops), and counts them towards a cut.
+   *
+   * @param data the bytes
+   * @param to the app's connection
+   */
+  #toApp(data: Buffer, to: Socket) {
+    to.write(this.#lossy(data))
+    this.#counted(this.#downloadOnly ? this.#downloadBytes(data) : data.length)
+  }
+
+  /**
+   * The vehicle's bytes less the frames a lossy proxy drops. Whole frames are passed or dropped; a frame that is not whole yet
+   * is held until it is, and bytes that are no frame pass.
+   *
+   * @param data the bytes that came
+   * @returns the bytes to pass
+   */
+  #lossy(data: Buffer): Buffer {
+    if (this.#loss === 0 && this.#held.length === 0) {
+      return data
+    }
+    this.#held = Buffer.concat([this.#held, data])
+    const passed: Buffer[] = []
+    let frame = nextFrame(this.#held)
+    while (frame !== null) {
+      passed.push(this.#held.subarray(0, frame.start), this.#kept(frame))
+      this.#held = this.#held.subarray(frame.start + frame.length)
+      frame = nextFrame(this.#held)
+    }
+
+    return Buffer.concat([...passed, this.#noFrame()])
+  }
+
+  /**
+   * A whole frame, if it passes; nothing if it is dropped.
+   *
+   * @param frame where it is in what is held, and its message
+   * @param frame.start where it starts
+   * @param frame.length how long it is
+   * @param frame.msgid its message
+   * @returns its bytes, or none
+   */
+  #kept(frame: { start: number, length: number, msgid: number }): Buffer {
+    const drop = frame.msgid !== MSG_HEARTBEAT && this.#random() < this.#loss
+    this.#lossCount[drop ? 'dropped' : 'passed'] += 1
+
+    return drop ? Buffer.alloc(0) : this.#held.subarray(frame.start, frame.start + frame.length)
+  }
+
+  /**
+   * What is held and cannot start a frame: passed on, and no longer held.
+   *
+   * @returns the bytes
+   */
+  #noFrame(): Buffer {
+    if (this.#held.some(byte => MAGIC.includes(byte))) {
+      return Buffer.alloc(0)
+    }
+    const rest = this.#held
+    this.#held = Buffer.alloc(0)
+
+    return rest
   }
 
   /**
