@@ -22,6 +22,7 @@ import { type AnalysisModel, useAnalysis } from './useAnalysis'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type LinkStatsModel, useLinkStats } from './useLinkStats'
+import { type SerialBridgeModel, useSerialBridge } from './useSerialBridge'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -93,6 +94,8 @@ export interface ConfiguratorHandle {
   staged: StagedModel
   /** The quality of the link to the vehicle: loss, rates and latency. */
   link: LinkStatsModel
+  /** The serial bridge: a port of the vehicle reached through a local TCP port. */
+  serialBridge: SerialBridgeModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
@@ -560,6 +563,19 @@ function startLink(client: BackendClient, vehicle: Vehicle): LinkStatsModel {
 }
 
 /**
+ * The serial bridge, started: it follows the backend's state from the start, so a port that is locked is shown on every screen.
+ *
+ * @param client the link to the backend
+ * @returns the bridge
+ */
+function startSerialBridge(client: BackendClient): SerialBridgeModel {
+  const bridge = useSerialBridge({ client })
+  void bridge.watch()
+
+  return bridge
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -592,6 +608,7 @@ export function createConfigurator(
   const models = {
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), link: startLink(client, vehicle),
+    serialBridge: startSerialBridge(client),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }

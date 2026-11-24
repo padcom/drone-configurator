@@ -39,6 +39,7 @@
     "reboot.test.pi": 48,
     "reconnect.test.pi": 43,
     "serial.test.pi": 20,
+    "serialbridge.test.pi": 45,
     "settings.test.pi": 20,
     "settings_json.test.pi": 20,
     "telemetry.test.pi": 34,
