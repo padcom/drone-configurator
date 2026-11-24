@@ -1321,7 +1321,39 @@
       "qgc": "QGroundControl .params"
     }
   },
+  "compare": {
+    "file": "Confronta con file",
+    "defaults": "Confronta con i predefiniti",
+    "region": "Confronto",
+    "title": "Confronta",
+    "heading": "Confrontato con: {source}",
+    "loading": "Lettura dal veicolo dei valori predefiniti del firmware…",
+    "defaultsUnsupported": "Questo veicolo non può inviare i suoi valori predefiniti: non ha MAVLink FTP. Confronta invece con un file di parametri.",
+    "defaultsFailed": "Impossibile leggere i valori predefiniti: {error}",
+    "close": "Chiudi",
+    "onlyDifferences": "Solo differenze",
+    "group": "Gruppo",
+    "allGroups": "Tutti i gruppi",
+    "search": "Cerca",
+    "table": "Parametri confrontati",
+    "help": "Le frecce spostano tra le celle. Spazio spunta una riga per copiarne il valore.",
+    "copy": "Copia {id}",
+    "column": {
+      "copy": "Copia",
+      "status": "Confronto"
+    },
+    "status": {
+      "same": "Uguale",
+      "differs": "Diverso",
+      "vehicleOnly": "Solo sul veicolo"
+    },
+    "summary": "Diversi: {differ}; solo sul veicolo: {vehicleOnly}; non sul veicolo: {otherOnly}; uguali: {same}.",
+    "picked": "Da copiare: {count}. Non viene scritto nulla finché non controlli e confermi.",
+    "pickSome": "Spunta i valori da copiare.",
+    "review": "Controlla le spuntate: {count}"
+  },
   "import": {
+    "fromDefaults": "Valori predefiniti del firmware",
     "from": "Istantanea del {savedAt}",
     "fromFile": "File di parametri: {format}",
     "notes": "Sul file",
@@ -1336,6 +1368,7 @@
     "summary": "Diversi: {differ}; già uguali: {same}. Spunta quelli da scrivere.",
     "noValue": "—",
     "column": {
+      "defaults": "Predefinito",
       "apply": "Applica",
       "vehicle": "Sul veicolo",
       "snapshot": "Nell'istantanea",
@@ -1534,6 +1567,15 @@
     }
   },
   "palette": {
+    "compare": {
+      "file": {
+        "label": "Confronta i parametri con un file o uno snapshot…"
+      },
+      "defaults": {
+        "label": "Confronta i parametri con i valori predefiniti del firmware"
+      },
+      "keywords": "confronta differenza predefiniti file snapshot copia"
+    },
     "logs": {
       "openFile": {
         "label": "Apri file di log…",

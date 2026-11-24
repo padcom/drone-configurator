@@ -58,6 +58,11 @@ export interface SnapshotsModel {
   openFile: () => Promise<void>
   /** Loads a snapshot (JSON) or a parameter file (plain text) for review: what it would change, with nothing picked yet. */
   load: (text: string) => void
+  /**
+   * Puts changes made elsewhere (the comparison's rows copied across) under review, with `picked` ticked already (those that can
+   * be applied): they are written the same way, after the same confirmation, as a file's.
+   */
+  show: (review: Review, picked: string[]) => void
   /** Ticks or unticks a change (ones that can't be applied can't be ticked). */
   toggle: (id: string) => void
   /** Closes the review of the snapshot. */
@@ -143,6 +148,13 @@ class Snapshots implements SnapshotsModel {
     }
     this.importReview.value = reviewed
     this.importError.value = null
+  }
+
+  show(changes: Review, picked: string[]): void {
+    this.clearPicks()
+    this.importReview.value = changes
+    this.importError.value = null
+    this.picked.value = picked.filter(id => this.pickable(id))
   }
 
   /**

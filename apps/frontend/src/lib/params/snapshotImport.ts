@@ -177,7 +177,7 @@ export interface SourceWords {
 }
 
 /**
- * The heading and the column of a review, for a snapshot or for a parameter file.
+ * The heading and the column of a review, for a snapshot, a parameter file or the firmware's defaults.
  *
  * @param source where the values come from
  * @param translate looks up a message
@@ -186,6 +186,9 @@ export interface SourceWords {
 export function sourceWords(source: ReviewSource, translate: Translate): SourceWords {
   if (source.kind === 'snapshot') {
     return { heading: translate('import.from', { savedAt: source.savedAt }), column: translate('import.column.snapshot') }
+  }
+  if (source.kind === 'defaults') {
+    return { heading: translate('import.fromDefaults'), column: translate('import.column.defaults') }
   }
 
   const format = translate(`paramFile.format.${source.format}`)

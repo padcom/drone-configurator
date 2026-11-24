@@ -208,6 +208,8 @@ const ALPHABETICAL = [
   'Add waypoints by clicking the map',
   'Arm the vehicle',
   'Change altitude',
+  'Compare parameters with a file or snapshot…',
+  'Compare parameters with the firmware defaults',
   'Connect to a vehicle…',
   'Connect to the last vehicle again',
   'Delete the item',
@@ -245,6 +247,8 @@ const GROUPS_OF_THE_FIRST = [
   'Plan',
   'Vehicle',
   'Vehicle',
+  'Parameters',
+  'Parameters',
   'Vehicle',
   'Vehicle',
   'Plan',
@@ -286,10 +290,10 @@ it('names the group of each command in its row', async () => {
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
   // (then the ways: as many as the screens have parts)
-  expect(groups.slice(0, 35)).toEqual(GROUPS_OF_THE_FIRST)
-  expect(groups.length).toBeGreaterThan(36)
+  expect(groups.slice(0, 37)).toEqual(GROUPS_OF_THE_FIRST)
+  expect(groups.length).toBeGreaterThan(38)
   // (Take off and Undo are the last two of the list by their names: a vehicle's command and the plan's)
-  expect(groups.slice(35, -2).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(37, -2).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-2)).toBe('Vehicle')
   expect(groups.at(-1)).toBe('Plan')
 })
@@ -323,8 +327,10 @@ it('filters by what is typed, and says so when nothing matches', async () => {
   await flushPromises()
   await type(wrapper, 'param')
 
-  // The same rank for all eight: alphabetical by label.
+  // The same rank for all ten: alphabetical by label.
   expect(labels(wrapper)).toEqual([
+    'Compare parameters with a file or snapshot…',
+    'Compare parameters with the firmware defaults',
     'Download parameters',
     'Load parameter metadata…',
     'Load parameter snapshot or file…',
@@ -395,6 +401,30 @@ it('runs a row on a click', async () => {
   expect(wrapper.find('#palette-input').exists()).toBe(false)
 })
 
+/**
+ * Presses keys in the palette's input one after the other.
+ *
+ * @param input the input
+ * @param input.trigger presses a key
+ * @param keys the keys
+ * @param active the selected row's command
+ * @returns the selected row's command after each key
+ */
+async function pressed(
+  input: { trigger: (event: string, options: { key: string }) => Promise<void> },
+  keys: string[],
+  active: () => string | undefined,
+): Promise<(string | undefined)[]> {
+  const seen: (string | undefined)[] = []
+  await keys.reduce(async (before, key) => {
+    await before
+    await input.trigger('keydown', { key })
+    seen.push(active())
+  }, Promise.resolve())
+
+  return seen
+}
+
 it('moves the selection with the arrows (round the ends), the pages, and Home and End while the query is empty', async () => {
   const { wrapper } = await shellAt()
   ctrlP()
@@ -403,10 +433,10 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   const active = () => wrapper.get('.palette-row.active').attributes('data-command')
   expect(active()).toBe('connect.open')
 
-  // (the first rows, Add a waypoint, Arm and Change altitude, may not run here: the selection starts at the first that may, and
-  // moves onto them; the last row is Undo, the plan's)
-  await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('vehicle.changeAltitude')
+  // (the first rows, Add a waypoint, Arm, Change altitude and the comparisons, may not run here: the selection starts at the
+  // first that may, and moves onto them; the last row is Undo, the plan's)
+  const ups = await pressed(input, ['ArrowUp', 'ArrowUp', 'ArrowUp'], active)
+  expect(ups).toEqual(['params.compare.defaults', 'params.compare.file', 'vehicle.changeAltitude'])
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'ArrowUp' })
@@ -422,7 +452,7 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('plan.addWaypoint')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('vehicle.disconnect')
+  expect(active()).toBe('plan.delete')
   await input.trigger('keydown', { key: 'PageUp' })
   expect(active()).toBe('plan.addWaypoint')
   expect(input.attributes('aria-activedescendant')).toBe('palette-option-plan.addWaypoint')
@@ -492,7 +522,7 @@ it('says how many commands there are, a moment after the query changes (not on e
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
 
-  expect(status()).toBe('8 results')
+  expect(status()).toBe('10 results')
   await type(wrapper, 'xyz')
   await vi.advanceTimersByTimeAsync(500)
 

@@ -75,12 +75,49 @@ async function waitForOutcome(pattern: string): Promise<void> {
   await window().waitFor(`/^${pattern}/.test(document.querySelector('${OUTCOME}')?.textContent ?? '')`, DOWNLOAD_MS)
 }
 
+/** The page knows the vehicle is disarmed: nothing blocks a download (and the warning above the list is gone). */
+const UNBLOCKED = `document.querySelector('#logs-blocked') === null`
+
+/**
+ * Waits until nothing blocks a download (the vehicle's state can be unknown for a moment while the backend reads, and the warning
+ * that says so comes and goes above the toolbar, moving it).
+ */
+async function whenUnblocked(): Promise<void> {
+  await window().waitFor(UNBLOCKED, 30_000)
+}
+
+/**
+ * Clicks a button until the page shows that the click did something. A click is made where the button was a moment before: when
+ * the warning above the toolbar came or went in between, everything below it moved and the click met nothing, so it is made
+ * again (only while what it does has not happened: a click that worked is never repeated).
+ *
+ * @param selector the button
+ * @param done a page expression that is true once the click had its effect
+ * @param left how many more clicks may be made
+ */
+async function clickUntil(selector: string, done: string, left = 3): Promise<void> {
+  await whenUnblocked()
+  await window().click(selector)
+
+  try {
+    await window().waitFor(done, 2000)
+  } catch (error) {
+    if (left <= 1) {
+      throw error
+    }
+    await clickUntil(selector, done, left - 1)
+  }
+}
+
 /** Selects the logs that are not downloaded, and downloads them. */
 async function downloadTheNew(): Promise<void> {
   await window().waitFor(`document.querySelector('${ROWS}') !== null`, 30_000)
-  await window().click('#logs-select-new')
-  await window().waitFor(`document.querySelector('#logs-download')?.disabled === false`, 10_000)
-  await window().click('#logs-download')
+  await clickUntil('#logs-select-new', `/: [1-9]/.test(document.querySelector('#logs-download')?.textContent ?? '')`)
+  const before = JSON.stringify(await window().text(OUTCOME))
+  const outcomeChanged = `document.querySelector('${OUTCOME}')?.innerText !== ${before}`
+  const started = `document.querySelector('#logs-cancel') !== null || ${outcomeChanged}`
+  await window().waitFor(`document.querySelector('#logs-download')?.disabled === false`, 30_000)
+  await clickUntil('#logs-download', started)
 }
 
 beforeAll(async () => {
@@ -132,10 +169,10 @@ it('goes on from the part that is left when a copy is lost, and gets the same by
   // The first log is gone from here, but a part of it (a third) is left, as a stopped download leaves one.
   writeFileSync(join(folder(), '00000001.BIN.part'), whole.subarray(0, Math.floor(whole.length / 3)))
   rmSync(join(folder(), first))
-  await window().click('#logs-refresh')
+  // The list read again says log 1 is not downloaded (the row's words still come from the download that finished): it can be
+  // selected.
+  await clickUntil('#logs-refresh', `document.querySelector('#logs-select-new')?.disabled === false`)
   await window().waitFor(`document.querySelectorAll('${ROWS}').length === 3`, 30_000)
-  // The list says log 1 is not downloaded again (the row's words still come from the download that finished): it can be selected.
-  await window().waitFor(`document.querySelector('#logs-select-new')?.disabled === false`, 30_000)
   await downloadTheNew()
   await waitForOutcome('Download finished')
 
@@ -147,7 +184,7 @@ it('goes on from the part that is left when a copy is lost, and gets the same by
 it('erases every log on the second press, which names the count, and keeps the copies here', async () => {
   const before = copies()
   await window().waitFor(`document.querySelector('#logs-erase')?.disabled === false`, 10_000)
-  await window().click('#logs-erase')
+  await clickUntil('#logs-erase', `document.querySelector('#logs-erase')?.textContent.startsWith('Confirm') === true`)
   expect(await window().text('#logs-erase'))
     .toBe('Confirm: erase all logs from the vehicle: 3. Each has a checked copy on this computer.')
   // The first press reads the list again, and the button is off until that is through (however long it takes: the time for the
@@ -157,6 +194,7 @@ it('erases every log on the second press, which names the count, and keeps the c
     setTimeout(resolve, 1000)
   })
   expect(await window().text('#logs-erase')).toContain('Confirm: erase all logs')
+  await whenUnblocked()
   await window().click('#logs-erase')
   await window().waitFor(`document.querySelector('${OUTCOME}')?.textContent === 'Erased from the vehicle: 3.'`, 60_000)
 

@@ -5,6 +5,9 @@
   <!-- Saving as a plain-text parameter file (ArduPilot's .param, MAVProxy's .parm, QGroundControl's .params) is in the palette
        (paramFile.save.*): a fourth button would wrap the toolbar onto a second line at 1280 px. -->
   <CommandButton id="load-button" command="snapshot.load" icon-position="left" />
+  <!-- Compare the parameters with a file or a snapshot, or with the firmware's defaults (#40). -->
+  <CommandButton id="compare-file" command="params.compare.file" icon-position="left" />
+  <CommandButton id="compare-defaults" command="params.compare.defaults" icon-position="left" />
   <CommandButton id="metadata-button" command="metadata.load" icon-position="left" />
 </template>
 

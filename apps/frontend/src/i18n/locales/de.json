@@ -1321,7 +1321,39 @@
       "qgc": "QGroundControl .params"
     }
   },
+  "compare": {
+    "file": "Mit Datei vergleichen",
+    "defaults": "Mit Standardwerten vergleichen",
+    "region": "Vergleich",
+    "title": "Vergleichen",
+    "heading": "Verglichen mit: {source}",
+    "loading": "Die Standardwerte der Firmware werden vom Fahrzeug gelesen…",
+    "defaultsUnsupported": "Dieses Fahrzeug kann seine Standardwerte nicht senden: Es hat kein MAVLink-FTP. Vergleiche stattdessen mit einer Parameterdatei.",
+    "defaultsFailed": "Die Standardwerte konnten nicht gelesen werden: {error}",
+    "close": "Schließen",
+    "onlyDifferences": "Nur Unterschiede",
+    "group": "Gruppe",
+    "allGroups": "Alle Gruppen",
+    "search": "Suche",
+    "table": "Verglichene Parameter",
+    "help": "Die Pfeiltasten wechseln zwischen den Zellen. Die Leertaste hakt eine Zeile ab, um ihren Wert zu übernehmen.",
+    "copy": "{id} übernehmen",
+    "column": {
+      "copy": "Übernehmen",
+      "status": "Vergleich"
+    },
+    "status": {
+      "same": "Gleich",
+      "differs": "Anders",
+      "vehicleOnly": "Nur am Fahrzeug"
+    },
+    "summary": "Anders: {differ}; nur am Fahrzeug: {vehicleOnly}; nicht am Fahrzeug: {otherOnly}; gleich: {same}.",
+    "picked": "Zu übernehmen: {count}. Nichts wird geschrieben, bevor du prüfst und bestätigst.",
+    "pickSome": "Hake die Werte an, die du übernehmen willst.",
+    "review": "Angehakte prüfen: {count}"
+  },
   "import": {
+    "fromDefaults": "Standardwerte der Firmware",
     "from": "Snapshot vom {savedAt}",
     "fromFile": "Parameterdatei: {format}",
     "notes": "Zur Datei",
@@ -1336,6 +1368,7 @@
     "summary": "Abweichend: {differ}; schon gleich: {same}. Hake die zu schreibenden an.",
     "noValue": "—",
     "column": {
+      "defaults": "Standard",
       "apply": "Anwenden",
       "vehicle": "Am Fahrzeug",
       "snapshot": "Im Snapshot",
@@ -1534,6 +1567,15 @@
     }
   },
   "palette": {
+    "compare": {
+      "file": {
+        "label": "Parameter mit einer Datei oder Momentaufnahme vergleichen…"
+      },
+      "defaults": {
+        "label": "Parameter mit den Standardwerten der Firmware vergleichen"
+      },
+      "keywords": "vergleichen unterschied standard standardwerte datei momentaufnahme übernehmen"
+    },
     "logs": {
       "openFile": {
         "label": "Logdatei öffnen…",

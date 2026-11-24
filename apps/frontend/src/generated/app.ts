@@ -117,6 +117,24 @@ function validateSavedParamsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a saved-params, or null. */
 export const validateSavedParams = (value: unknown) => run(validateSavedParamsInto, value)
 
+export type ParamDefault = { "id": string, "value": number }
+
+function validateParamDefaultInto(value: any, path: string): boolean {
+  return map(value, path, ["id","value"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["value"] === undefined ? fail(`${path}.value`, 'present') : nested(value["value"], `${path}.value`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a param-default, or null. */
+export const validateParamDefault = (value: unknown) => run(validateParamDefaultInto, value)
+
+export type ParamDefaults = { "defaults": (ParamDefault)[], "elapsedMs": number }
+
+function validateParamDefaultsInto(value: any, path: string): boolean {
+  return map(value, path, ["defaults","elapsedMs"]) && (value["defaults"] === undefined ? fail(`${path}.defaults`, 'present') : nested(value["defaults"], `${path}.defaults`, (value, path) => list(value, path, (value, path) => validateParamDefaultInto(value, path)))) && (value["elapsedMs"] === undefined ? fail(`${path}.elapsedMs`, 'present') : nested(value["elapsedMs"], `${path}.elapsedMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a param-defaults, or null. */
+export const validateParamDefaults = (value: unknown) => run(validateParamDefaultsInto, value)
+
 export type ParamsProgress = { "received": number, "total": number, "source": "ftp" | "list" }
 
 function validateParamsProgressInto(value: any, path: string): boolean {
@@ -1459,6 +1477,7 @@ export interface Services {
   "params.progress": { kind: 'event', payload: ParamsProgress }
   "params.cached": { kind: 'method', request: null, response: SavedParams }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
+  "params.defaults": { kind: 'method', request: null, response: ParamDefaults }
   "logs.vehicle.list": { kind: 'method', request: null, response: VehicleLogs }
   "logs.download": { kind: 'method', request: LogsDownload, response: LogsDownloaded }
   "logs.cancel": { kind: 'method', request: null, response: null }
@@ -1572,6 +1591,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "params.write": {
     request: (value: any, path: string) => validateParamWriteInto(value, path),
     response: (value: any, path: string) => validateParamWriteResultInto(value, path),
+  },
+  "params.defaults": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateParamDefaultsInto(value, path),
   },
   "logs.vehicle.list": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

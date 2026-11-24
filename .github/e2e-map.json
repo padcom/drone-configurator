@@ -13,7 +13,7 @@
     {
       "when": [
         "apps/frontend/src/components/params/**", "apps/frontend/src/components/fields/**", "apps/frontend/src/lib/params/**",
-        "apps/frontend/src/composables/{useParam*,useStaged,useSnapshots,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
+        "apps/frontend/src/composables/{useParam*,useStaged,useSnapshots,useCompare,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
         "apps/frontend/src/composables/useMetadataDownload.ts",
         "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,paramcache,paramstore,groups,files,settings,tuning,metadata}.pi"
       ],

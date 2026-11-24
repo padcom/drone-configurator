@@ -186,7 +186,7 @@ function vehicleFacts(): VehicleFacts {
  * @returns the facts
  */
 function paramsFacts(): ParamsFacts {
-  const { fields, parameters } = useConfigurator()
+  const { fields, parameters, compare } = useConfigurator()
 
   return {
     count: () => fields.params.value.length,
@@ -194,6 +194,7 @@ function paramsFacts(): ParamsFacts {
     download: () => void parameters.refresh(),
     value: id => fields.params.value.find(param => param.id === id)?.value,
     listComplete: () => fields.list.value === 'complete',
+    compareDefaults: () => void compare.loadDefaults(),
   }
 }
 
@@ -269,11 +270,12 @@ async function importAfter(steps: ImportSteps): Promise<void> {
  * @returns the facts
  */
 function fileFacts(): FileFacts {
-  const { metadata, snapshots, fields, flights, browser } = useConfigurator()
+  const { metadata, snapshots, compare, fields, flights, browser } = useConfigurator()
 
   return {
     loadMetadata: () => openFile(() => metadata.openFile(), text => metadata.load(text)),
     loadSnapshot: () => openFile(() => snapshots.openFile(), text => snapshots.load(text), null, PARAMS_ACCEPT),
+    compareFile: () => openFile(() => compare.openFile(), text => compare.loadText(text), null, PARAMS_ACCEPT),
     saveSnapshot: () => saveText(snapshots, snapshots.snapshot(), snapshotFileName('params', fields.connection.value.vehicle)),
     saveParamFile: format => saveText(
       snapshots,

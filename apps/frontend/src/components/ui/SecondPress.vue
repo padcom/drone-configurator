@@ -5,6 +5,7 @@
     :disabled="off !== null"
     aria-live="polite"
     @click="press"
+    @focus="focused"
     @blur="blurred"
     @keydown="key"
   >
@@ -60,6 +61,12 @@ let cap: ReturnType<typeof setTimeout> | undefined
 // (a heartbeat that comes and goes, each time for less than a pause could last, must not keep it armed for ever).
 let armedSince = 0
 let total: ReturnType<typeof setTimeout> | undefined
+/**
+ * Whether the button was turned off since it last had the focus. A focused button that is turned off loses the focus, but the
+ * browser does that later (at a frame it draws, which can be a second away in a window that is not drawn often), when the button
+ * may be on again: that blur is not someone leaving it.
+ */
+let offSinceFocus = false
 
 /** Goes back to its first state, whatever it was doing. */
 function reset(): void {
@@ -111,14 +118,25 @@ function follow(): void {
 }
 
 watch(() => props.off, () => {
+  if (props.off !== null) {
+    offSinceFocus = true
+  }
   if (armed.value) {
     follow()
   }
 })
 
-/** The focus left it. A button that was turned off loses the focus without anyone leaving it: that is not a reason to go back. */
+/** It has the focus: a blur after this is someone leaving it. */
+function focused(): void {
+  offSinceFocus = false
+}
+
+/**
+ * The focus left it. A button that was turned off loses the focus without anyone leaving it, now or (as the browser does it) a
+ * moment later when it may be on again: that is not a reason to go back.
+ */
 function blurred(): void {
-  if (props.off === null) {
+  if (props.off === null && !offSinceFocus) {
     reset()
   }
 }

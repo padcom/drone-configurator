@@ -1321,7 +1321,39 @@
       "qgc": "QGroundControl .params"
     }
   },
+  "compare": {
+    "file": "Compare with file",
+    "defaults": "Compare with defaults",
+    "region": "Comparison",
+    "title": "Compare",
+    "heading": "Compared with: {source}",
+    "loading": "Reading the firmware defaults from the vehicle…",
+    "defaultsUnsupported": "This vehicle can't send its defaults: it has no MAVLink FTP. Compare with a parameter file instead.",
+    "defaultsFailed": "Couldn't read the defaults: {error}",
+    "close": "Close",
+    "onlyDifferences": "Only differences",
+    "group": "Group",
+    "allGroups": "All groups",
+    "search": "Search",
+    "table": "Parameters compared",
+    "help": "The arrow keys move between cells. Space ticks a row to copy its value across.",
+    "copy": "Copy {id} across",
+    "column": {
+      "copy": "Copy",
+      "status": "Comparison"
+    },
+    "status": {
+      "same": "Same",
+      "differs": "Different",
+      "vehicleOnly": "Only on the vehicle"
+    },
+    "summary": "Different: {differ}; only on the vehicle: {vehicleOnly}; not on the vehicle: {otherOnly}; the same: {same}.",
+    "picked": "To copy across: {count}. Nothing is written until you review and confirm.",
+    "pickSome": "Tick the values to copy across.",
+    "review": "Review ticked: {count}"
+  },
   "import": {
+    "fromDefaults": "Firmware defaults",
     "from": "Snapshot from {savedAt}",
     "fromFile": "Parameter file: {format}",
     "notes": "About the file",
@@ -1336,6 +1368,7 @@
     "summary": "Different: {differ}; already the same: {same}. Tick the ones to write.",
     "noValue": "—",
     "column": {
+      "defaults": "Default",
       "apply": "Apply",
       "vehicle": "On the vehicle",
       "snapshot": "In the snapshot",
@@ -1534,6 +1567,15 @@
     }
   },
   "palette": {
+    "compare": {
+      "file": {
+        "label": "Compare parameters with a file or snapshot…"
+      },
+      "defaults": {
+        "label": "Compare parameters with the firmware defaults"
+      },
+      "keywords": "compare diff difference defaults file snapshot copy"
+    },
     "logs": {
       "openFile": {
         "label": "Open log file…",
