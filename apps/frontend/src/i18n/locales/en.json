@@ -960,6 +960,36 @@
       "noLimit": "No limit",
       "days": "Days: {days}"
     },
+    "forward": {
+      "title": "Forward MAVLink",
+      "help": "Sends everything the vehicle says to other programs (a second ground station, a logger), and what they send back to the vehicle. Nothing is forwarded until you add a program. A slow program never holds up the vehicle: what it cannot take is dropped and counted.",
+      "none": "No programs. Nothing is forwarded.",
+      "on": "Forward",
+      "onFor": "Forward to {name}",
+      "remove": "Remove",
+      "removeFor": "Remove {name}",
+      "addTitle": "Add a program",
+      "kind": "Protocol",
+      "host": "Host",
+      "port": "Port",
+      "add": "Add",
+      "counts": "Sent {sent} · dropped {dropped} · received {received}",
+      "refused": "Not reached: {reason}. A TCP program is tried again every 2 s.",
+      "states": {
+        "off": "Off",
+        "idle": "Waits for a vehicle",
+        "connecting": "Connecting",
+        "up": "Up",
+        "refused": "Refused",
+        "dropping": "Dropping: too slow"
+      },
+      "problems": {
+        "host": "Enter a host name or address, with no spaces.",
+        "port": "Enter a port from 1 to 65535.",
+        "duplicate": "This program is in the list already.",
+        "full": "There can be at most {max} programs. Remove one first."
+      }
+    },
     "more": "Units, the map and the vehicle's defaults come with their screens."
   },
   "table": {

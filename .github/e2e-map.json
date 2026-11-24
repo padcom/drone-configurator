@@ -102,6 +102,14 @@
     },
     {
       "when": [
+        "apps/frontend/src/components/settings/ForwardSettings.vue", "apps/frontend/src/composables/useForwarding.ts",
+        "apps/frontend/src/lib/forward/**", "apps/frontend/src/screens/Settings.vue", "apps/frontend/e2e/forward-station.ts",
+        "apps/backend/{forward,connection,reconnect,settings}.pi"
+      ],
+      "specs": ["forward.e2e.ts", "sitl-forward.e2e.ts"]
+    },
+    {
+      "when": [
         "apps/backend/{telemetry,groups,session}.pi", "apps/backend/e2e/tcp-vehicle.pi", "apps/frontend/budgets.json",
         "apps/frontend/src/components/fly/**", "apps/frontend/src/lib/fly/**", "apps/frontend/src/screens/FlightData.vue",
         "apps/frontend/src/composables/{useVehicle,useConfigurator}.ts"

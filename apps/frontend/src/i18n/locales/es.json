@@ -960,6 +960,36 @@
       "noLimit": "Sin límite",
       "days": "Días: {days}"
     },
+    "forward": {
+      "title": "Reenviar MAVLink",
+      "help": "Envía todo lo que dice el vehículo a otros programas (una segunda estación de tierra, un registrador) y lo que ellos devuelven, al vehículo. No se reenvía nada hasta que añada un programa. Un programa lento nunca retiene al vehículo: lo que no puede recibir se descarta y se cuenta.",
+      "none": "No hay programas. No se reenvía nada.",
+      "on": "Reenviar",
+      "onFor": "Reenviar a {name}",
+      "remove": "Quitar",
+      "removeFor": "Quitar {name}",
+      "addTitle": "Añadir un programa",
+      "kind": "Protocolo",
+      "host": "Host",
+      "port": "Puerto",
+      "add": "Añadir",
+      "counts": "Enviados {sent} · descartados {dropped} · recibidos {received}",
+      "refused": "No se alcanzó: {reason}. Un programa TCP se vuelve a intentar cada 2 s.",
+      "states": {
+        "off": "Apagado",
+        "idle": "Espera un vehículo",
+        "connecting": "Conectando",
+        "up": "Activo",
+        "refused": "Rechazado",
+        "dropping": "Descartando: demasiado lento"
+      },
+      "problems": {
+        "host": "Escriba un nombre de host o una dirección, sin espacios.",
+        "port": "Escriba un puerto de 1 a 65535.",
+        "duplicate": "Este programa ya está en la lista.",
+        "full": "Puede haber como máximo {max} programas. Quite uno primero."
+      }
+    },
     "more": "Las unidades, el mapa y los valores predeterminados del vehículo llegarán con sus pantallas."
   },
   "table": {

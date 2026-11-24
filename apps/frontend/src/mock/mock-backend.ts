@@ -15,6 +15,7 @@ import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 import { MockMotors, type MockMotorsControl } from './mock-motors'
 import { MockArming, type MockArmingControl } from './mock-arming'
+import { forwardStatusOf } from './mock-forward'
 import { MockMap } from './mock-map'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
 import { type LinkStats, linkStatsAt } from './mock-link'
@@ -166,6 +167,8 @@ class MockVehicle {
   readonly timers = new Map<number, ReturnType<typeof setInterval>>()
   /** The subscriptions to `vehicle.messages`, and the messages kept for them (ids go up for as long as the mock runs). */
   readonly messageSubscribers = new Set<number>()
+  /** The subscriptions to `forward.status`. */
+  readonly forwardSubscribers = new Set<number>()
   messages: VehicleMessage[] = []
   nextMessageId = 1
 
@@ -269,6 +272,7 @@ class MockVehicle {
     this.tuning.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
+    this.forwardSubscribers.clear()
     this.connection = { state: 'disconnected' }
     this.epoch += 1
     setTimeout(() => this.send({ k: 'lifecycle', n: 'ready', e: this.epoch }), 5)
@@ -281,6 +285,7 @@ class MockVehicle {
     } else if (e.k === 'unsubscribe') {
       this.watchers.delete(e.s!)
       this.messageSubscribers.delete(e.s!)
+      this.forwardSubscribers.delete(e.s!)
       this.motors.unsubscribe(e.s!)
       this.tuning.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
@@ -353,6 +358,10 @@ class MockVehicle {
       case 'telemetry.stream': return this.telemetry(e)
       case 'link.stats': return this.linkStats(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
+      case 'forward.status':
+        this.forwardSubscribers.add(e.id!)
+        this.send({ k: 'response', id: e.id!, s: e.id! })
+        return this.tellForwarding()
       case 'files.save': {
         // A pretend file system: what was saved last is what opening gives back.
         const { name, text } = e.p as { name: string, text: string }
@@ -374,6 +383,7 @@ class MockVehicle {
         this.settings = patchSettings(this.settings, e.p as SettingsPatch)
         const state = this.settingsState()
         this.send({ k: 'event', n: 'settings.changed', p: state })
+        this.tellForwarding()
 
         return ok(state)
       }
@@ -501,6 +511,15 @@ class MockVehicle {
     this.connection = connection
     for (const s of this.watchers) {
       this.send({ k: 'event', n: 'vehicle.connection', s, p: connection })
+    }
+    this.tellForwarding()
+  }
+
+  /** Tells the subscribers of `forward.status` what the settings and the connection come to. */
+  tellForwarding() {
+    const status = forwardStatusOf(this.settings, this.connection.state === 'connected')
+    for (const s of this.forwardSubscribers) {
+      this.send({ k: 'event', n: 'forward.status', s, p: status })
     }
   }
 

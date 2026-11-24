@@ -960,6 +960,36 @@
       "noLimit": "Keine Grenze",
       "days": "Tage: {days}"
     },
+    "forward": {
+      "title": "MAVLink weiterleiten",
+      "help": "Sendet alles, was das Fahrzeug sagt, an andere Programme (eine zweite Bodenstation, einen Logger), und was sie zurücksenden, an das Fahrzeug. Nichts wird weitergeleitet, bis Sie ein Programm hinzufügen. Ein langsames Programm hält das Fahrzeug nie auf: Was es nicht annimmt, wird verworfen und gezählt.",
+      "none": "Keine Programme. Nichts wird weitergeleitet.",
+      "on": "Weiterleiten",
+      "onFor": "An {name} weiterleiten",
+      "remove": "Entfernen",
+      "removeFor": "{name} entfernen",
+      "addTitle": "Programm hinzufügen",
+      "kind": "Protokoll",
+      "host": "Host",
+      "port": "Port",
+      "add": "Hinzufügen",
+      "counts": "Gesendet {sent} · verworfen {dropped} · empfangen {received}",
+      "refused": "Nicht erreicht: {reason}. Ein TCP-Programm wird alle 2 s erneut versucht.",
+      "states": {
+        "off": "Aus",
+        "idle": "Wartet auf ein Fahrzeug",
+        "connecting": "Verbindet",
+        "up": "Verbunden",
+        "refused": "Abgelehnt",
+        "dropping": "Verwirft: zu langsam"
+      },
+      "problems": {
+        "host": "Geben Sie einen Hostnamen oder eine Adresse ohne Leerzeichen ein.",
+        "port": "Geben Sie einen Port von 1 bis 65535 ein.",
+        "duplicate": "Dieses Programm ist schon in der Liste.",
+        "full": "Es können höchstens {max} Programme sein. Entfernen Sie zuerst eines."
+      }
+    },
     "more": "Einheiten, die Karte und die Voreinstellungen des Fahrzeugs kommen mit ihren Bildschirmen."
   },
   "table": {
