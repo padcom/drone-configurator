@@ -5,7 +5,7 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  CalibrationStart, Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
+  CalibrationStart, Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SavedParams, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
@@ -181,6 +181,8 @@ class MockVehicle {
   busy = false
   /** How the vehicle's file transfer behaves (the download falls back to the list when it is not `ok`). */
   ftpMode: 'ok' | 'unsupported' | 'timeout' = 'ok'
+  /** The list of the last complete download, as the backend keeps it on disk for the vehicle (`params.cached`); null: none. */
+  savedParams: SavedParams | null = null
   /** The download that takes its time (`MockOptions.progress`): its timer, and how to fail it. */
   pendingList: { timer: ReturnType<typeof setInterval>, fail: (code: string, message: string) => void } | undefined
   rebootAnswer: RebootResult['result'] = 'accepted'
@@ -315,6 +317,7 @@ class MockVehicle {
         return this.send({ k: 'event', n: 'vehicle.connection', s: e.id!, p: this.connection })
       case 'params.list': return this.connected(fail) && this.listOrResume((e.p as ParamListRequest | null) ?? {}, ok, fail)
       case 'params.cancel': return this.cancelList(ok)
+      case 'params.cached': return this.connected(fail) && this.cached(ok, fail)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'vehicle.reboot': return this.reboot(ok, fail)
       case 'vehicle.arm': return this.arming.arm(ok, fail)
@@ -448,21 +451,35 @@ class MockVehicle {
       ...fallback ? { fallback } : {},
       elapsedMs: steps > 0 ? steps * intervalMs : byFtp ? 800 : 6200,
     }
-    if (steps <= 0) {
-      return ok(result)
+    const done = (): void => {
+      this.savedParams = { params: result.params.map(p => ({ ...p })), count: result.count, savedAt: Date.now(), source }
+      ok(result)
     }
-    let done = 0
+    if (steps <= 0) {
+      return done()
+    }
+    let sent = 0
     const total = this.params.length
     const timer = setInterval(() => {
-      done += 1
-      this.send({ k: 'event', n: 'params.progress', p: { received: Math.round(total * done / steps), total, source } })
-      if (done >= steps) {
+      sent += 1
+      this.send({ k: 'event', n: 'params.progress', p: { received: Math.round(total * sent / steps), total, source } })
+      if (sent >= steps) {
         clearInterval(timer)
         this.pendingList = undefined
-        ok(result)
+        done()
       }
     }, intervalMs)
     this.pendingList = { timer, fail }
+  }
+
+  /**
+   * The list of the last complete download (`params.cached`), or `NOT_CACHED`.
+   *
+   * @param ok sends the result
+   * @param fail sends an error
+   */
+  cached(ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void) {
+    return this.savedParams ? ok(this.savedParams) : fail('NOT_CACHED', 'no list of this vehicle is kept')
   }
 
   /**

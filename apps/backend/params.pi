@@ -39,6 +39,7 @@ import {
   encodeParamWriteResult,
 } from "./generated/app"
 import { paramCache } from "./paramcache"
+import { keepForVehicle } from "./paramstore"
 import { SessionPart, armedState, changesVehicleType, connectedLink, link, rebootExpected } from "./session"
 import { refuseUntunable } from "./tuning"
 
@@ -347,6 +348,8 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     link.listing = false
     announced.download = null
   }
+  // Kept on disk for this vehicle's next session (#38): a few milliseconds, and a failure to keep it is no failure of the download.
+  await keepForVehicle(out)
   encodeParamList(out)
 }
 

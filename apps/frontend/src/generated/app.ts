@@ -108,6 +108,15 @@ function validateParamListInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param-list, or null. */
 export const validateParamList = (value: unknown) => run(validateParamListInto, value)
 
+export type SavedParams = { "params": (Param)[], "count": number, "savedAt": number | bigint, "source": "ftp" | "list" }
+
+function validateSavedParamsInto(value: any, path: string): boolean {
+  return map(value, path, ["params","count","savedAt","source"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["savedAt"] === undefined ? fail(`${path}.savedAt`, 'present') : nested(value["savedAt"], `${path}.savedAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","list"])))
+}
+
+/** The first problem with `value` as a saved-params, or null. */
+export const validateSavedParams = (value: unknown) => run(validateSavedParamsInto, value)
+
 export type ParamsProgress = { "received": number, "total": number, "source": "ftp" | "list" }
 
 function validateParamsProgressInto(value: any, path: string): boolean {
@@ -1349,6 +1358,7 @@ export interface Services {
   "params.list": { kind: 'method', request: ParamListRequest, response: ParamList }
   "params.cancel": { kind: 'method', request: null, response: null }
   "params.progress": { kind: 'event', payload: ParamsProgress }
+  "params.cached": { kind: 'method', request: null, response: SavedParams }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
   "logs.vehicle.list": { kind: 'method', request: null, response: VehicleLogs }
   "logs.download": { kind: 'method', request: LogsDownload, response: LogsDownloaded }
@@ -1445,6 +1455,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "params.progress": {
     payload: (value: any, path: string) => validateParamsProgressInto(value, path),
+  },
+  "params.cached": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSavedParamsInto(value, path),
   },
   "params.write": {
     request: (value: any, path: string) => validateParamWriteInto(value, path),

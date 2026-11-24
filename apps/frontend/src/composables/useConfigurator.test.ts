@@ -47,6 +47,7 @@ it('has a ref for every field of the state, and nothing else', () => {
     'missing',
     'notice',
     'params',
+    'paramsFromCache',
     'picked',
     'ports',
     'selected',

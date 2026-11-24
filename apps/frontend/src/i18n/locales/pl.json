@@ -1174,7 +1174,8 @@
         "ftp": "Parametrów: {count} · transferem plików w {seconds} s",
         "list": "Parametrów: {count} · listą w {seconds} s",
         "listBecause": "Parametrów: {count} · listą w {seconds} s (transfer plików nie jest używany: {reason})",
-        "resumed": "Parametrów: {count} · wznowiono po powrocie łącza: zachowano {reused}, ponownie odczytano {read} w {seconds} s"
+        "resumed": "Parametrów: {count} · wznowiono po powrocie łącza: zachowano {reused}, ponownie odczytano {read} w {seconds} s",
+        "cached": "Parametrów: {count} · z ostatniego pobrania z tego pojazdu, {time}. Pobieranie bieżących wartości…"
       },
       "fallback": {
         "unsupported": "pojazd go nie oferuje",
