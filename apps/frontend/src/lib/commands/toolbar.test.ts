@@ -110,7 +110,7 @@ it('saves a parameter file in each format only when there are parameters, each u
   saves.forEach(format => new SaveParamFile(format).execute(some.ctx))
 
   expect(some.calls.snapshot).toEqual(['save.param', 'save.parm', 'save.qgc'])
-  expect(parameterCommands().map(command => command.id).slice(3))
+  expect(parameterCommands().map(command => command.id).slice(3, 6))
     .toEqual(['paramFile.save.param', 'paramFile.save.parm', 'paramFile.save.qgc'])
   expect(new SaveParamFile('qgc').labelKey).toBe('palette.paramFile.qgc')
 })

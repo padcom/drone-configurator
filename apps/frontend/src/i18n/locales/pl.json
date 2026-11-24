@@ -1320,7 +1320,39 @@
       "qgc": "QGroundControl .params"
     }
   },
+  "compare": {
+    "file": "Porównaj z plikiem",
+    "defaults": "Porównaj z domyślnymi",
+    "region": "Porównanie",
+    "title": "Porównaj",
+    "heading": "Porównanie z: {source}",
+    "loading": "Odczytywanie z pojazdu domyślnych wartości firmware…",
+    "defaultsUnsupported": "Ten pojazd nie może wysłać wartości domyślnych: nie ma MAVLink FTP. Porównaj z plikiem parametrów.",
+    "defaultsFailed": "Nie udało się odczytać wartości domyślnych: {error}",
+    "close": "Zamknij",
+    "onlyDifferences": "Tylko różnice",
+    "group": "Grupa",
+    "allGroups": "Wszystkie grupy",
+    "search": "Szukaj",
+    "table": "Porównane parametry",
+    "help": "Strzałki przechodzą między komórkami. Spacja zaznacza wiersz, aby skopiować jego wartość.",
+    "copy": "Skopiuj {id}",
+    "column": {
+      "copy": "Kopiuj",
+      "status": "Porównanie"
+    },
+    "status": {
+      "same": "Takie same",
+      "differs": "Różne",
+      "vehicleOnly": "Tylko w pojeździe"
+    },
+    "summary": "Różne: {differ}; tylko w pojeździe: {vehicleOnly}; nie ma w pojeździe: {otherOnly}; takie same: {same}.",
+    "picked": "Do skopiowania: {count}. Nic nie zostanie zapisane, dopóki nie przejrzysz i nie potwierdzisz.",
+    "pickSome": "Zaznacz wartości do skopiowania.",
+    "review": "Przejrzyj zaznaczone: {count}"
+  },
   "import": {
+    "fromDefaults": "Domyślne wartości firmware",
     "from": "Migawka z {savedAt}",
     "fromFile": "Plik parametrów: {format}",
     "notes": "O pliku",
@@ -1335,6 +1367,7 @@
     "summary": "Różni się: {differ}, już takie same: {same}. Zaznacz te do zapisania.",
     "noValue": "—",
     "column": {
+      "defaults": "Domyślna",
       "apply": "Zastosuj",
       "vehicle": "W pojeździe",
       "snapshot": "W migawce",
@@ -1533,6 +1566,15 @@
     }
   },
   "palette": {
+    "compare": {
+      "file": {
+        "label": "Porównaj parametry z plikiem lub migawką…"
+      },
+      "defaults": {
+        "label": "Porównaj parametry z domyślnymi wartościami firmware"
+      },
+      "keywords": "porównaj różnica domyślne plik migawka kopiuj"
+    },
     "logs": {
       "openFile": {
         "label": "Otwórz plik logu…",

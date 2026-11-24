@@ -8,7 +8,7 @@ import type {
   CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, SigningProvision, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
-import { COPTER_MODES, DISCOVERED, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
+import { COPTER_MODES, DEFAULTS, DISCOVERED, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
 import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
@@ -369,6 +369,7 @@ class MockVehicle {
       case 'params.list': return this.connected(fail) && this.listOrResume((e.p as ParamListRequest | null) ?? {}, ok, fail)
       case 'params.cancel': return this.cancelList(ok)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
+      case 'params.defaults': return this.connected(fail) && ok({ defaults: this.defaults(), elapsedMs: 30 })
       case 'vehicle.reboot': return this.reboot(ok, fail)
       case 'vehicle.arm': return this.arming.arm(ok, fail)
       case 'vehicle.disarm': return this.arming.disarm(ok, fail)
@@ -660,6 +661,15 @@ class MockVehicle {
     param.value = this.options.rounding?.includes(w.id) ? Math.round(w.value) : w.value
 
     return ok({ param: { ...param }, verified: param.value === w.value })
+  }
+
+  /**
+   * The firmware's default of every parameter (`params.defaults`): the fixture's where it has one, else the value.
+   *
+   * @returns the defaults
+   */
+  defaults(): { id: string, value: number }[] {
+    return this.params.map(({ id, value }) => ({ id, value: DEFAULTS[id] ?? value }))
   }
 
   /**

@@ -27,6 +27,8 @@ import {
   ParamList,
   ParamListRequestMethod,
   ParamListSource,
+  ParamDefault,
+  ParamDefaults,
   ParamWriteKind,
   ParamWriteResult,
   ParamsProgress,
@@ -35,6 +37,7 @@ import {
   decodeParamWrite,
   encodeParam,
   encodeParamList,
+  encodeParamDefaults,
   encodeParamsProgress,
   encodeParamWriteResult,
 } from "./generated/app"
@@ -49,6 +52,7 @@ export function register(c: Communicator): void {
   c.handle("params.list", listParams)
   c.handle("params.cancel", cancelDownload)
   c.handle("params.write", writeParam)
+  c.handle("params.defaults", listDefaults)
 }
 
 /// The most a progress count can be (the contract's `uint .size 2`).
@@ -297,11 +301,8 @@ function listOf(r: ParamDownloadResult, plan: Plan): ParamList {
   }
 }
 
-async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const request = if (payload == null) null else decodeParamListRequest(payload!, "$")
-  const asked = if (request == null) null else request!.method
-  const resume = request != null && (request!.resume ?? false)
-  const conn = connectedLink()
+/// Refuses a transfer of the parameters (the list, or the defaults) while something else talks to the vehicle at length.
+function refuseWhileBusy(): void throws CommunicatorError {
   if (announced.download != null) {
     // One download at a time: a second would share its progress and take its place for `params.cancel`.
     throw new CommunicatorError("BUSY", "a parameter download is already running")
@@ -322,6 +323,14 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     // A plan operation is a transfer of its own with the vehicle: two would meet.
     throw new CommunicatorError("BUSY", "the mission, fence or rally points are being read or written")
   }
+}
+
+async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const request = if (payload == null) null else decodeParamListRequest(payload!, "$")
+  const asked = if (request == null) null else request!.method
+  const resume = request != null && (request!.resume ?? false)
+  const conn = connectedLink()
+  refuseWhileBusy()
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()
   announced.follow(link.session.signal)
@@ -585,5 +594,44 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
 function noteTypeChange(id: string, verified: bool, generation: int): void {
   if (changesVehicleType(id) && link.generation == generation) {
     link.typeMayChange = verified
+  }
+}
+
+/// The firmware's default of every parameter (#40), from the download with the defaults: the file carries a default only where it
+/// differs from the value, so a parameter it carries none for is at its default. Values are as the contract has them (a REAL32 as
+/// the float it is).
+export function defaultsOf(r: ParamDownloadResult): ParamDefault[] {
+  const given = new Map<string, f64>()
+  for (const d of r.defaults) {
+    given.set(d.id, toParam(d.id, d.index, d.value).value)
+  }
+  return r.params.map((p) => ParamDefault { id: p.id, value: given.get(p.id) ?? toParam(p.id, p.index, p.value).value })
+}
+
+/// `params.defaults`: the vehicle's packed parameter file asked for with its defaults, over MAVLink FTP only (the list protocol has
+/// no defaults). One transfer at a time, as `params.list`, and `params.cancel` stops it. Nothing is written, and the parameters
+/// the app holds are not touched: what the vehicle announces meanwhile is news, as always.
+async function listDefaults(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const conn = connectedLink()
+  refuseWhileBusy()
+  if (link.capabilities >= 0 && (link.capabilities & MavProtocolCapability.FTP) == 0) {
+    throw new CommunicatorError("UNSUPPORTED", "the vehicle has no MAVLink FTP, and only its parameter file carries the defaults")
+  }
+  const own = new AbortController()
+  announced.follow(link.session.signal)
+  announced.download = own
+  link.listing = true
+  try {
+    const options: ParamDownloadOptions = { method: "ftp", withDefaults: true, signal: own.signal }
+    const target: Target = { system: link.sysid, component: link.compid }
+    const r = await new ParamDownload(conn, target, link.encoding, options).run()
+    return encodeParamDefaults(ParamDefaults { defaults: defaultsOf(r), elapsedMs: r.elapsedMs as u32 })
+  } catch (e: MavLinkError) {
+    throw new CommunicatorError(e.code, e.message)
+  } catch (e: FtpError) {
+    throw new CommunicatorError(e.code, e.message)
+  } finally {
+    link.listing = false
+    announced.download = null
   }
 }

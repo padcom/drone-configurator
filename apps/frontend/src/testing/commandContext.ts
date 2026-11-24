@@ -231,6 +231,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       saveSnapshot: () => void fake.calls.snapshot.push('save'),
       saveParamFile: format => void fake.calls.snapshot.push(`save.${format}`),
       loadSnapshot: () => void fake.calls.snapshot.push('load'),
+      compareFile: () => void fake.calls.snapshot.push('compareFile'),
       openLog: () => void fake.calls.snapshot.push('openLog'),
       logBusy: () => fake.facts.logBusy ?? false,
     },
@@ -240,6 +241,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       download: () => void fake.calls.download.push('download'),
       value: id => fake.facts.parameterValues?.[id],
       listComplete: () => fake.facts.listComplete ?? true,
+      compareDefaults: () => void fake.calls.snapshot.push('compareDefaults'),
     },
     dialogs: dialogsOf(fake),
   }

@@ -19,6 +19,12 @@ services = {
   ; arrived).
   "params.progress": ["event", params-progress],
   "params.write": ["method", param-write, param-write-result],
+  ; The firmware's default of every parameter of the vehicle (#40): its packed parameter file asked for with the defaults
+  ; ("@PARAM/param.pck?withdefaults=1", over MAVLink FTP: ArduPilot 4.1 and later). Nothing is written, and `params.list` is
+  ; not touched. Errors: `NOT_CONNECTED`; `BUSY` (a download, a log, a calibration, a motor test or a plan transfer is under way);
+  ; `UNSUPPORTED` (the vehicle has no MAVLink FTP: the list protocol carries no defaults); the FTP codes (`FTP_TIMEOUT`, ...);
+  ; `ABORTED` (`params.cancel`).
+  "params.defaults": ["method", null, param-defaults],
   ; The flight logs on the vehicle (the backend serves `logs.vehicle.list`, `logs.download`, `logs.cancel`, `logs.progress` and
   ; `logs.erase`). Over MAVLink FTP when the vehicle has it; when it has none (it answers nothing, or does not know the
   ; commands) over the MAVLink log protocol (LOG_REQUEST_LIST / LOG_DATA): slower, with no checksum, so what it fetches is never
@@ -441,6 +447,13 @@ param-list = {
   ; Set on a resume (`param-list-request`) that reused what was kept: how many parameters were not asked for again.
   ? reused: uint .size 2,
 }
+
+; The firmware's default of one parameter. ArduPilot's file carries a default only where it differs from the value: a parameter
+; it carries none for is at its default, and its value then is the default.
+param-default = { id: tstr, value: float }
+
+; The defaults of every parameter the vehicle has, in the order of its list, and how long the transfer took.
+param-defaults = { defaults: [* param-default], elapsedMs: uint .size 4 }
 
 ; How far a download is: `received` of `total` parameters, and by which way they come.
 params-progress = {
