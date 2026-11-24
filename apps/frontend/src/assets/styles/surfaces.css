@@ -224,3 +224,24 @@
 .truth.verified .note {
   color: var(--color-ok);
 }
+
+/* A reported value that is not good: the value in the status colour, and beside it an icon and a word (never colour alone). */
+.truth .status {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  margin-left: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.truth.warn .value {
+  color: var(--color-warn);
+}
+
+.truth.error .value {
+  color: var(--color-error);
+}

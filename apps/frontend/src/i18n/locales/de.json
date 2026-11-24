@@ -764,6 +764,8 @@
     "heartbeatAge": "vor {ms} ms",
     "noHeartbeat": "kein Heartbeat",
     "lastHeartbeat": "der letzte {ms} ms, bevor es still wurde",
+    "latencyLost": "{latency} · {percent}% verloren",
+    "lostHeartbeat": "{percent}% verloren · Heartbeat vor {ms} ms",
     "ekf": {
       "healthy": "Gesund",
       "degraded": "Eingeschränkt",

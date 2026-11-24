@@ -1,11 +1,14 @@
 <template>
-  <div class="truth" :class="[state, { hatched }]" :data-state="state">
+  <div class="truth" :class="[state, status?.level, { hatched }]" :data-state="state">
     <div class="head">
       <span class="label">{{ label }}</span>
       <span v-if="note" class="note">{{ note }}</span>
     </div>
     <div class="value">
-      <template v-if="reported">{{ value }}</template>
+      <template v-if="reported">
+        {{ value }}
+        <span v-if="status" class="status"><Icon name="warning" />{{ status.word }}</span>
+      </template>
       <template v-else>
         <span aria-hidden="true">{{ t('truth.never') }}</span>
         <span class="visually-hidden">{{ t('truth.notReported') }}</span>
@@ -18,9 +21,11 @@
 <script setup lang="ts">
 // A value from the vehicle with the truth about it, in five states that always say so in words (and the stale ones with a
 // pattern): live (reported within 3 s), stale (older), last heard (the link is lost: kept, not current), never reported
-// (a dash, never a made-up zero) and a verified write (success only once the vehicle has read the value back).
+// (a dash, never a made-up zero) and a verified write (success only once the vehicle has read the value back). A value that is
+// reported but not good (a weak link) says so with an icon and a word beside it, never by colour alone.
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import Icon from '@/components/ui/Icon.vue'
 
 const props = defineProps<{
   /** What the value is ("BATTERY"). */
@@ -33,6 +38,8 @@ const props = defineProps<{
   ageMs?: number
   /** A line under the value (what the state means, or the field's own help). */
   help?: string
+  /** A reported value that is not good: `warn` or `error`, and the word that says so. */
+  status?: { level: 'warn' | 'error', word: string }
 }>()
 
 const { t } = useI18n()

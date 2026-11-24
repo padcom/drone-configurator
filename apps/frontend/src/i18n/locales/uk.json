@@ -764,6 +764,8 @@
     "heartbeatAge": "{ms} мс тому",
     "noHeartbeat": "немає heartbeat",
     "lastHeartbeat": "останній був за {ms} мс до тиші",
+    "latencyLost": "{latency} · втрачено {percent}%",
+    "lostHeartbeat": "втрачено {percent}% · heartbeat {ms} мс тому",
     "ekf": {
       "healthy": "У нормі",
       "degraded": "Погіршено",

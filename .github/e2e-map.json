@@ -32,9 +32,10 @@
     {
       "when": [
         "apps/frontend/src/components/shell/LinkIndicator.vue", "apps/frontend/src/lib/fly/linkQuality.ts",
-        "apps/frontend/src/composables/useLinkStats.ts", "apps/frontend/src/mock/mock-link.ts", "apps/backend/linkstats.pi"
+        "apps/frontend/src/composables/useLinkStats.ts", "apps/frontend/src/mock/mock-link.ts", "apps/backend/linkstats.pi",
+        "apps/frontend/src/lib/fly/flyCards.ts", "apps/frontend/src/components/fly/FlyAside.vue", "apps/frontend/src/components/fields/TruthValue.vue"
       ],
-      "specs": ["link-quality.e2e.ts", "shell.e2e.ts"]
+      "specs": ["link-quality.e2e.ts", "sitl-link-quality.e2e.ts", "shell.e2e.ts"]
     },
     {
       "when": [
@@ -88,6 +89,10 @@
     {
       "when": ["apps/backend/{telemetry,session}.pi", "apps/frontend/e2e/bridge-client.ts"],
       "specs": ["sitl-landed.e2e.ts"]
+    },
+    {
+      "when": ["apps/backend/{telemetry,groups,session}.pi", "apps/frontend/e2e/{bridge-client,sitl-truth}.ts"],
+      "specs": ["sitl-telemetry.e2e.ts"]
     },
     {
       "when": ["apps/backend/{missions,planverify,planfiles,arming,session,messages}.pi", "apps/frontend/e2e/bridge-client.ts"],

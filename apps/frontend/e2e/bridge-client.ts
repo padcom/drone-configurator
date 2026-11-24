@@ -17,6 +17,8 @@ interface Logged {
   n: number
   /** Whether it is an event of the telemetry stream. */
   telemetry: boolean
+  /** When the page got it (ms since 1970: the clock of the machine, which the test has too). */
+  t: number
   /** Its bytes. */
   b: number[]
 }
@@ -41,6 +43,16 @@ export interface Seen {
   prearm?: { enabled: boolean, passing: boolean, ageMs: number }
   /** Where the vehicle says it is: the height above home, in metres. */
   position?: { relativeAltitude: number, lat: number, lon: number, vx: number, vy: number, vz: number }
+}
+
+/** A telemetry event as the page got it. */
+export interface TimedTelemetry {
+  /** Its number in the log. */
+  n: number
+  /** When the page got it (ms since 1970). */
+  at: number
+  /** The telemetry. */
+  telemetry: unknown
 }
 
 /**
@@ -87,7 +99,7 @@ export class BridgeClient {
         const bytes = Array.from(new Uint8Array(message))
         const text = String.fromCharCode(...bytes.slice(0, 80))
         count += 1
-        log.push({ n: count, telemetry: text.includes('telemetry.stream'), b: bytes })
+        log.push({ n: count, telemetry: text.includes('telemetry.stream'), t: Date.now(), b: bytes })
         if (log.length > 4000) log.splice(0, log.length - 4000)
         if (previous) previous(message, live)
       }
@@ -206,6 +218,18 @@ export class BridgeClient {
     )
 
     return bytes === null ? null : decodeEnvelope(Uint8Array.from(bytes)).p as unknown as Seen
+  }
+
+  /**
+   * The telemetry events the page got after one, with when it got them (of the last 4000 messages it keeps).
+   *
+   * @param after the number of the last event already seen (0 for all)
+   * @returns the events, oldest first
+   */
+  async telemetrySince(after: number): Promise<TimedTelemetry[]> {
+    const entries = await this.app.evaluate<Logged[]>(`window.__bridgeLog.filter(entry => entry.telemetry && entry.n > ${after})`)
+
+    return entries.map(entry => ({ n: entry.n, at: entry.t, telemetry: decodeEnvelope(Uint8Array.from(entry.b)).p }))
   }
 
   /**
