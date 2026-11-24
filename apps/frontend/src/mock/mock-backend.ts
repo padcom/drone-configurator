@@ -1,14 +1,24 @@
 // A stand-in for the Pico backend, in TypeScript over an in-memory link: the UI then runs in any
 // browser (`pnpm ui`) and in Vitest. It speaks the same protocol as the host and implements
 // packages/contracts/app.cddl with the simulated vehicle of fixtures.ts: only the "simulator"
-// transport connects; UDP and TCP fail as they would with nothing listening.
+// transport connects; UDP and TCP fail as they would with nothing listening, and the network advertises two vehicles.
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
   CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
-import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt, withDefaults } from './fixtures'
+import {
+  COPTER_MODES,
+  DISCOVERED,
+  PARAMS,
+  SCRIPTED_MESSAGES,
+  SERIAL_PORTS,
+  VEHICLE,
+  VEHICLE_DETAILS,
+  telemetryAt,
+  withDefaults,
+} from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
 import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
@@ -335,6 +345,12 @@ class MockVehicle {
 
       return
     }
+    if (!next.fromCache) {
+      // A download from the server says how far it is, as the backend does after each part.
+      const total = next.text.length
+      this.send({ k: 'event', n: 'metadata.progress', p: { received: Math.floor(total / 2), total } })
+      this.send({ k: 'event', n: 'metadata.progress', p: { received: total, total } })
+    }
     ok(next)
   }
 
@@ -428,6 +444,7 @@ class MockVehicle {
       }
       case 'metadata.fetch': return this.metadataFetch(e.p as MetadataAsk, ok, fail)
       case 'serial.ports': return ok({ ports: SERIAL_PORTS })
+      case 'discovery.browse': return ok({ services: DISCOVERED })
       case 'serial.bridge.start': return this.serialBridge.start(e.p as SerialBridgeStart, ok, fail)
       case 'serial.bridge.stop': return this.serialBridge.stop(ok)
       case 'serial.bridge.status': return this.serialBridge.subscribe(e)
@@ -569,7 +586,7 @@ class MockVehicle {
     } else if (request.transport === 'serial') {
       this.update({ state: 'disconnected', error: `no heartbeat from serial ${request.device ?? '(no device)'} at ${request.baud ?? 115200}` }, ok)
     } else {
-      const where = `${request.host ?? '127.0.0.1'}:${request.port ?? (request.transport === 'udp' ? 14550 : 5760)}`
+      const where = `${request.host ?? '127.0.0.1'}:${request.port ?? (request.transport.startsWith('udp') ? 14550 : 5760)}`
       this.update({ state: 'disconnected', error: `no heartbeat from ${request.transport} ${where}` }, ok)
     }
   }

@@ -86,27 +86,76 @@ export async function openConnect(app: E2eApp): Promise<void> {
 
 /** What to connect to: the kind of link and, for UDP and TCP, where. */
 export interface Target {
-  /** The tab: `udp`, `tcp`, `serial` or `simulator`. */
+  /** The kind of link (the contract's): `udp`, `udp-client`, `tcp`, `tcp-server`, `serial` or `simulator`. */
   transport: string
-  /** The host of a UDP or TCP link. */
+  /** The host of a UDP or TCP link; for one that listens, `0.0.0.0` chooses every interface and anything else none. */
   host?: string
   /** The port of a UDP or TCP link. */
   port?: string
 }
 
+/** The tab of each kind of link that is not a tab's own name (#197). */
+const TAB_OF: Readonly<Record<string, string>> = { 'udp-client': 'udp', 'tcp-server': 'tcp' }
+
+/** The kinds of link on which the app listens: they take no host, only whether every interface listens. */
+const LISTENING = new Set(['udp', 'tcp-server'])
+
 /**
- * Opens the Connect dialog and fills it in: the tab, and the host and port when there are any. It does not press Connect.
+ * Ticks or clears "Listen on every network interface".
+ *
+ * @param app the running app
+ * @param on whether it should be ticked
+ */
+async function setEverywhere(app: E2eApp, on: boolean): Promise<void> {
+  const ticked = await app.evaluate<boolean>(`document.querySelector('#all-interfaces').checked`)
+  if (ticked !== on) {
+    await app.click('label:has(#all-interfaces)')
+  }
+}
+
+/**
+ * Fills in where a UDP or TCP link goes, or where the app listens.
+ *
+ * @param app the running app
+ * @param target what to connect to, with its host and port
+ */
+async function fillAddress(app: E2eApp, target: Required<Target>): Promise<void> {
+  if (LISTENING.has(target.transport)) {
+    await setEverywhere(app, target.host === '0.0.0.0')
+  } else {
+    await app.fill('#host', target.host)
+  }
+  await app.fill('#port', target.port)
+}
+
+/**
+ * Chooses the tab of a kind of link and, for UDP and TCP, its way round.
+ *
+ * @param app the running app
+ * @param transport the kind of link
+ */
+async function chooseTab(app: E2eApp, transport: string): Promise<void> {
+  const tab = TAB_OF[transport] ?? transport
+  await app.click(`#transport-${tab}`)
+
+  if (tab === 'udp' || tab === 'tcp') {
+    await app.click(`#link-role label:has(input[value="${transport}"])`)
+  }
+}
+
+/**
+ * Opens the Connect dialog and fills it in: the tab, the way round of UDP and TCP, and the host and port when there are any.
+ * It does not press Connect.
  *
  * @param app the running app
  * @param target what to connect to
  */
 export async function chooseConnection(app: E2eApp, target: Target): Promise<void> {
   await openConnect(app)
-  await app.click(`#transport-${target.transport}`)
-
-  if (target.host !== undefined && target.port !== undefined) {
-    await app.fill('#host', target.host)
-    await app.fill('#port', target.port)
+  await chooseTab(app, target.transport)
+  const { host, port } = target
+  if (host !== undefined && port !== undefined) {
+    await fillAddress(app, { ...target, host, port })
   }
 }
 

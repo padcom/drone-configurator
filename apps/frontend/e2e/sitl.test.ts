@@ -140,6 +140,14 @@ describe('SITL ports and arguments', () => {
     expect(sitlArguments({ instance: 0, frame: 'x', speedup: 1, defaults: [] })).not.toContain('--defaults')
   })
 
+  it('sets SERIAL2 when a test names it, after the defaults (#197)', () => {
+    expect(sitlArguments({ instance: 1, frame: 'quad', speedup: 1, defaults: ['/d/copter.parm'], serial2: 'tcpclient:127.0.0.1:6000' })).toEqual([
+      '-w', '--model', 'quad', '--speedup', '1', '-I', '1', '--sim-address=127.0.0.1', '--defaults', '/d/copter.parm',
+      '--serial2', 'tcpclient:127.0.0.1:6000',
+    ])
+    expect(sitlArguments({ instance: 0, frame: 'x', speedup: 1 })).not.toContain('--serial2')
+  })
+
   it.skipIf(process.platform === 'win32')('finds the default parameter files in the source tree of a build made by hand, with absolute paths', async () => {
     const tree = await mkdtemp(join(tmpdir(), 'sitl-path-'))
     try {

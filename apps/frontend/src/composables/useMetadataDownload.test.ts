@@ -4,6 +4,7 @@
 // said once; and the Settings button downloads again, keeping what is in use when it cannot.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
+import { watch } from 'vue'
 import type { MetadataFile } from '@/generated/app'
 import { METADATA_DOWNLOAD_KEY } from '@/lib/params/metadataSettings'
 import { type MockControl, mockBackend } from '@/mock/mock-backend'
@@ -63,12 +64,18 @@ const toasted = () => useToasts().visible.value.filter(toast => toast.id.startsW
 describe('the metadata download at connection', () => {
   it('downloads the connected vehicle\'s metadata and uses it, saying nothing when it is the version\'s', async () => {
     const { handle, asked } = await start([EXACT])
+    const seen: unknown[] = []
+    watch(handle.metadata.progress, progress => progress && seen.push(progress), { flush: 'sync' })
     await connect(handle)
 
     expect(asked()).toEqual([{}])
     expect(handle.metadata.metadata.value.get('RTL_ALT')?.description).toBe('Return height')
     expect(handle.metadata.source.value).toBe('download')
     expect(handle.metadata.downloaded.value).toMatchObject({ vehicle: 'copter', version: '4.5.7', exact: true, count: 1 })
+    // It said how far it was while it ran, and nothing once it is over.
+    const total = XML.length
+    expect(seen).toEqual([{ received: Math.floor(total / 2), total }, { received: total, total }])
+    expect(handle.metadata.progress.value).toBeNull()
     expect(toasted()).toEqual([])
   })
 

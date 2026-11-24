@@ -30,7 +30,38 @@
       "udp": "Check that the vehicle or the simulator sends to this host and port, then connect again.",
       "tcp": "Check that the vehicle listens on this address and that nothing else is using it, then connect again.",
       "serial": "Check the cable, that no other program has the port open, and the baud rate, then connect again.",
-      "simulator": "Close the dialog and try again; if it keeps failing, restart the application."
+      "simulator": "Close the dialog and try again; if it keeps failing, restart the application.",
+      "udp-client": "Check that the vehicle listens on this host and port, and that no firewall blocks its replies, then connect again.",
+      "tcp-server": "Check that the vehicle or the forwarder connects to this port, and that nothing else uses it, then connect again."
+    },
+    "role": {
+      "label": "Who starts the link",
+      "udp": "Listen for the vehicle",
+      "udp-client": "Send to the vehicle",
+      "tcp": "Connect to the vehicle",
+      "tcp-server": "Let the vehicle connect",
+      "note": {
+        "udp": "The vehicle or the simulator sends to this computer.",
+        "udp-client": "This computer sends to the vehicle first and takes its replies: for a vehicle, a companion computer or a router that listens.",
+        "tcp": "This computer connects to the vehicle, which listens on the port.",
+        "tcp-server": "This computer listens on the port, and the vehicle or a forwarder connects to it. It waits up to 30 seconds."
+      }
+    },
+    "everywhere": "Listen on every network interface",
+    "loopback": "Only programs on this computer can reach port {port}.",
+    "exposed": "Other computers on your network can reach port {port}. Choose this only on a network you trust.",
+    "found": {
+      "label": "Vehicles on the network",
+      "again": "Look again",
+      "looking": "Looking on the network…",
+      "none": "Nothing on the network announced a MAVLink service. Check that the vehicle is on this network, or connect by address.",
+      "failed": "Couldn't look on the network: {error}. Check the network connection, or connect by address.",
+      "count": "Found {count} service. | Found {count} services.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -943,6 +974,7 @@
       "refresh": "Download again",
       "status": {
         "downloading": "Downloading the parameter metadata…",
+        "downloadingPart": "Downloading the parameter metadata: {received} of {total} MB…",
         "file": "A file you loaded is in use. Nothing is downloaded while it is.",
         "none": "Nothing downloaded yet. It is downloaded when a vehicle is connected.",
         "failed": "Not downloaded: {error}. Parameters are shown without descriptions.",
@@ -1073,7 +1105,8 @@
       "simulator": "Simulator",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Serial"
+      "serial": "Serial",
+      "found": "Found"
     },
     "host": "Host",
     "port": "Port",

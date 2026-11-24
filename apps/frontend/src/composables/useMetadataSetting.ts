@@ -49,6 +49,7 @@ export function useMetadataSetting(): MetadataSetting {
     downloaded: metadata.downloaded.value,
     downloadError: metadata.downloadError.value,
     downloading: metadata.downloading.value,
+    progress: metadata.progress.value,
   })
 
   return {

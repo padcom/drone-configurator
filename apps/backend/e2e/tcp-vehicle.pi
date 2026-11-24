@@ -11,10 +11,15 @@
 // active" a second and a half after the link is made, as a vehicle that is up does (the app waits for it before it calibrates).
 // With VEHICLE_50HZ=1 it sends its position, its radio's channels and its outputs 50 times a second, as a vehicle asked for fast
 // telemetry does, and stays disarmed (idle on the ground): the app must coalesce that for its page (#26).
+// The transports of #197: with VEHICLE_UDP=1 it listens on a UDP port instead (`listening <port>`) and answers whoever sent to it
+// last, as a vehicle or a router that listens does (the app's "udp-client"); with VEHICLE_CONNECT_TO=<port> it connects to that
+// TCP port on 127.0.0.1 (the app's "tcp-server"), trying every 100 ms, says `connected to <port>` the first time, and connects
+// again whenever the connection ends.
 // Its serial ports are loopback plugs (SERIAL_CONTROL: what is written comes back); it prints `serial-take <device>` when SERIAL_CONTROL
 // takes a port and `serial-release <device>` when it hands one back (the serial bridge, #198).
-import { Conn, listen } from "std/net"
+import { Datagram, UdpSocket, bind, connect, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
+import { delay } from "std/timers"
 import {
   ByteStream,
   CommandLong,
@@ -89,9 +94,41 @@ class EndWatchingStream implements ByteStream {
   }
 }
 
-function serve(conn: Conn): void {
+/// A UDP port as a byte stream that answers whoever sent to it last (std/net's UdpStream keeps the first sender), as MAVProxy's
+/// `udpin` does: a ground station that connects again from another port is answered there.
+class FollowingUdpStream implements ByteStream {
+  readonly socket: UdpSocket
+  peer: Datagram? = null
+
+  constructor(socket: UdpSocket) {
+    this.socket = socket
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    const d = await socket.receive()
+    if (d == null) {
+      return null
+    }
+    peer = d
+    return d!.data
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    const to = peer
+    if (to != null) {
+      await socket.send(bytes, to!.addr.port, to!.addr.hostname)
+    }
+  }
+
+  public close(): void {
+    socket.close()
+  }
+}
+
+/// Serves one vehicle over `inner` until it ends; the stream says when it has (`gone`).
+function serve(inner: ByteStream): EndWatchingStream {
   let sim: SimulatedAutopilot? = null
-  const stream = new EndWatchingStream(new TcpStream(conn), () => sim?.stop())
+  const stream = new EndWatchingStream(inner, () => sim?.stop())
   muted = false
   held.clear()
   const setup = env.get("VEHICLE_SETUP") == "1"
@@ -133,6 +170,7 @@ function serve(conn: Conn): void {
     // screen's response chart has a step to measure. ATTITUDE_TARGET comes only when it is asked for with SET_MESSAGE_INTERVAL.
     sim!.rateScript = true
   }
+  return stream
 }
 
 /// The ports SERIAL_CONTROL holds, as this program has seen the requests.
@@ -289,10 +327,40 @@ async function muteOnInput(): Promise<void> throws Error {
   }
 }
 
+/// Connects to the app's TCP port, again whenever the connection ends (#197).
+async function connectTo(port: int): Promise<void> throws Error {
+  let announced = false
+  while (true) {
+    let stream: EndWatchingStream? = null
+    try {
+      stream = serve(new TcpStream(await connect(port)))
+    } catch (e: Error) {
+      await delay(100)
+      continue
+    }
+    if (!announced) {
+      announced = true
+      await stdout.writeText(`connected to ${port}\n`)
+    }
+    while (!stream!.gone) {
+      await delay(100)
+    }
+  }
+}
+
 muteOnInput()
-const server = await listen()
-// Not println: it stays in a buffer when stdout is a pipe, and the test is waiting to read this.
-await stdout.writeText(`listening ${server.addr.port}\n`)
-for await (const conn of server) {
-  serve(conn)
+const connectPort = env.get("VEHICLE_CONNECT_TO")
+if (connectPort != null) {
+  await connectTo(parseInt(connectPort!))
+} else if (env.get("VEHICLE_UDP") == "1") {
+  const socket = await bind(0)
+  await stdout.writeText(`listening ${socket.addr.port}\n`)
+  const _udp = serve(new FollowingUdpStream(socket))
+} else {
+  const server = await listen()
+  // Not println: it stays in a buffer when stdout is a pipe, and the test is waiting to read this.
+  await stdout.writeText(`listening ${server.addr.port}\n`)
+  for await (const conn of server) {
+    const _tcp = serve(new TcpStream(conn))
+  }
 }

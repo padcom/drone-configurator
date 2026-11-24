@@ -1,148 +1,272 @@
-// The parameter metadata of each vehicle type (#35), from ArduPilot's REAL server, against ArduPilot SITL: Copter, Plane, Rover,
-// Sub, Antenna Tracker and Blimp, each connected over TCP in the real window with the real backend, which downloads the metadata
-// for the vehicle's kind and firmware version (the version's file, or the latest when the server has none for it, and the line in
-// Settings says which), and the Parameters screen then describes the vehicle's parameters. And the definitions of a released
-// version (`apm.pdef.xml`: the server has no JSON of one) of each type that has them are read by the app's own reader.
+// The parameter metadata of a real vehicle (#35), against ArduPilot SITL (Copter over TCP) in the real window with the real
+// backend, and a LOCAL stand-in for ArduPilot's server (DRONE_CONFIGURATOR_METADATA_URL): no pull request depends on the real
+// server (that is weekly-metadata-server.e2e.ts, weekly). The stand-in answers ranges in parts, as the real server does, and
+// serves the file of a released version (XML) and the latest (JSON), each describing the parameters this vehicle has.
 //
-// Nothing of the GPL data set is in the repository: it is fetched while the test runs. The names of parameters differ between
-// firmware versions (MAV_SYSID and SYSID_THISMAV), so no name is assumed: the parameters the vehicle has are the ones looked at.
+// First run offline: the parameters are shown without descriptions, and Settings says why. With the server: "Download again"
+// asks for the version the vehicle reports (its released file when it is a release, else the latest, and Settings says which),
+// in parts, and the vehicle's parameters are described. The next connection loads it from this computer, without the server.
+//
+// The names of parameters differ between firmware versions (MAV_SYSID and SYSID_THISMAV), so the file is made from the
+// parameters the vehicle has, read from the list.
+import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { afterAll, beforeAll, expect, it } from 'vitest'
-// @ts-expect-error -- jsdom has no types in this repository; only its DOMParser is used, for the reader of the XML file
-import { JSDOM } from 'jsdom'
-import type { Metadata, ParamMeta } from '../src/lib/params/metadata'
-import { parsePdefXml } from '../src/lib/params/metadataXml'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp, presetSettings } from './launch'
-import { type Sitl, type VehicleName, startSitl } from './sitl'
+import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
 
-/** Each vehicle, the name the line in Settings gives its kind, and the folder of its released versions on the server. */
-const VEHICLES: [vehicle: VehicleName, kind: string, versioned: string][] = [
-  ['copter', 'Copter', 'Copter'],
-  ['plane', 'Plane', 'Plane'],
-  ['rover', 'Rover', 'Rover'],
-  ['sub', 'Sub', 'Sub'],
-  ['tracker', 'Antenna Tracker', 'Tracker'],
-  ['blimp', 'Blimp', ''],
-]
-
-/** A released version every type with released files has on the server. */
-const RELEASED = '4.7.1'
-
-/** How many of the first parameters in the list are looked at, and how many of them must have a description at least. */
+/** How many of the first parameters of the list the file describes and the test looks at. */
 const LOOKED_AT = 10
-const DESCRIBED_AT_LEAST = 7
+/** The size of a part the stand-in sends for a range (the backend asks for 128 KiB; the file is smaller: one or two parts). */
+const STAND_IN_PART = 2048
 
-/** How long the download of a definition file from ArduPilot's server may take (a few MB). */
-const DOWNLOAD_MS = 120_000
+/** What the stand-in does, and what it saw. */
+const stand = { up: false, hits: [] as string[], ranges: 0, ids: [] as string[] }
+
+let server: Server | undefined
+let sitl: Sitl | undefined
+let app: E2eApp | undefined
 
 /**
- * Connects the app to a simulator over TCP.
+ * The window.
  *
- * @param app the running app
- * @param sitl the simulator
+ * @returns the app
+ * @throws {Error} before it has started
  */
-async function connect(app: E2eApp, sitl: Sitl): Promise<void> {
-  await app.waitForText('#connection', 'disconnected')
-  await chooseConnection(app, { transport: 'tcp', host: sitl.endpoint.host, port: String(sitl.endpoint.port) })
-  await clickConnect(app)
-  await app.waitForText('#connection', 'connected · system', 60_000)
+function window(): E2eApp {
+  if (!app) {
+    throw new Error('the app has not started')
+  }
+
+  return app
 }
 
 /**
- * How many of the first parameters of the list have a description, selected one after the other.
+ * The description the stand-in gives a parameter.
  *
- * @param app the running app
+ * @param id the parameter
+ * @returns the text
+ */
+const descriptionOf = (id: string) => `Stand-in description of ${id}.`
+
+/**
+ * The latest definitions, in ArduPilot's JSON form, of the parameters the stand-in knows (and filler, so that it comes in parts).
+ *
+ * @returns the text
+ */
+function latestJson(): string {
+  const entry = (id: string) => [id, { DisplayName: descriptionOf(id), Description: 'Made up by the test.' }]
+  const params = Object.fromEntries(stand.ids.map(entry))
+
+  return JSON.stringify({ json: { version: 0 }, ArduCopter: params, filler: { pad: 'x'.repeat(4000) } })
+}
+
+/**
+ * A released version's definitions, in ArduPilot's XML form.
+ *
+ * @returns the text
+ */
+function versionXml(): string {
+  const param = (id: string) => `<param humanName="${descriptionOf(id)}" name="ArduCopter:${id}" documentation="Made up."/>`
+  const params = stand.ids.map(param)
+
+  const vehicle = `<parameters name="ArduCopter">\n${params.join('\n')}\n</parameters>`
+
+  return `<?xml version="1.0"?>\n<paramfile><vehicles>${vehicle}</vehicles>`
+    + `<!-- ${'x'.repeat(4000)} -->\n</paramfile>\n`
+}
+
+/** What the stand-in answers. */
+interface Answer {
+  /** The status. */
+  status: number
+  /** The headers beside the ETag. */
+  headers: Record<string, string>
+  /** The body. */
+  text: string
+}
+
+/**
+ * The body of a request, whole or the part a `Range` asks for.
+ *
+ * @param body the file
+ * @param range the `Range` header, if any
+ * @returns the status, the headers and the bytes
+ */
+function partOf(body: string, range: string | undefined): Answer {
+  const found = /^bytes=(?<from>\d+)-(?<to>\d+)$/u.exec(range ?? '')
+  if (!found?.groups) {
+    return { status: 200, headers: {}, text: body }
+  }
+  stand.ranges += 1
+  const from = Number(found.groups.from)
+  const to = Math.min(Number(found.groups.to), from + STAND_IN_PART - 1, body.length - 1)
+
+  return { status: 206, headers: { 'content-range': `bytes ${from}-${to}/${body.length}` }, text: body.slice(from, to + 1) }
+}
+
+/**
+ * The file for a path: the latest Copter definitions, or any released version's.
+ *
+ * @param url the path
+ * @returns the file, or null for any other path
+ */
+function fileFor(url: string): string | null {
+  if (url === '/ArduCopter/apm.pdef.json') {
+    return latestJson()
+  }
+
+  return /^\/versioned\/Copter\/stable-\d+\.\d+\.\d+\/apm\.pdef\.xml$/u.test(url) ? versionXml() : null
+}
+
+/**
+ * Waits for the metadata download to be over.
+ *
+ * @returns the line in Settings that says where the metadata came from
+ */
+async function settled(): Promise<string> {
+  await showScreen(window(), 'settings')
+  const line = `document.querySelector('#metadata-download-status').textContent`
+  await window().waitFor(`!/Downloading|Nothing downloaded/u.test(${line})`, 60_000)
+
+  return window().text('#metadata-download-status')
+}
+
+/**
+ * How many of the parameters the file describes have their description on the Parameters screen.
+ *
  * @returns the count
  */
-async function describedOfTheFirst(app: E2eApp): Promise<number> {
-  await showScreen(app, 'parameters')
-  await app.waitForText('#list-status', /^\d+ parameters/u, 90_000)
-  const rows = `[...document.querySelectorAll('tr[data-id]')].slice(0, ${LOOKED_AT})`
-  const ids = await app.evaluate<string[]>(`${rows}.map(row => row.dataset.id)`)
-  let described = 0
-  for (const id of ids) {
+async function described(): Promise<number> {
+  await showScreen(window(), 'parameters')
+  let count = 0
+  for (const id of stand.ids) {
     // eslint-disable-next-line no-await-in-loop -- one selection after the other
-    await app.click(`tr[data-id="${id}"]`)
+    await window().click(`tr[data-id="${id}"]`)
     // eslint-disable-next-line no-await-in-loop -- one selection after the other
-    await app.waitForText('#detail .param-name', id)
+    await window().waitForText('#detail .param-name', id)
     // eslint-disable-next-line no-await-in-loop -- one selection after the other
-    described += await app.evaluate<boolean>(`(document.querySelector('#detail .description')?.textContent ?? '') !== ''`) ? 1 : 0
+    count += await window().text('#detail .description') === descriptionOf(id) ? 1 : 0
   }
 
-  return described
+  return count
 }
 
 /**
- * The tests of one vehicle type: its own simulator and app.
+ * What the stand-in answers a request with.
  *
- * @param vehicle the vehicle
- * @param kind the name the line in Settings gives its kind
+ * @param request the request
+ * @returns the answer
  */
-function vehicleTests(vehicle: VehicleName, kind: string): void {
-  let sitl: Sitl | undefined
-  let app: E2eApp | undefined
+function answerFor(request: IncomingMessage): Answer {
+  if (!stand.up) {
+    return { status: 503, headers: {}, text: 'no' }
+  }
+  const file = fileFor(request.url ?? '')
 
-  beforeAll(async () => {
-    sitl = await startSitl({ vehicle })
-    presetSettings([{ key: 'metadata.download', value: 'on' }])
-    app = await launchApp()
-    await connect(app, sitl)
-  }, 120_000)
+  return file === null ? { status: 404, headers: {}, text: 'no' } : partOf(file, request.headers.range)
+}
 
-  afterAll(async () => {
-    try {
-      await app?.close()
-    } finally {
-      await sitl?.stop()
-    }
+/**
+ * Answers a request: 503 while the stand-in is down, 404 for a file it has not, the file (or the part asked for) else.
+ *
+ * @param request the request
+ * @param response its answer
+ */
+function serve(request: IncomingMessage, response: ServerResponse): void {
+  stand.hits.push(request.url ?? '')
+  const { status, headers, text } = answerFor(request)
+  response.writeHead(status, { ...headers, etag: '"stand-in"' })
+  response.end(text)
+}
+
+/** Starts the stand-in, SITL and the app, and chooses the vehicle's connection. */
+async function startAll(): Promise<void> {
+  server = createServer(serve)
+  await new Promise<void>(resolve => {
+    server?.listen(0, '127.0.0.1', resolve)
   })
+  process.env.DRONE_CONFIGURATOR_METADATA_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`
+  presetSettings([{ key: 'metadata.download', value: 'on' }])
+  sitl = await startSitl({ vehicle: 'copter' })
+  app = await launchApp()
+  await app.waitForText('#connection', 'disconnected')
+  await chooseConnection(app, { transport: 'tcp', host: sitl.endpoint.host, port: String(sitl.endpoint.port) })
+}
 
-  it(`downloads the ${kind} metadata from ArduPilot, and says which file it is`, async () => {
-    await showScreen(app!, 'settings')
-    const line = await app!.waitForText('#metadata-download-status', / metadata from ArduPilot, downloaded /u, DOWNLOAD_MS)
-
-    expect(line).toMatch(new RegExp(`^(${kind} \\d+\\.\\d+\\.\\d+|Latest ${kind}) metadata from ArduPilot, downloaded `, 'u'))
-  }, DOWNLOAD_MS + 10_000)
-
-  it('describes the vehicle\'s parameters', async () => {
-    expect(await describedOfTheFirst(app!)).toBeGreaterThanOrEqual(DESCRIBED_AT_LEAST)
-  }, 120_000)
+/** Stops what was started. */
+async function stopAll(): Promise<void> {
+  try {
+    await app?.close()
+  } finally {
+    await sitl?.stop()
+    server?.close()
+    delete process.env.DRONE_CONFIGURATOR_METADATA_URL
+  }
 }
 
 /**
- * The share of the parameters whose metadata has a field.
+ * What Settings says for a file of a version: that version's, or the latest when the vehicle reported no release.
  *
- * @param metadata the metadata
- * @param field the field
- * @returns from 0 to 1
+ * @param version the version whose file was asked for, if one was
+ * @returns the line, as a pattern
  */
-function shareOf(metadata: Metadata, field: keyof ParamMeta): number {
-  return [...metadata.values()].filter(meta => meta[field] !== undefined).length / metadata.size
+function lineFor(version: string | undefined): RegExp {
+  return version === undefined
+    ? /^Latest Copter metadata from ArduPilot, downloaded .*: the vehicle did not report a released firmware version\.$/u
+    : new RegExp(`^Copter ${version.replaceAll('.', '\\.')} metadata from ArduPilot, downloaded `, 'u')
 }
 
-for (const [vehicle, kind] of VEHICLES) {
-  describeSitl(`the parameter metadata from ArduPilot against SITL: ${vehicle}`, () => {
-    vehicleTests(vehicle, kind)
-  }, { vehicle, launchOnly: true })
+/** The first run, offline: nothing is described, and Settings says why. */
+async function offlineFirst(): Promise<void> {
+  await clickConnect(window())
+  await window().waitForText('#connection', 'connected · system', 60_000)
+
+  expect(await settled()).toMatch(/^Not downloaded: .*\. Parameters are shown without descriptions\.$/u)
+  await showScreen(window(), 'parameters')
+  await window().waitForText('#list-status', /^\d+ parameters$/u, 90_000)
+  const rows = `[...document.querySelectorAll('tr[data-id]')].slice(0, ${LOOKED_AT})`
+  stand.ids = await window().evaluate<string[]>(`${rows}.map(row => row.dataset.id)`)
+  expect(stand.ids).toHaveLength(LOOKED_AT)
+  expect(await described()).toBe(0)
 }
 
-describeSitl('the definitions of a released version from ArduPilot\'s server', () => {
-  for (const [, kind, versioned] of VEHICLES.filter(([, , folder]) => folder !== '')) {
-    it(`are read for ${kind} ${RELEASED}`, async () => {
-      const url = `https://autotest.ardupilot.org/Parameters/versioned/${versioned}/stable-${RELEASED}/apm.pdef.xml`
-      const response = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_MS) })
-      expect(response.status).toBe(200)
-      const { DOMParser } = (new JSDOM('') as { window: { DOMParser: typeof globalThis.DOMParser } }).window
-      globalThis.DOMParser = DOMParser
+/** With the server: Download again asks for the vehicle's version, in parts. */
+async function downloadsInParts(): Promise<void> {
+  stand.up = true
+  await showScreen(window(), 'settings')
+  await window().click('#metadata-refresh')
+  const line = await settled()
 
-      const metadata = parsePdefXml(await response.text())
+  const asked = stand.hits.filter(hit => hit.includes('apm.pdef'))
+  // A release has its own file (the stand-in has every one); anything else is the latest, and Settings says which it is.
+  expect(line).toMatch(lineFor(/^\/versioned\/Copter\/stable-(?<v>[\d.]+)\//u.exec(asked[0] ?? '')?.groups?.v))
+  expect(stand.ranges).toBeGreaterThan(1)
+  expect(await described()).toBe(LOOKED_AT)
+}
 
-      expect(metadata.size).toBeGreaterThan(300)
-      expect(shareOf(metadata, 'description')).toBeGreaterThan(0.9)
-      expect(shareOf(metadata, 'values')).toBeGreaterThan(0)
-      expect(shareOf(metadata, 'bits')).toBeGreaterThan(0)
-      expect(shareOf(metadata, 'max')).toBeGreaterThan(0)
-    }, DOWNLOAD_MS + 10_000)
-  }
-}, { launchOnly: true })
+/** The next connection: from this computer, without the server. */
+async function fromTheCache(): Promise<void> {
+  stand.up = false
+  const before = stand.hits.length
+  await showScreen(window(), 'settings')
+  await window().click('#disconnect-button')
+  await window().waitForText('#connection', /^disconnected/u)
+  await clickConnect(window())
+  await window().waitForText('#connection', 'connected · system', 60_000)
+
+  expect(await settled()).toMatch(/Loaded from this computer in /u)
+  expect(stand.hits.length).toBe(before)
+  expect(await described()).toBe(LOOKED_AT)
+}
+
+describeSitl('the parameter metadata of a SITL vehicle, from a stand-in for ArduPilot\'s server', () => {
+  beforeAll(startAll, 120_000)
+  afterAll(stopAll)
+
+  it('shows the parameters without descriptions on a first run offline, and says why', offlineFirst, 180_000)
+  it('downloads the file for the version the vehicle reports, in parts, and describes its parameters', downloadsInParts, 180_000)
+  it('loads it from this computer at the next connection, without the server', fromTheCache, 180_000)
+})

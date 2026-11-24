@@ -31,7 +31,7 @@ describe('the shards of the tree', () => {
   const text = readFileSync(resolve(root, '.github/test-times.json'), 'utf8')
   const times = JSON.parse(text) as Record<string, Record<string, number>>
 
-  const kinds = [['backend', 3], ['e2e', 2], ['sitl', 3]] as const
+  const kinds = [['backend', 3], ['e2e', 2], ['sitl', 3], ['weekly', 3]] as const
 
   it.each(kinds)('of %s (%d) hold every file once, and end close together', (kind, of) => {
     const shards = Array.from({ length: of }, (_unused, n) => shardOf({ root, kind, shard: n + 1, of }))
