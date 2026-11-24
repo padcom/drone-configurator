@@ -1,6 +1,7 @@
 import { type Server, type Socket, connect, createServer } from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FlakyProxy } from './flaky-proxy'
+import { FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, encodeFrame } from './mavlink-wire'
 
 /** An echo server, with the sockets it accepted. */
 interface Upstream {
@@ -201,6 +202,81 @@ async function mutes(): Promise<void> {
   expect(received.join('')).toBe('a:heard')
 }
 
+/** How many frames the vehicle of the lossy test sends, and every how many a heartbeat. */
+const FRAMES = 2000
+const HEARTBEAT_EVERY = 20
+
+/**
+ * Starts a vehicle that sends its frames as soon as somebody connects, in pieces that split frames anywhere.
+ *
+ * @returns its port
+ */
+async function chattyVehicle(): Promise<number> {
+  const frames = Array.from({ length: FRAMES }, (_, n) => (n % HEARTBEAT_EVERY === 0
+    ? encodeFrame(MSG_HEARTBEAT, new Uint8Array(9), { systemId: 1, componentId: 1 }, n)
+    : encodeFrame(MSG_PARAM_VALUE, new Uint8Array(25).fill(n & 0xff), { systemId: 1, componentId: 1 }, n)))
+  const bytes = Buffer.concat(frames)
+  const server = createServer(socket => {
+    socket.on('error', () => undefined)
+
+    for (let at = 0; at < bytes.length; at += 37) {
+      socket.write(bytes.subarray(at, at + 37))
+    }
+  })
+  await new Promise<void>(resolve => {
+    server.listen(0, '127.0.0.1', () => resolve())
+  })
+  stops.push(() => new Promise<void>(resolve => {
+    server.close(() => resolve())
+  }))
+  const address = server.address()
+
+  return typeof address === 'object' && address ? address.port : 0
+}
+
+/** A lossy proxy drops whole frames, about the share asked for, and never a heartbeat; what passes is whole. */
+async function losesFrames(): Promise<void> {
+  const proxy = await FlakyProxy.start({ host: '127.0.0.1', port: await chattyVehicle() })
+  stops.push(() => proxy.stop())
+  proxy.lose(0.3)
+  const reader = new FrameReader()
+  const frames: number[] = []
+  const socket = connect(proxy.port, '127.0.0.1')
+  socket.on('data', (data: Buffer) => frames.push(...reader.push(data).map(frame => frame.messageId)))
+  stops.push(() => {
+    socket.destroy()
+
+    return Promise.resolve()
+  })
+  await vi.waitFor(() => expect(proxy.lossCount.passed + proxy.lossCount.dropped).toBe(FRAMES), { timeout: 5000, interval: 10 })
+  await vi.waitFor(() => expect(frames).toHaveLength(proxy.lossCount.passed), { timeout: 5000, interval: 10 })
+  const { dropped } = proxy.lossCount
+  const droppable = FRAMES - FRAMES / HEARTBEAT_EVERY
+
+  // every heartbeat, and of the rest the share asked for: within four standard deviations of the binomial
+  expect(frames.filter(id => id === MSG_HEARTBEAT)).toHaveLength(FRAMES / HEARTBEAT_EVERY)
+  expect(Math.abs(dropped - droppable * 0.3)).toBeLessThan(4 * Math.sqrt(droppable * 0.3 * 0.7))
+}
+
+/** Without loss the vehicle's bytes pass as they came. */
+async function losesNothingAtZero(): Promise<void> {
+  const proxy = await FlakyProxy.start({ host: '127.0.0.1', port: await chattyVehicle() })
+  stops.push(() => proxy.stop())
+  proxy.lose(0)
+  const reader = new FrameReader()
+  let count = 0
+  const socket = connect(proxy.port, '127.0.0.1')
+  socket.on('data', (data: Buffer) => {
+    count += reader.push(data).length
+  })
+  stops.push(() => {
+    socket.destroy()
+
+    return Promise.resolve()
+  })
+  await vi.waitFor(() => expect(count).toBe(FRAMES), { timeout: 5000, interval: 10 })
+}
+
 describe('the flaky proxy', () => {
   afterEach(async () => {
     await Promise.all(stops.splice(0).map(stop => stop()))
@@ -212,4 +288,6 @@ describe('the flaky proxy', () => {
   it('sends new connections somewhere else after retargeting', retargets)
   it('cuts after the bytes it was told to let through', cutsAfterBytes)
   it('keeps the connection but passes nothing while muted', mutes)
+  it('drops a share of the vehicle\'s whole frames when lossy, never a heartbeat', losesFrames)
+  it('passes every frame when the loss is set back to nothing', losesNothingAtZero)
 })

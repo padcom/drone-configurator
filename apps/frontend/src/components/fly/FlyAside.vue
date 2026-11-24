@@ -9,6 +9,7 @@
       :value="card.value"
       :age-ms="card.ageMs"
       :help="card.help"
+      :status="card.status"
     />
   </div>
   <MessagesList />
@@ -31,10 +32,11 @@ import { useTelemetry } from '@/composables/useTelemetry'
 // telemetry once per frame.
 const { t } = useI18n()
 const f = useFormat()
-const { fields } = useConfigurator()
+const { fields, link } = useConfigurator()
 const telemetry = useTelemetry()
 const reconnecting = computed(() => fields.connection.value.state === 'reconnecting')
 // The HUD and the cards show a vehicle only while there is telemetry: without a link, every value is a dash.
 const model = computed(() => hudModel(telemetry.value ?? undefined, reconnecting.value))
-const cards = computed(() => flyCards(telemetry.value, reconnecting.value, t, f))
+// The LINK card reads the link's quality as the backend measures it (#29), like the LINK cell of the top bar.
+const cards = computed(() => flyCards(telemetry.value, { reconnecting: reconnecting.value, stats: link.stats.value }, t, f))
 </script>

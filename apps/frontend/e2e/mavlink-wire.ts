@@ -18,6 +18,8 @@ export const MSG_COMMAND_LONG = 76
 export const MSG_COMMAND_ACK = 77
 export const MSG_EKF_STATUS_REPORT = 193
 export const MSG_TIMESYNC = 111
+/** ArduPilot's SIM_STATE: the simulator's own truth (only a simulator sends it). */
+export const MSG_SIM_STATE = 108
 
 /** The CRC_EXTRA byte of each message, from the common dialect's XML. */
 const CRC_EXTRA: Record<number, number> = {
@@ -35,6 +37,7 @@ const CRC_EXTRA: Record<number, number> = {
   [MSG_COMMAND_LONG]: 152,
   [MSG_COMMAND_ACK]: 143,
   [MSG_TIMESYNC]: 34,
+  [MSG_SIM_STATE]: 32,
 }
 
 export const MAV_AUTOPILOT_ARDUPILOTMEGA = 3
@@ -294,4 +297,78 @@ export function asParamValue(frame: Frame): ParamValue | undefined {
   const name = new TextDecoder().decode(payload.subarray(8, 24)).replace(/\0.*$/su, '')
 
   return { name, value: new DataView(payload.buffer, payload.byteOffset).getFloat32(0, true) }
+}
+
+/** What SIM_STATE says: where the simulated vehicle really is, how it moves and how it is turned. */
+export interface SimState {
+  /** Degrees (the message's `lat_int` and `lon_int`, in 1e-7 degrees). */
+  lat: number
+  lon: number
+  /** Metres above mean sea level. */
+  alt: number
+  /** North, east and down, in metres a second. */
+  vn: number
+  ve: number
+  vd: number
+  /** Degrees (the message has radians; yaw from -180 to 180). */
+  roll: number
+  pitch: number
+  yaw: number
+}
+
+/**
+ * The simulator's truth in a frame, if it is a SIM_STATE. Its fields are floats in order (q1 to q4, roll, pitch, yaw, the
+ * accelerations and the rates, lat and lon, alt, the two deviations, vn, ve, vd), then the extensions lat_int and lon_int.
+ * ArduPilot fills the float lat and lon with 1e-7 degrees too, so the exact integers are read.
+ *
+ * @param frame the frame
+ * @returns the state, or undefined for another message
+ */
+export function asSimState(frame: Frame): SimState | undefined {
+  if (frame.messageId !== MSG_SIM_STATE) {
+    return undefined
+  }
+  const payload = padded(frame.payload, 92)
+  const view = new DataView(payload.buffer, payload.byteOffset)
+  const float = (index: number) => view.getFloat32(index * 4, true)
+  const degrees = (index: number) => float(index) * 180 / Math.PI
+
+  return {
+    lat: view.getInt32(84, true) / 1e7,
+    lon: view.getInt32(88, true) / 1e7,
+    alt: float(15),
+    vn: float(18),
+    ve: float(19),
+    vd: float(20),
+    roll: degrees(4),
+    pitch: degrees(5),
+    yaw: degrees(6),
+  }
+}
+
+/** What GPS_RAW_INT says of the fix, as the vehicle sends it (65535 and 255 are its "unknown"). */
+export interface GpsRaw {
+  /** GPS_FIX_TYPE. */
+  fixType: number
+  /** The satellites in view. */
+  satellites: number
+  /** HDOP and VDOP, times 100. */
+  eph: number
+  epv: number
+}
+
+/**
+ * The fix in a frame, if it is a GPS_RAW_INT (time_usec, lat, lon, alt, eph, epv, vel, cog, fix_type, satellites_visible).
+ *
+ * @param frame the frame
+ * @returns the fix, or undefined for another message
+ */
+export function asGpsRaw(frame: Frame): GpsRaw | undefined {
+  if (frame.messageId !== MSG_GPS_RAW_INT) {
+    return undefined
+  }
+  const payload = padded(frame.payload, 30)
+  const view = new DataView(payload.buffer, payload.byteOffset)
+
+  return { eph: view.getUint16(20, true), epv: view.getUint16(22, true), fixType: payload[28] ?? 0, satellites: payload[29] ?? 0 }
 }

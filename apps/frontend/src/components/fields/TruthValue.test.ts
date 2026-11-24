@@ -85,3 +85,19 @@ describe('a value without a value', () => {
     expect(value.get('.help').text()).toBe('Marked with text and pattern')
   })
 })
+
+describe('a reported value that is not good', () => {
+  it('says so with an icon and a word beside the value, not by colour alone', () => {
+    const weak = truth({ state: 'live', value: '92%', status: { level: 'warn', word: 'weak' } })
+
+    expect(weak.get('.value').text()).toBe('92% weak')
+    expect(weak.get('.status').text()).toBe('weak')
+    expect(weak.find('.status .icon').exists()).toBe(true)
+    expect(weak.classes()).toContain('warn')
+  })
+
+  it('has neither without a status, and none when the value was never reported', () => {
+    expect(truth({ state: 'live', value: '100%' }).find('.status').exists()).toBe(false)
+    expect(truth({ state: 'never', status: { level: 'error', word: 'poor' } }).find('.status').exists()).toBe(false)
+  })
+})

@@ -813,6 +813,8 @@
     "heartbeatAge": "{ms} ms temu",
     "noHeartbeat": "brak heartbeatu",
     "lastHeartbeat": "ostatni {ms} ms przed ucichnięciem",
+    "latencyLost": "{latency} · {percent}% utracono",
+    "lostHeartbeat": "{percent}% utracono · heartbeat {ms} ms temu",
     "ekf": {
       "healthy": "Sprawny",
       "degraded": "Pogorszony",
