@@ -1355,6 +1355,44 @@
     "pickSome": "Hake die Werte an, die du übernehmen willst.",
     "review": "Angehakte prüfen: {count}"
   },
+  "presets": {
+    "open": "Rahmenvorlagen",
+    "region": "Rahmenvorlagen",
+    "title": "Rahmenvorlagen von ArduPilot",
+    "refresh": "Liste erneut herunterladen",
+    "close": "Schließen",
+    "loading": "Die Liste der Vorlagen wird von ArduPilots GitHub heruntergeladen…",
+    "search": "Suche",
+    "count": "{shown} von {all} Vorlagen",
+    "table": "Rahmenvorlagen",
+    "help": "Die Pfeiltasten nach oben und unten wählen eine Vorlage und zeigen ihren Inhalt.",
+    "contents": "Inhalt der Vorlage",
+    "fetching": "Die Vorlage wird heruntergeladen…",
+    "text": "Inhalt der Vorlage",
+    "pick": "Wähle eine Vorlage, um zu sehen, was sie setzt.",
+    "armed": "Eine Vorlage ändert, wie das Fahrzeug fliegt: Sie wird nur bei entschärftem Fahrzeug angewendet. Entschärfe es zuerst.",
+    "safety": "Eine Vorlage ändert, wie das Fahrzeug fliegt. Jede Änderung wird zur Prüfung gezeigt; geschrieben wird erst nach deiner Bestätigung.",
+    "review": "Prüfen und anwenden",
+    "column": {
+      "name": "Vorlage",
+      "folder": "Ordner",
+      "size": "Bytes"
+    },
+    "ref": {
+      "pinned": "Von ArduPilot {ref}, der Firmware des Fahrzeugs.",
+      "unreleased": "Von ArduPilot {ref}: Das Fahrzeug hat keine veröffentlichte Firmware-Version gemeldet.",
+      "untagged": "Von ArduPilot {ref}: ArduPilot hat kein Tag für die Firmware {version} des Fahrzeugs."
+    },
+    "stale": "Auf diesem Computer gespeichert: GitHub konnte nicht nach einer neueren Liste gefragt werden.",
+    "fromCache": "Auf diesem Computer gespeichert.",
+    "error": {
+      "limited": "GitHub nimmt von diesem Computer vorerst keine weiteren Anfragen an (60 pro Stunde ohne Konto). Versuche es später erneut.",
+      "limitedUntil": "GitHub nimmt von diesem Computer bis {time} keine weiteren Anfragen an (60 pro Stunde ohne Konto). Versuche es dann erneut.",
+      "notConnected": "Verbinde zuerst ein Fahrzeug.",
+      "unsupported": "ArduPilot veröffentlicht Rahmenvorlagen nur für ArduPilot-Fahrzeuge.",
+      "failed": "Download von ArduPilots GitHub fehlgeschlagen: {error}. Prüfe die Internetverbindung und versuche es erneut."
+    }
+  },
   "import": {
     "fromDefaults": "Standardwerte der Firmware",
     "from": "Snapshot vom {savedAt}",
@@ -1378,7 +1416,8 @@
       "vehicle": "Am Fahrzeug",
       "snapshot": "Im Snapshot",
       "file": "In der Datei",
-      "result": "Ergebnis"
+      "result": "Ergebnis",
+      "preset": "In der Vorlage"
     },
     "verified": "✓ Geschrieben und zurückgelesen: {detail}",
     "notVerified": "✕ {detail}",
@@ -1391,7 +1430,8 @@
     "apply": "{id} anwenden",
     "write": "{count} Angehakte schreiben",
     "backup": "Sicherung speichern",
-    "close": "Schließen"
+    "close": "Schließen",
+    "fromPreset": "Rahmenvorlage: {path} (ArduPilot {ref})"
   },
   "staged": {
     "tuning": {
@@ -1772,6 +1812,10 @@
         "what": "Startet den Flugcontroller neu. Die Verbindung bricht für einige Sekunden ab und kommt von selbst zurück. Parameter werden nicht verändert. Nur im unscharfen Zustand.",
         "button": "Zum Neustart halten"
       }
+    },
+    "presets": {
+      "label": "Rahmenvorlagen von ArduPilot…",
+      "keywords": "rahmen vorlage vorlagen preset parameterdatei ardupilot"
     }
   },
   "setup": {
@@ -2210,7 +2254,8 @@
       "drawingKey": "Vorne ist oben. Die Zahl ist die Motornummer im Motortest, nicht der Ausgang, an dem er angeschlossen ist; der Pfeil ist die Drehrichtung.",
       "motor": "Motor {number} bei {angle} Grad, dreht {spin}",
       "cw": "im Uhrzeigersinn",
-      "ccw": "gegen den Uhrzeigersinn"
+      "ccw": "gegen den Uhrzeigersinn",
+      "presets": "ArduPilot veröffentlicht Parameterdateien für die Rahmen, die es kennt. Jede Änderung wird vor dem Schreiben geprüft."
     },
     "bridge": {
       "summary": "Erreiche ein Gerät hinter dem Autopiloten, etwa ein GPS oder ein Funkmodul, aus einem anderen Programm auf diesem Computer. Das Programm verbindet sich mit einem lokalen TCP-Port, und der Port des Fahrzeugs ist für die Brücke gesperrt, bis du sie beendest.",

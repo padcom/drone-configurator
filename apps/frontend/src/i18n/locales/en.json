@@ -1355,6 +1355,44 @@
     "pickSome": "Tick the values to copy across.",
     "review": "Review ticked: {count}"
   },
+  "presets": {
+    "open": "Frame presets",
+    "region": "Frame presets",
+    "title": "Frame presets from ArduPilot",
+    "refresh": "Download the list again",
+    "close": "Close",
+    "loading": "Downloading the list of presets from ArduPilot's GitHub…",
+    "search": "Search",
+    "count": "{shown} of {all} presets",
+    "table": "Frame presets",
+    "help": "The up and down arrows select a preset and show its contents.",
+    "contents": "The preset's contents",
+    "fetching": "Downloading the preset…",
+    "text": "Contents of the preset",
+    "pick": "Select a preset to see what it sets.",
+    "armed": "A preset changes how the vehicle flies: it is applied only while the vehicle is disarmed. Disarm it first.",
+    "safety": "A preset changes how the vehicle flies. Every change is shown for review; nothing is written until you confirm.",
+    "review": "Review and apply",
+    "column": {
+      "name": "Preset",
+      "folder": "Folder",
+      "size": "Bytes"
+    },
+    "ref": {
+      "pinned": "From ArduPilot {ref}, the vehicle's firmware.",
+      "unreleased": "From ArduPilot {ref}: the vehicle did not report a released firmware version.",
+      "untagged": "From ArduPilot {ref}: ArduPilot has no tag for the vehicle's firmware {version}."
+    },
+    "stale": "Kept on this computer: GitHub could not be asked for a newer list.",
+    "fromCache": "Kept on this computer.",
+    "error": {
+      "limited": "GitHub refuses more requests from this computer for now (60 an hour without an account). Try again later.",
+      "limitedUntil": "GitHub refuses more requests from this computer until {time} (60 an hour without an account). Try again then.",
+      "notConnected": "Connect to a vehicle first.",
+      "unsupported": "ArduPilot publishes frame presets for ArduPilot vehicles only.",
+      "failed": "Couldn't download from ArduPilot's GitHub: {error}. Check the internet connection and try again."
+    }
+  },
   "import": {
     "fromDefaults": "Firmware defaults",
     "from": "Snapshot from {savedAt}",
@@ -1378,7 +1416,8 @@
       "vehicle": "On the vehicle",
       "snapshot": "In the snapshot",
       "file": "In the file",
-      "result": "Result"
+      "result": "Result",
+      "preset": "In the preset"
     },
     "verified": "✓ Written and read back: {detail}",
     "notVerified": "✕ {detail}",
@@ -1391,7 +1430,8 @@
     "apply": "Apply {id}",
     "write": "Write {count} ticked",
     "backup": "Save the backup",
-    "close": "Close"
+    "close": "Close",
+    "fromPreset": "Frame preset: {path} (ArduPilot {ref})"
   },
   "staged": {
     "tuning": {
@@ -1772,6 +1812,10 @@
         "what": "Restarts the flight controller. The link drops for a few seconds and comes back by itself. Parameters are not changed. Only while disarmed.",
         "button": "Hold to reboot"
       }
+    },
+    "presets": {
+      "label": "Frame presets from ArduPilot…",
+      "keywords": "frame preset presets airframe parameter file ardupilot template"
     }
   },
   "setup": {
@@ -2210,7 +2254,8 @@
       "drawingKey": "Front is up. The number is the motor's number in the motor test, not the output it is wired to; the arrow is the way it spins.",
       "motor": "Motor {number} at {angle} degrees, spins {spin}",
       "cw": "clockwise",
-      "ccw": "counter-clockwise"
+      "ccw": "counter-clockwise",
+      "presets": "ArduPilot publishes parameter files for the frames it knows. Every change is reviewed before it is written."
     },
     "bridge": {
       "summary": "Reach a device behind the autopilot, such as a GPS or a radio, from another program on this computer. The program connects to a local TCP port, and the vehicle's port is locked for the bridge until you stop it.",

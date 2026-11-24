@@ -5,6 +5,14 @@
   "entries": [
     {
       "when": [
+        "apps/frontend/src/components/params/FramePresets.vue", "apps/frontend/src/composables/useFramePresets.ts",
+        "apps/frontend/src/lib/params/{framePresets,snapshotImport,snapshot}.ts", "apps/frontend/src/screens/setup/SetupFrame.vue",
+        "apps/backend/{presets,metadata}.pi"
+      ],
+      "specs": ["frame-presets.e2e.ts", "sitl-frame-presets.e2e.ts"]
+    },
+    {
+      "when": [
         "apps/frontend/src/components/settings/RecordingSettings.vue", "apps/frontend/src/components/shell/RecordingNotice.vue",
         "apps/frontend/src/lib/recording/**", "apps/frontend/src/composables/useRecording.ts", "apps/backend/{recording,locallogs,connection}.pi"
       ],

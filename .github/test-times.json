@@ -34,6 +34,7 @@
     "mapsource.test.pi": 20,
     "maptiles.test.pi": 30,
     "metadata.test.pi": 45,
+    "presets.test.pi": 30,
     "messages.test.pi": 28,
     "missions.test.pi": 62,
     "motors.test.pi": 45,
@@ -61,6 +62,7 @@
     "analyse.e2e.ts": 1,
     "backend-crash.e2e.ts": 13,
     "bitmask.e2e.ts": 2,
+    "frame-presets.e2e.ts": 8,
     "budgets.e2e.ts": 42,
     "calibration.e2e.ts": 21,
     "combobox-scrollbar.e2e.ts": 2,
@@ -126,6 +128,7 @@
   },
   "sitl": {
     "sitl-metadata.e2e.ts": 40,
+    "sitl-frame-presets.e2e.ts": 30,
     "sitl-param-renamed.e2e.ts": 30,
     "sitl-arming.e2e.ts": 70,
     "sitl-calibration.e2e.ts": 207,
@@ -149,6 +152,7 @@
     "sitl.e2e.ts": 20
   },
   "weekly": {
-    "weekly-metadata-server.e2e.ts": 150
+    "weekly-metadata-server.e2e.ts": 150,
+    "weekly-frame-presets.e2e.ts": 60
   }
 }

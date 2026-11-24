@@ -3,7 +3,8 @@ name: Weekly e2e
 # Every Monday (and by hand): the window specs that depend on a third party's server, named `weekly-*.e2e.ts`
 # (.github/ci-select.mjs `WEEKLY_SPEC`). They are in no pull request's or push's CI: a slow or absent server must not block a change.
 # Today that is weekly-metadata-server.e2e.ts, which downloads each vehicle type's parameter metadata from ArduPilot's real server
-# (#35); every pull request has sitl-metadata.e2e.ts instead, against a local stand-in for it. They run with the pinned SITL
+# (#35), and weekly-frame-presets.e2e.ts, which applies a frame preset from ArduPilot's GitHub to SITL (#41); every pull request
+# has sitl-metadata.e2e.ts and sitl-frame-presets.e2e.ts instead, against local stand-ins. They run with the pinned SITL
 # (.github/ardupilot-ref, its cached build) through sitl-e2e.yml. A failure opens (or adds to) an issue; a pass closes it.
 on:
   schedule:

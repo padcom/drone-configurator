@@ -1139,3 +1139,15 @@
   margin: 0;
   font-family: var(--font-mono);
 }
+
+/* Setup › Frame: the way to ArduPilot's frame presets (#41), under the note. */
+.setup-frame-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.setup-frame-presets p {
+  margin: 0;
+}

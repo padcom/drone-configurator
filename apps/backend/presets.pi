@@ -1,0 +1,422 @@
+// ArduPilot's frame presets (#41): the parameter files ArduPilot publishes for the frames it knows, in `Tools/Frame_params` of its
+// repository on GitHub. `presets.list` lists them and `presets.fetch` gives one's text; the page reviews what one would change, and
+// writes it as any other parameter file (guarded: never while the vehicle may be armed). The files are GPL, so they are never part of
+// the application: they are fetched at run time, and kept only in the user's cache folder, beside the metadata (metadata.pi, whose
+// download and cache this uses: in parts, written whole or not at all).
+//
+// The list is ONE request to GitHub's API (the git tree of the folder, with its sub-folders: `git/trees/<ref>:Tools/Frame_params`):
+// GitHub answers 60 requests an hour from an address without an account. It is asked for at the vehicle's firmware tag
+// (`Copter-4.7.3`) when the vehicle reported a released version and ArduPilot has the tag, else at `master`. A tag never changes,
+// so its list is kept for good; master's is asked for again after 7 days, and a stale one is given when GitHub cannot be reached or
+// refuses (`RATE_LIMITED` only when nothing is kept). A file comes from GitHub's raw files (not its API, and not counted there), by
+// the list's path at the list's reference, and is kept by its git hash (a file that changes on master has a new one).
+//
+// Names on disk are made ONLY of a reference this program built and checked (`master`, or a kind's folder and three numbers) and a
+// hash of 40 hexadecimal digits: nothing from GitHub becomes part of a path. A path GitHub lists is offered only when every part of
+// it is plain (letters, digits, `.`, `_`, `-`, `+`; no `..`), and a file is fetched only by a path its list has.
+//
+// GitHub is `DRONE_CONFIGURATOR_PRESETS_URL` when it is set (the end-to-end tests point it at a server of their own): its `api/`
+// stands for `https://api.github.com/repos/ArduPilot/ardupilot/` and its `raw/` for raw.githubusercontent.com's ArduPilot/ardupilot.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { join } from "std/path"
+import { env } from "std/process"
+import {
+  MetadataVehicle,
+  PresetEntry,
+  PresetFile,
+  PresetsList,
+  PresetsListFallback,
+  decodePresetAsk,
+  decodePresetsAsk,
+  encodePresetFile,
+  encodePresetsList,
+} from "./generated/app"
+import {
+  Asking,
+  Download,
+  Wanted,
+  cacheFolder,
+  connectedVehicle,
+  downloadText,
+  isVersion,
+  now,
+  readCached,
+  versionedFolder,
+  writeEntry,
+} from "./metadata"
+
+/// GitHub's API for ArduPilot's repository, and its raw files.
+const API_BASE: string = "https://api.github.com/repos/ArduPilot/ardupilot/"
+const RAW_BASE: string = "https://raw.githubusercontent.com/ArduPilot/ardupilot/"
+
+/// The folder of the presets in the repository.
+const FOLDER: string = "Tools/Frame_params"
+
+/// How long master's list is used before it is asked for again (7 days, in ms).
+const MASTER_KEEP_MS: int = 7 * 86400000
+
+/// The most a preset may be (bytes): ArduPilot's are 0.1 to 15 KB.
+const MAX_PRESET_BYTES: int = 262144
+
+/// What GitHub's API is asked to answer in.
+const API_ACCEPT: string = "application/vnd.github+json"
+
+/// The folders of the kinds' tags (`Copter-4.7.3`): a reference is one of them and a version, or `master`.
+const TAG_KINDS: string[] = ["Copter", "Plane", "Rover", "Sub", "Tracker"]
+
+/// What can be changed by the tests: the server.
+class Config {
+  public server: string? = null
+}
+
+const config = new Config()
+
+/// For tests: the server to ask, standing in for GitHub (null: GitHub, or the environment's).
+export function useServerForTests(url: string?): void {
+  config.server = url
+}
+
+/// The stand-in for GitHub, ending in `/`, or null for GitHub itself.
+function standIn(): string? {
+  const wanted = config.server ?? env.get("DRONE_CONFIGURATOR_PRESETS_URL")
+  if (wanted == null || wanted! == "") {
+    return null
+  }
+  if (wanted!.endsWith("/")) wanted else `${wanted!}/`
+}
+
+/// The address of the list at `ref`.
+export function listUrl(ref: string): string {
+  const stand = standIn()
+  const base = if (stand == null) API_BASE else `${stand!}api/`
+  return `${base}git/trees/${ref}:${FOLDER}?recursive=1`
+}
+
+/// The address of the preset at `path` (as the list has it) at `ref`.
+export function fileUrl(ref: string, path: string): string {
+  const stand = standIn()
+  const base = if (stand == null) RAW_BASE else `${stand!}raw/`
+  return `${base}${ref}/${FOLDER}/${path.replaceAll("+", "%2B")}`
+}
+
+/// Registers the service's methods on `c`.
+export function register(c: Communicator): void {
+  c.handle("presets.list", listPresets)
+  c.handle("presets.fetch", fetchPreset)
+}
+
+/// The tag of the firmware of `w` (`Copter-4.7.3`), or null when it has none: no released version, or a kind without tags (Blimp).
+export function tagOf(w: Wanted): string? {
+  const folder = versionedFolder(w.kind)
+  if (w.version == null || folder == "") null else `${folder}-${w.version!}`
+}
+
+/// Whether a reference is one this program makes: `master`, or a kind's tag and a released version.
+export function isRef(ref: string): bool {
+  if (ref == "master") {
+    return true
+  }
+  const dash = ref.indexOf("-")
+  return dash > 0 && TAG_KINDS.includes(ref.slice(0, dash)) && isVersion(ref.slice(dash + 1))
+}
+
+/// Whether a character may be in a part of a path: a letter, a digit, `.`, `_`, `-` or `+`.
+function plainChar(c: string): bool {
+  return (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || [".", "_", "-", "+"].includes(c)
+}
+
+/// Whether one part of a path is plain: not empty, not `.` or `..`, and of plain characters only.
+function plainPart(part: string): bool {
+  if (part == "" || part == "." || part == ".." || part.length > 100) {
+    return false
+  }
+  for (let i = 0; i < part.length; i++) {
+    if (!plainChar(part.slice(i, i + 1))) {
+      return false
+    }
+  }
+  return true
+}
+
+/// Whether a path of the list is plain in every part, and at most 4 deep.
+export function isPlainPath(path: string): bool {
+  const parts = path.split("/")
+  if (parts.length > 4) {
+    return false
+  }
+  for (const p of parts) {
+    if (!plainPart(p)) {
+      return false
+    }
+  }
+  return true
+}
+
+/// Whether a path names a parameter file: `.param` (ArduPilot's, Mission Planner's), `.parm` (MAVProxy's) or `.params` (QGC's).
+export function isParamFileName(path: string): bool {
+  const lower = path.toLowerCase()
+  return lower.endsWith(".param") || lower.endsWith(".parm") || lower.endsWith(".params")
+}
+
+/// Whether a text is a git hash: 40 hexadecimal digits.
+export function isHash(text: string): bool {
+  if (text.length != 40) {
+    return false
+  }
+  for (let i = 0; i < text.length; i++) {
+    const c = text.slice(i, i + 1)
+    if (!((c >= "0" && c <= "9") || (c >= "a" && c <= "f"))) {
+      return false
+    }
+  }
+  return true
+}
+
+/// One entry of GitHub's tree (what is not here is let go; what is here may be missing).
+class TreeItem {
+  public path: string? = null
+  public type: string? = null
+  public sha: string? = null
+  public size: int? = null
+}
+
+/// GitHub's answer for a tree.
+class Tree {
+  public tree: TreeItem[]? = null
+}
+
+/// A preset of a list: its path, its hash and its size.
+class Listed {
+  public path: string = ""
+  public sha: string = ""
+  public size: int = 0
+}
+
+/// The tree in a text of GitHub's, or null when it is not one.
+function treeOf(text: string): Tree? {
+  try {
+    const t = JSON.parse<Tree>(text)
+    return if (t.tree == null) null else t
+  } catch (e: Error) {
+    return null
+  }
+}
+
+/// Whether a text is a whole answer of GitHub's for a tree.
+export function isTree(text: string): bool {
+  return treeOf(text) != null
+}
+
+/// The preset an entry of the tree is, or null for anything else (a folder, a script, a picture, a path that is not plain, a file
+/// that is too big).
+function listedOf(item: TreeItem): Listed? {
+  const path = item.path ?? ""
+  const sha = item.sha ?? ""
+  const size = item.size ?? -1
+  if ((item.type ?? "") != "blob" || !isParamFileName(path) || !isPlainPath(path) || !isHash(sha)) {
+    return null
+  }
+  if (size < 0 || size > MAX_PRESET_BYTES) {
+    return null
+  }
+  const l = new Listed()
+  l.path = path
+  l.sha = sha
+  l.size = size
+  return l
+}
+
+/// The presets of a text of GitHub's for a tree, in its order (GitHub's: by path).
+export function presetsOf(text: string): Listed[] {
+  const tree = treeOf(text)
+  const out: Listed[] = []
+  if (tree == null) {
+    return out
+  }
+  for (const item of tree!.tree!) {
+    const l = listedOf(item)
+    if (l != null) {
+      out.push(l!)
+    }
+  }
+  return out
+}
+
+/// Whether a text may be a preset: not empty, not a page or a JSON answer (an error of the server), no NUL, not too big.
+export function looksLikeParams(text: string): bool {
+  const t = text.trim()
+  return t.length > 0 && t.length <= MAX_PRESET_BYTES && !t.startsWith("<") && !t.startsWith("{") && !t.includes("\u0000")
+}
+
+/// The path of the kept list at `ref`.
+async function listPath(ref: string): Promise<string> throws Error {
+  return join(await cacheFolder("frames"), `${ref}.json`)
+}
+
+/// The path of the kept file with the git hash `sha`.
+async function filePath(sha: string): Promise<string> throws Error {
+  return join(await cacheFolder("frames"), `${sha}.txt`)
+}
+
+/// A list as it was got: its text, whether from the disk, whether past its time, and when GitHub gave it.
+class Got {
+  public text: string = ""
+  public fromCache: bool = false
+  public stale: bool = false
+  public fetchedAt: int = 0
+}
+
+/// What asking for a list at a reference came to: the list, or that the reference does not exist (`missing`), or why not.
+class Listing {
+  public got: Got? = null
+  public missing: bool = false
+  public failed: Download? = null
+}
+
+/// A list got just now, or from the disk.
+function gotOf(text: string, fromCache: bool, stale: bool, fetchedAt: int): Got {
+  const g = new Got()
+  g.text = text
+  g.fromCache = fromCache
+  g.stale = stale
+  g.fetchedAt = fetchedAt
+  return g
+}
+
+/// The list at `ref`: from the disk while it is good (a tag's for good, master's for 7 days), else GitHub (and kept), else what the
+/// disk has, stale.
+async function listingAt(ref: string, refresh: bool): Promise<Listing> throws Error {
+  const path = await listPath(ref)
+  const kept = await readCached(path, (text: string) => isTree(text))
+  const fresh = kept != null && (ref != "master" || now() - kept!.fetchedAt < MASTER_KEEP_MS)
+  const out = new Listing()
+  if (fresh && !refresh) {
+    out.got = gotOf(kept!.text, true, false, kept!.fetchedAt)
+    return out
+  }
+  const how = new Asking()
+  how.accept = API_ACCEPT
+  how.report = false
+  const d = await downloadText(listUrl(ref), (text: string) => isTree(text), how, "a list of files")
+  if (d.text != null) {
+    const at = now()
+    await writeEntry(path, d.text!, at)
+    out.got = gotOf(d.text!, false, false, at)
+  } else if (kept != null && !d.missing) {
+    out.got = gotOf(kept!.text, true, true, kept!.fetchedAt)
+  } else {
+    out.missing = d.missing
+    out.failed = d
+  }
+  return out
+}
+
+/// The error for a download that did not come: GitHub refused for the number of requests (the message is when it may be asked
+/// again), or it cannot be reached.
+function failure(d: Download, what: string): CommunicatorError {
+  if (d.limited) {
+    return new CommunicatorError("RATE_LIMITED", d.retryAt)
+  }
+  if (d.missing) {
+    return new CommunicatorError("NOT_FOUND", `GitHub has no ${what}`)
+  }
+  return new CommunicatorError("UNAVAILABLE", `no ${what}: ${d.reason}`)
+}
+
+/// The answer for a list.
+function answerOf(w: Wanted, ref: string, fallback: PresetsListFallback?, got: Got): PresetsList {
+  const presets: PresetEntry[] = []
+  for (const l of presetsOf(got.text)) {
+    presets.push(PresetEntry { path: l.path, size: l.size as u32 })
+  }
+  return PresetsList {
+    vehicle: w.kind,
+    version: w.version,
+    ref: ref,
+    pinned: fallback == null,
+    fallback: fallback,
+    presets: presets,
+    fromCache: got.fromCache,
+    stale: got.stale,
+    fetchedAt: got.fetchedAt as u64,
+  }
+}
+
+/// The list at master, said with why it is not the vehicle's tag.
+async function masterList(w: Wanted, why: PresetsListFallback, refresh: bool): Promise<PresetsList> throws Error {
+  const l = await listingAt("master", refresh)
+  if (l.got == null) {
+    throw failure(l.failed!, "list of frame presets")
+  }
+  return answerOf(w, "master", why, l.got!)
+}
+
+/// The kind and version the request is for: what it names, or the connected vehicle's.
+async function wantedOf(vehicle: MetadataVehicle?, version: string?): Promise<Wanted> throws Error {
+  if (vehicle == null) {
+    return await connectedVehicle()
+  }
+  const w = new Wanted()
+  w.kind = vehicle!
+  w.version = version
+  return w
+}
+
+async function listPresets(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodePresetsAsk(payload ?? Cbor.Null, "$")
+  const w = await wantedOf(ask.vehicle, ask.version)
+  if (w.version != null && !isVersion(w.version!)) {
+    throw new CommunicatorError("BAD_REQUEST", "a version is three numbers, as 4.7.1")
+  }
+  const refresh = ask.refresh ?? false
+  const tag = tagOf(w)
+  if (tag == null) {
+    return encodePresetsList(await masterList(w, PresetsListFallback.Unreleased, refresh))
+  }
+  const l = await listingAt(tag!, refresh)
+  if (l.got != null) {
+    return encodePresetsList(answerOf(w, tag!, null, l.got!))
+  }
+  if (!l.missing) {
+    throw failure(l.failed!, "list of frame presets")
+  }
+  encodePresetsList(await masterList(w, PresetsListFallback.Untagged, refresh))
+}
+
+/// The preset at `path` in the kept list at `ref`, or null when the list is not kept or has no such preset.
+async function listedAt(ref: string, path: string): Promise<Listed?> throws Error {
+  const kept = await readCached(await listPath(ref), (text: string) => isTree(text))
+  if (kept == null) {
+    return null
+  }
+  for (const l of presetsOf(kept!.text)) {
+    if (l.path == path) {
+      return l
+    }
+  }
+  return null
+}
+
+async function fetchPreset(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodePresetAsk(payload ?? Cbor.Null, "$")
+  if (!isRef(ask.ref) || !isPlainPath(ask.path)) {
+    throw new CommunicatorError("BAD_REQUEST", "a reference is master or a tag such as Copter-4.7.3, and a path is plain")
+  }
+  const listed = await listedAt(ask.ref, ask.path)
+  if (listed == null) {
+    throw new CommunicatorError("NOT_FOUND", `no preset ${ask.path} in the list at ${ask.ref}: list the presets first`)
+  }
+  const path = await filePath(listed!.sha)
+  const kept = await readCached(path, (text: string) => looksLikeParams(text))
+  if (kept != null) {
+    return encodePresetFile(PresetFile { ref: ask.ref, path: ask.path, text: kept!.text, fromCache: true })
+  }
+  const how = new Asking()
+  how.report = false
+  const d = await downloadText(fileUrl(ask.ref, ask.path), (text: string) => looksLikeParams(text), how, "a parameter file")
+  if (d.text == null) {
+    throw failure(d, `preset ${ask.path}`)
+  }
+  await writeEntry(path, d.text!, now())
+  encodePresetFile(PresetFile { ref: ask.ref, path: ask.path, text: d.text!, fromCache: false })
+}

@@ -1355,6 +1355,44 @@
     "pickSome": "Marca los valores que quieras copiar.",
     "review": "Revisar marcados: {count}"
   },
+  "presets": {
+    "open": "Preajustes de estructura",
+    "region": "Preajustes de estructura",
+    "title": "Preajustes de estructura de ArduPilot",
+    "refresh": "Descargar la lista de nuevo",
+    "close": "Cerrar",
+    "loading": "Descargando la lista de preajustes del GitHub de ArduPilot…",
+    "search": "Buscar",
+    "count": "{shown} de {all} preajustes",
+    "table": "Preajustes de estructura",
+    "help": "Las flechas arriba y abajo eligen un preajuste y muestran su contenido.",
+    "contents": "Contenido del preajuste",
+    "fetching": "Descargando el preajuste…",
+    "text": "Contenido del preajuste",
+    "pick": "Elige un preajuste para ver lo que ajusta.",
+    "armed": "Un preajuste cambia cómo vuela el vehículo: solo se aplica con el vehículo desarmado. Desármalo primero.",
+    "safety": "Un preajuste cambia cómo vuela el vehículo. Cada cambio se muestra para revisarlo; no se escribe nada hasta que confirmes.",
+    "review": "Revisar y aplicar",
+    "column": {
+      "name": "Preajuste",
+      "folder": "Carpeta",
+      "size": "Bytes"
+    },
+    "ref": {
+      "pinned": "De ArduPilot {ref}, el firmware del vehículo.",
+      "unreleased": "De ArduPilot {ref}: el vehículo no informó de una versión publicada del firmware.",
+      "untagged": "De ArduPilot {ref}: ArduPilot no tiene etiqueta para el firmware {version} del vehículo."
+    },
+    "stale": "Guardada en este ordenador: no se pudo pedir a GitHub una lista más reciente.",
+    "fromCache": "Guardada en este ordenador.",
+    "error": {
+      "limited": "GitHub no acepta más peticiones de este ordenador por ahora (60 por hora sin cuenta). Inténtalo más tarde.",
+      "limitedUntil": "GitHub no acepta más peticiones de este ordenador hasta las {time} (60 por hora sin cuenta). Inténtalo entonces.",
+      "notConnected": "Conecta primero un vehículo.",
+      "unsupported": "ArduPilot publica preajustes de estructura solo para vehículos ArduPilot.",
+      "failed": "No se pudo descargar del GitHub de ArduPilot: {error}. Comprueba la conexión a internet y vuelve a intentarlo."
+    }
+  },
   "import": {
     "fromDefaults": "Valores por defecto del firmware",
     "from": "Instantánea del {savedAt}",
@@ -1378,7 +1416,8 @@
       "vehicle": "En el vehículo",
       "snapshot": "En la instantánea",
       "file": "En el archivo",
-      "result": "Resultado"
+      "result": "Resultado",
+      "preset": "En el preajuste"
     },
     "verified": "✓ Escrito y releído: {detail}",
     "notVerified": "✕ {detail}",
@@ -1391,7 +1430,8 @@
     "apply": "Aplicar {id}",
     "write": "Escribir los marcados: {count}",
     "backup": "Guardar la copia de seguridad",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "fromPreset": "Preajuste de estructura: {path} (ArduPilot {ref})"
   },
   "staged": {
     "tuning": {
@@ -1772,6 +1812,10 @@
         "what": "Reinicia el controlador de vuelo. El enlace se corta unos segundos y vuelve solo. Los parámetros no se modifican. Solo con el vehículo desarmado.",
         "button": "Mantén pulsado para reiniciar"
       }
+    },
+    "presets": {
+      "label": "Preajustes de estructura de ArduPilot…",
+      "keywords": "estructura marco preajuste preajustes archivo de parámetros ardupilot"
     }
   },
   "setup": {
@@ -2210,7 +2254,8 @@
       "drawingKey": "El frente está arriba. El número es el del motor en la prueba de motores, no la salida a la que está conectado; la flecha, su sentido de giro.",
       "motor": "Motor {number} a {angle} grados, gira {spin}",
       "cw": "en sentido horario",
-      "ccw": "en sentido antihorario"
+      "ccw": "en sentido antihorario",
+      "presets": "ArduPilot publica archivos de parámetros para las estructuras que conoce. Cada cambio se revisa antes de escribirlo."
     },
     "bridge": {
       "summary": "Accede a un dispositivo detrás del piloto automático, como un GPS o una radio, desde otro programa de este ordenador. El programa se conecta a un puerto TCP local, y el puerto del vehículo queda bloqueado para el puente hasta que lo detengas.",

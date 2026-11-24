@@ -186,7 +186,7 @@ function vehicleFacts(): VehicleFacts {
  * @returns the facts
  */
 function paramsFacts(): ParamsFacts {
-  const { fields, parameters, compare } = useConfigurator()
+  const { fields, parameters, compare, presets } = useConfigurator()
 
   return {
     count: () => fields.params.value.length,
@@ -195,6 +195,7 @@ function paramsFacts(): ParamsFacts {
     value: id => fields.params.value.find(param => param.id === id)?.value,
     listComplete: () => fields.list.value === 'complete',
     compareDefaults: () => void compare.loadDefaults(),
+    framePresets: () => void presets.show(),
   }
 }
 

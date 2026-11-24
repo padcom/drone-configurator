@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import { fakeContext } from '@/testing/commandContext'
 import { ConnectToVehicle, DisconnectFromVehicle, ShowPalette } from './app'
-import { DownloadParameters, LoadSnapshot, SaveParamFile, SaveSnapshot, parameterCommands } from './snapshots'
+import { DownloadParameters, LoadSnapshot, SaveParamFile, SaveSnapshot, ShowFramePresets, parameterCommands } from './snapshots'
 
 describe('Disconnect', () => {
   it.each([['connected', true], ['reconnecting', true], ['connecting', false], ['disconnected', false]] as const)(
@@ -113,4 +113,27 @@ it('saves a parameter file in each format only when there are parameters, each u
   expect(parameterCommands().map(command => command.id).slice(3, 6))
     .toEqual(['paramFile.save.param', 'paramFile.save.parm', 'paramFile.save.qgc'])
   expect(new SaveParamFile('qgc').labelKey).toBe('palette.paramFile.qgc')
+})
+
+describe('Frame presets', () => {
+  it('may run only from a connected vehicle whose parameters are there', () => {
+    const command = new ShowFramePresets()
+
+    expect(command.isEnabled(fakeContext({ connection: { state: 'disconnected' } }).ctx))
+      .toEqual({ enabled: false, reasonKey: 'palette.reason.notConnected' })
+    expect(command.isEnabled(fakeContext({ paramCount: 0 }).ctx))
+      .toEqual({ enabled: false, reasonKey: 'palette.reason.noParameters' })
+    expect(command.isEnabled(fakeContext({ paramCount: 3 }).ctx)).toEqual({ enabled: true })
+  })
+
+  it('goes to the Parameters screen, shows the presets and puts the focus in their search', async () => {
+    const fake = fakeContext({ paramCount: 3 })
+
+    const outcome = await new ShowFramePresets().execute(fake.ctx)
+
+    expect(fake.calls.navigate).toEqual(['/parameters'])
+    expect(fake.calls.snapshot).toEqual(['framePresets'])
+    expect(outcome).toEqual({ focus: 'presets.search' })
+    expect(parameterCommands().map(command => command.id)).toContain('params.presets')
+  })
 })
