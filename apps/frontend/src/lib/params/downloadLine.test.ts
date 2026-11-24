@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { formatFor } from '@/i18n/useFormat'
 import { translate } from '@/testing/testing'
-import { downloadLine } from './downloadLine'
+import { cachedLine, downloadLine } from './downloadLine'
 
 const en = formatFor('en')
 
@@ -43,5 +43,20 @@ describe('the line about a resume', () => {
       .toBe('Parameters: 1370 · resumed after the link came back: 1367 kept, 3 read again in 0.3 s')
     expect(downloadLine({ source: 'list', elapsedMs: 40, reused: 12 }, 12, translate, en))
       .toBe('Parameters: 12 · resumed after the link came back: 12 kept, 0 read again in 0.0 s')
+  })
+})
+
+describe('the line about a list kept from the vehicle\'s last download', () => {
+  it('says how many and when, and that the current values are on their way', () => {
+    const savedAt = new Date(2026, 10, 23, 14, 5, 9).getTime()
+
+    const when = en.dateTime(new Date(savedAt))
+
+    expect(cachedLine({ savedAt, count: 1370 }, translate, en))
+      .toBe(`Parameters: 1370 · from this vehicle's last download, ${when}. Downloading the current values…`)
+  })
+
+  it('says nothing when the list shown is not a kept one', () => {
+    expect(cachedLine(null, translate, en)).toBeNull()
   })
 })
