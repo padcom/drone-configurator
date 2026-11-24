@@ -18,6 +18,12 @@ services = {
   ; While a download runs, at most 10 times a second (the first as soon as the total is known, the last when everything has
   ; arrived).
   "params.progress": ["event", params-progress],
+  ; The connected vehicle's list as its last COMPLETE download left it, kept on disk for each vehicle (by its identity: see
+  ; `connection`) across sessions, so that the dashboard can show it at once while a new download runs (#38). It is never the
+  ; vehicle's word now: the download that follows replaces it, and nothing is written from it. `NOT_CACHED` when there is none
+  ; for this vehicle (a file that cannot be read, or is not such a list, is removed, and is none), `NOT_CONNECTED` without a
+  ; vehicle.
+  "params.cached": ["method", null, saved-params],
   "params.write": ["method", param-write, param-write-result],
   ; The firmware's default of every parameter of the vehicle (#40): its packed parameter file asked for with the defaults
   ; ("@PARAM/param.pck?withdefaults=1", over MAVLink FTP: ArduPilot 4.1 and later). Nothing is written, and `params.list` is
@@ -446,6 +452,15 @@ param-list = {
   ? elapsedMs: uint .size 4,
   ; Set on a resume (`param-list-request`) that reused what was kept: how many parameters were not asked for again.
   ? reused: uint .size 2,
+}
+
+; A vehicle's list as its last complete download left it: `savedAt` is when that download ended (ms since 1970), `source` how
+; it came.
+saved-params = {
+  params: [* param],
+  count: uint .size 2,
+  savedAt: uint .size 8,
+  source: "ftp" / "list",
 }
 
 ; The firmware's default of one parameter. ArduPilot's file carries a default only where it differs from the value: a parameter

@@ -443,6 +443,67 @@ export function encodeParamList(v: ParamList): Cbor {
   return Cbor.Dict(m)
 }
 
+export enum SavedParamsSource { Ftp, List }
+
+export function decodeSavedParamsSource(v: Cbor, path: string): SavedParamsSource throws InvalidPayload {
+  match (text(v, path)) {
+    "ftp" => SavedParamsSource.Ftp,
+    "list" => SavedParamsSource.List,
+    _ => throw new InvalidPayload(path, "ftp or list"),
+  }
+}
+
+export function encodeSavedParamsSource(v: SavedParamsSource): Cbor {
+  match (v) {
+    Ftp => Cbor.Text("ftp"),
+    List => Cbor.Text("list"),
+  }
+}
+
+function decodeSavedParamsParamsList(v: Cbor, path: string): Param[] throws InvalidPayload {
+  const out: Param[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeParam(e, `${path}[${i}]`))
+    i += 1
+  }
+  return out
+}
+
+function encodeSavedParamsParamsList(v: Param[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeParam(e))
+  }
+  return Cbor.List(out)
+}
+
+export struct SavedParams {
+  params: Param[]
+  count: u16
+  savedAt: u64
+  source: SavedParamsSource
+}
+
+export function decodeSavedParams(v: Cbor, path: string): SavedParams throws InvalidPayload {
+  const m = members(v, path, ["params", "count", "savedAt", "source"])
+  return SavedParams {
+    params: decodeSavedParamsParamsList(required(m, "params", path), `${path}.params`),
+    count: (uint(required(m, "count", path), `${path}.count`, 65535) as u16),
+    savedAt: (uint(required(m, "savedAt", path), `${path}.savedAt`, 18446744073709551615) as u64),
+    source: decodeSavedParamsSource(required(m, "source", path), `${path}.source`),
+  }
+}
+
+export function encodeSavedParams(v: SavedParams): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("params", encodeSavedParamsParamsList(v.params))
+  m.set("count", Cbor.Uint(v.count as u64))
+  m.set("savedAt", Cbor.Uint(v.savedAt as u64))
+  m.set("source", encodeSavedParamsSource(v.source))
+  return Cbor.Dict(m)
+}
+
 export struct ParamDefault {
   id: string
   value: f64

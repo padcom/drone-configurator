@@ -4,6 +4,7 @@ import { Cbor, Envelope, MemoryEnd, Transport, decodeEnvelope, encodeEnvelope, e
 import { delay } from "std/timers"
 import { createBackend } from "./app"
 import { recordForTests } from "./recording"
+import { keepForTests } from "./paramstore"
 
 /// How long a test waits for the backend to say something before it fails (ms). A message that never comes is a hang
 /// with no output: with this it is a failure that names what was waited for. It covers every wait of Frontend, a
@@ -190,6 +191,8 @@ export async function start(): Promise<Frontend> throws Error {
   const ends = memoryPair()
   // (a test records its connections only when it asks to: recording.pi)
   recordForTests(false)
+  // (nor does it keep the lists it downloads: paramstore.pi)
+  keepForTests(false)
   createBackend(ends[0]).run()
   await ends[1].receive()  // the backend's hello
   new Frontend(ends[1], ends[1])
