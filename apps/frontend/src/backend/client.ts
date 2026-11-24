@@ -92,10 +92,16 @@ export interface Subscription {
   stop: () => void
 }
 
+/** How a call is made. */
+export interface CallOptions {
+  /** How long the answer is waited for (ms; the Communicator's 30 s when not said), for a method that may take longer. */
+  timeoutMs?: number
+}
+
 /** What the rest of the interface sees of the backend. */
 export interface BackendClient {
   /** Calls a method. Rejects with a BackendError. */
-  call: <K extends MethodName>(method: K, payload: RequestOf<K>) => Promise<ResponseOf<K>>
+  call: <K extends MethodName>(method: K, payload: RequestOf<K>, options?: CallOptions) => Promise<ResponseOf<K>>
   /**
    * Subscribes to a topic; ends with the current effect scope, if there is one.
    * `onEnd` is called once when the backend ends the subscription (with the error, if it failed), and never after
@@ -129,7 +135,7 @@ function endWithScope(stop: () => void): void {
  * `Services`) are what callers see; this is the one place where they are matched to the wire.
  */
 interface Wire {
-  request: (name: string, payload: unknown) => Promise<unknown>
+  request: (name: string, payload: unknown, options?: { timeout?: number }) => Promise<unknown>
   subscribe: (
     name: string,
     params: unknown,
@@ -204,6 +210,16 @@ function openSubscription<K extends TopicName>(wire: Wire, topic: K, params: Par
 }
 
 /**
+ * What the Communicator is asked for a call: its timeout, when the call says one.
+ *
+ * @param options how the call is made
+ * @returns the Communicator's options, or undefined for its defaults
+ */
+function requestOptions(options: CallOptions | undefined): { timeout: number } | undefined {
+  return options?.timeoutMs === undefined ? undefined : { timeout: options.timeoutMs }
+}
+
+/**
  * Makes the client for a link to the backend.
  *
  * @param transport the host's bridge, or the mock backend
@@ -213,9 +229,9 @@ export function createBackendClient(transport: Transport): BackendClient {
   const wire = new Communicator<Services>({ transport, validate }) as unknown as Wire
 
   return {
-    async call(method, payload) {
+    async call(method, payload, options) {
       try {
-        return await wire.request(method, payload) as ResponseOf<typeof method>
+        return await wire.request(method, payload, requestOptions(options)) as ResponseOf<typeof method>
       } catch (error) {
         throw toBackendError(error)
       }

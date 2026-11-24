@@ -16,3 +16,9 @@ if (typeof window !== 'undefined') {
     this.dispatchEvent(new Event('close'))
   }
 }
+
+// Every language is loaded before the tests: the app loads one when it is chosen (i18n.ts), and the tests switch languages
+// without waiting for it.
+await (await import('@/i18n/i18n')).loadAllLanguages()
+
+export {}

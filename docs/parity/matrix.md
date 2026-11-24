@@ -51,7 +51,7 @@ under the last table and are not counted.
 
 | Capability | Issue | Status | What remains |
 |---|---|---|---|
-| Download and cache ArduPilot parameter metadata | #35 | Partial | the file is supplied or loaded from a path; no download, no per-version cache |
+| Download and cache ArduPilot parameter metadata | #35 | Done | downloaded per vehicle type and version (exact or latest, said in Settings), cached with refresh, fetched in 128 KiB parts with progress (a slow link that makes progress gets it); `metadata-download.e2e.ts`, `sitl-metadata.e2e.ts` (local stand-in, every PR), `weekly-metadata-server.e2e.ts` (the real server, weekly); `metadataCachedLoad` budget |
 | Full table with groups and fast search | #36 | Partial | no everyday-words list, no "recently used" group, no budget test |
 | Batch edit with verified writes | #37 | Partial | implemented; not confirmed: one rejected value, rounding, the override callout, discard |
 | Parameter download over MAVFTP, cached per vehicle | #38 | Partial | no per-vehicle cache |

@@ -30,7 +30,38 @@
       "udp": "Prüfe, ob das Fahrzeug oder der Simulator an diesen Host und Port sendet, und verbinde dann erneut.",
       "tcp": "Prüfe, ob das Fahrzeug auf dieser Adresse lauscht und ob nichts anderes sie belegt, und verbinde dann erneut.",
       "serial": "Prüfe das Kabel, ob kein anderes Programm den Port geöffnet hat, und die Baudrate, und verbinde dann erneut.",
-      "simulator": "Schließe den Dialog und versuche es noch einmal; wenn es weiter fehlschlägt, starte die Anwendung neu."
+      "simulator": "Schließe den Dialog und versuche es noch einmal; wenn es weiter fehlschlägt, starte die Anwendung neu.",
+      "udp-client": "Prüfen Sie, ob das Fahrzeug auf diesem Host und Port lauscht und keine Firewall seine Antworten blockiert, dann verbinden Sie erneut.",
+      "tcp-server": "Prüfen Sie, ob sich das Fahrzeug oder die Weiterleitung mit diesem Port verbindet und nichts anderes ihn nutzt, dann verbinden Sie erneut."
+    },
+    "role": {
+      "label": "Wer die Verbindung beginnt",
+      "udp": "Auf das Fahrzeug warten",
+      "udp-client": "An das Fahrzeug senden",
+      "tcp": "Mit dem Fahrzeug verbinden",
+      "tcp-server": "Das Fahrzeug verbinden lassen",
+      "note": {
+        "udp": "Das Fahrzeug oder der Simulator sendet an diesen Computer.",
+        "udp-client": "Dieser Computer sendet zuerst an das Fahrzeug und nimmt seine Antworten an: für ein Fahrzeug, einen Begleitrechner oder einen Router, der lauscht.",
+        "tcp": "Dieser Computer verbindet sich mit dem Fahrzeug, das auf dem Port lauscht.",
+        "tcp-server": "Dieser Computer lauscht auf dem Port, und das Fahrzeug oder eine Weiterleitung verbindet sich damit. Er wartet bis zu 30 Sekunden."
+      }
+    },
+    "everywhere": "Auf allen Netzwerkschnittstellen lauschen",
+    "loopback": "Nur Programme auf diesem Computer erreichen Port {port}.",
+    "exposed": "Andere Computer in Ihrem Netzwerk erreichen Port {port}. Wählen Sie das nur in einem Netzwerk, dem Sie vertrauen.",
+    "found": {
+      "label": "Fahrzeuge im Netzwerk",
+      "again": "Erneut suchen",
+      "looking": "Suche im Netzwerk…",
+      "none": "Im Netzwerk hat sich kein MAVLink-Dienst gemeldet. Prüfen Sie, ob das Fahrzeug in diesem Netzwerk ist, oder verbinden Sie sich über die Adresse.",
+      "failed": "Im Netzwerk konnte nicht gesucht werden: {error}. Prüfen Sie die Netzwerkverbindung, oder verbinden Sie sich über die Adresse.",
+      "count": "{count} Dienst gefunden. | {count} Dienste gefunden.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -937,7 +968,30 @@
       "pathHelp": "Wo die Datei mit den Parameter-Metadaten liegt. Eine Datei, die Sie von Hand laden, wird hier gemerkt und beim Start wieder geladen, wenn der Schalter unten an ist.",
       "choose": "Datei wählen…",
       "autoload": "Parameter-Metadaten beim Start der Anwendung laden",
-      "autoloadHelp": "Ist er aus, wird beim Start nichts geladen; der Pfad oben bleibt erhalten."
+      "autoloadHelp": "Ist er aus, wird beim Start nichts geladen; der Pfad oben bleibt erhalten.",
+      "download": "Parameter-Metadaten für das verbundene Fahrzeug herunterladen",
+      "downloadHelp": "Vom Server von ArduPilot, passend zu Fahrzeugtyp und Firmware-Version, und auf diesem Computer für das nächste Mal gespeichert. Eine Datei, die Sie laden, wird stattdessen verwendet.",
+      "refresh": "Erneut herunterladen",
+      "status": {
+        "downloading": "Parameter-Metadaten werden heruntergeladen…",
+        "downloadingPart": "Parameter-Metadaten werden heruntergeladen: {received} von {total} MB…",
+        "file": "Eine von Ihnen geladene Datei wird verwendet. Solange das so ist, wird nichts heruntergeladen.",
+        "none": "Noch nichts heruntergeladen. Das geschieht, sobald ein Fahrzeug verbunden ist.",
+        "failed": "Nicht heruntergeladen: {error}. Parameter werden ohne Beschreibungen angezeigt.",
+        "exact": "Metadaten für {vehicle} {version} von ArduPilot, heruntergeladen am {date}.",
+        "latest": "Neueste Metadaten für {vehicle} von ArduPilot, heruntergeladen am {date}: Das Fahrzeug hat keine veröffentlichte Firmware-Version gemeldet.",
+        "latestFor": "Neueste Metadaten für {vehicle} von ArduPilot, heruntergeladen am {date}: ArduPilot hat keine für {version}.",
+        "fromCache": "In {seconds} s von diesem Computer geladen.",
+        "stale": "Der Server von ArduPilot war nicht erreichbar, daher sind sie womöglich veraltet."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Schließen",
     "title": "Einstellungen",
@@ -1051,7 +1105,8 @@
       "simulator": "Simulator",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Seriell"
+      "serial": "Seriell",
+      "found": "Gefunden"
     },
     "host": "Host",
     "port": "Port",
@@ -1253,11 +1308,6 @@
     "loadMetadata": "Metadaten laden"
   },
   "paramFile": {
-    "save": {
-      "param": ".param speichern",
-      "parm": ".parm speichern",
-      "qgc": ".params speichern"
-    },
     "format": {
       "param": "ArduPilot .param (NAME,WERT)",
       "parm": "MAVProxy .parm (NAME WERT)",
@@ -1425,7 +1475,7 @@
   },
   "reason": {
     "notJson": "kein JSON",
-    "xml": "eine XML-Datei: gelesen wird nur JSON (ArduPilots apm.pdef.json oder unser eigenes Format)",
+    "xml": "eine XML-Datei, die nicht ArduPilots apm.pdef.xml ist",
     "notMetadata": "keine Parameter-Metadaten-Datei: erwartet wird ArduPilots apm.pdef.json oder unser eigenes Format",
     "metadataVersion": "Metadatenversion {version} (diese App liest Version 1)",
     "noParameters": "sie beschreibt keine Parameter",
@@ -1447,6 +1497,9 @@
     "metadataLoad": "Die Metadaten können nicht geladen werden: {reason}.",
     "metadataLoadFrom": "Die Metadaten aus {path} können nicht geladen werden: {reason}.",
     "metadataReadFrom": "Die Metadaten aus {path} können nicht geladen werden: {error}",
+    "metadataLatest": "Das Fahrzeug hat keine veröffentlichte Firmware-Version gemeldet, daher werden die neuesten Metadaten für {vehicle} von ArduPilot verwendet. Einige Parameter können abweichen.",
+    "metadataLatestFor": "ArduPilot hat keine Metadaten für {vehicle} {version}, daher werden die neuesten verwendet. Einige Parameter können abweichen.",
+    "metadataRefresh": "Die Metadaten können nicht erneut heruntergeladen werden: {error}. Die verwendeten Metadaten bleiben erhalten.",
     "metadataPathNotKept": "Der Pfad von {path} wurde nicht gemerkt: beim Start der Anwendung wird nur eine .json-Datei geladen.",
     "open": "Konnte nicht geöffnet werden: {error}",
     "settingsUnavailable": "Die Einstellungen sind nicht verfügbar: {error}",

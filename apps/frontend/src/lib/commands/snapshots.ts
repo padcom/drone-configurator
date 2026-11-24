@@ -102,8 +102,6 @@ export class SaveParamFile implements Command {
 
   readonly labelKey: string
 
-  readonly buttonLabelKey: string
-
   readonly groupKey = PARAMETERS_GROUP
 
   readonly icon = 'save'
@@ -118,7 +116,6 @@ export class SaveParamFile implements Command {
   constructor(private readonly format: ParamFileFormat) {
     this.id = `paramFile.save.${format}`
     this.labelKey = `palette.paramFile.${format}`
-    this.buttonLabelKey = `paramFile.save.${format}`
   }
 
   /**

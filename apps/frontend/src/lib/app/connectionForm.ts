@@ -8,7 +8,7 @@ import type { ConnectRequest, SerialPort } from '@/generated/app'
 export interface ConnectionForm {
   /** The kind of link. */
   transport: ConnectRequest['transport']
-  /** The host of a UDP or TCP link (empty: the default). */
+  /** The host of a UDP or TCP link (empty: the default); for a link that listens, `ALL_INTERFACES` or empty. */
   host: string
   /** The port of a UDP or TCP link, as typed (empty: the default). */
   port: string
@@ -30,6 +30,39 @@ function serialRequest(form: ConnectionForm): ConnectRequest {
   return { transport: 'serial', ...(form.device ? { device: form.device } : {}), ...(baud > 0 ? { baud } : {}) }
 }
 
+/** The address that a link which listens is bound to when the user chooses every network interface: it exposes the port. */
+export const ALL_INTERFACES = '0.0.0.0'
+
+/** The links on which the backend listens (#197): the vehicle sends to it, or connects to it. */
+const LISTENING: readonly ConnectRequest['transport'][] = ['udp', 'tcp-server']
+
+/**
+ * Whether the backend listens for the vehicle on this kind of link (it takes no host to go to, only whether every network
+ * interface listens).
+ *
+ * @param transport the kind of link
+ * @returns true when it listens
+ */
+export function listens(transport: ConnectRequest['transport']): boolean {
+  return LISTENING.includes(transport)
+}
+
+/**
+ * The host a request names: for a link that listens, every interface or none (the backend's loopback default); for one that
+ * goes to the vehicle, what was typed.
+ *
+ * @param form what the user typed
+ * @returns the host, or an empty string for the default
+ */
+function hostOf(form: ConnectionForm): string {
+  const host = form.host.trim()
+  if (listens(form.transport)) {
+    return host === ALL_INTERFACES ? host : ''
+  }
+
+  return host
+}
+
 /**
  * The request for a UDP, TCP or simulator link.
  *
@@ -37,7 +70,7 @@ function serialRequest(form: ConnectionForm): ConnectRequest {
  * @returns the request
  */
 function networkRequest(form: ConnectionForm): ConnectRequest {
-  const host = form.host.trim()
+  const host = hostOf(form)
   const port = Number(form.port.trim())
 
   return { transport: form.transport, ...(host ? { host } : {}), ...(port > 0 ? { port } : {}) }
@@ -53,8 +86,54 @@ export function requestFor(form: ConnectionForm): ConnectRequest {
   return form.transport === 'serial' ? serialRequest(form) : networkRequest(form)
 }
 
-/** The kinds of link, in the order of the dialog's tabs. */
-export const TRANSPORTS = ['udp', 'tcp', 'serial', 'simulator'] as const
+/** The dialog's tabs, in order: UDP and TCP each have two ways round (see `ROLES`). */
+export const TABS = ['udp', 'tcp', 'serial', 'simulator'] as const
+
+/** A tab of the dialog. */
+export type Tab = typeof TABS[number]
+
+/** The two ways round of UDP and TCP: the first is the one a tab starts on. */
+export const ROLES: Readonly<Record<'udp' | 'tcp', readonly [ConnectRequest['transport'], ConnectRequest['transport']]>> = {
+  udp: ['udp', 'udp-client'],
+  tcp: ['tcp', 'tcp-server'],
+}
+
+/** Every kind of link. */
+export const TRANSPORTS: readonly ConnectRequest['transport'][] = [
+  'udp', 'udp-client', 'tcp', 'tcp-server', 'serial', 'simulator',
+]
+
+/**
+ * The tab a kind of link is under.
+ *
+ * @param transport the kind of link
+ * @returns its tab
+ */
+export function tabOf(transport: ConnectRequest['transport']): Tab {
+  const network = (Object.keys(ROLES) as ('udp' | 'tcp')[]).find(tab => ROLES[tab].includes(transport))
+
+  return network ?? (transport as Tab)
+}
+
+/**
+ * The kind of link a tab chooses: the one already chosen when it is under that tab, else the tab's first.
+ *
+ * @param tab the tab
+ * @param current the kind of link chosen now
+ * @returns the kind of link
+ */
+export function transportFor(tab: Tab, current: ConnectRequest['transport']): ConnectRequest['transport'] {
+  if (tabOf(current) === tab) {
+    return current
+  }
+
+  return tab === 'udp' || tab === 'tcp' ? ROLES[tab][0] : tab
+}
+
+/** The port each kind of network link uses when none is typed (the backend's defaults). */
+export const DEFAULT_PORTS: Readonly<Record<string, string>> = {
+  'udp': '14550', 'udp-client': '14550', 'tcp': '5760', 'tcp-server': '5760',
+}
 
 /** The key under which the last connection is kept in the settings. */
 export const LAST_KEY = 'connect.last'
