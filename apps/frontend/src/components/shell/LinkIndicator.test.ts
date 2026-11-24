@@ -1,7 +1,7 @@
 // The LINK cell of the top bar on the mock backend: the link's quality as the backend measures it (`link.stats`), a weak or poor
 // link said with an icon and a word, the details in a popover reached from the keyboard, and a dash without a vehicle.
 import { afterEach, expect, it } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
 import TopBar from './TopBar.vue'
 import { shallowRef } from 'vue'
@@ -13,7 +13,14 @@ import { createConfigurator } from '@/composables/useConfigurator'
 import { useLinkStats } from '@/composables/useLinkStats'
 import { createBackendClient } from '@/backend/client'
 
-afterEach(() => {
+/** What a test started: unmounted and disconnected after it, so the mock's 5 ms samples stop before the next file. */
+const started: { wrapper: VueWrapper, handle: ReturnType<typeof createConfigurator> }[] = []
+
+afterEach(async () => {
+  for (const { wrapper, handle } of started.splice(0)) {
+    wrapper.unmount()
+    await handle.vehicle.disconnect()
+  }
   document.body.innerHTML = ''
 })
 
@@ -44,6 +51,7 @@ async function bar() {
   await router.push('/flight')
   const wrapper = mount(TopBar, { global: { plugins: [i18n, router] }, attachTo: document.body })
   await flushPromises()
+  started.push({ wrapper, handle })
 
   return { wrapper, control, handle }
 }
