@@ -5,6 +5,8 @@
 // kept); the folder goes when the file's process does.
 // The map's tiles are OFF in that folder unless the test's own settings say otherwise: the app starts on the Flight data screen,
 // whose map would ask a tile server for its tiles, and no test ever calls a real one (flight-map.e2e.ts has a server of its own).
+// The last connection is the built-in simulator unless the test's own settings say otherwise: a new install opens the Connect
+// dialog on UDP (#27), and the tests that only press Connect mean the simulator (one-key.e2e.ts starts from what it chooses).
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -26,24 +28,31 @@ interface Entry {
   value: string
 }
 
-/** Makes sure the settings say the map's tiles are off, unless the test's own settings say whether they are. */
-function keepTilesOff(): void {
+/** What the settings of a test hold unless it says otherwise: the map's tiles off, and the simulator as the last connection. */
+const DEFAULTS: readonly Entry[] = [
+  { key: 'map.enabled', value: 'false' },
+  { key: 'connect.last', value: JSON.stringify({ transport: 'simulator', host: '', port: '', device: '', baud: '' }) },
+]
+
+/** Makes sure the settings hold the defaults above, for each that the test's own settings do not set. */
+function keepDefaults(): void {
   const found = existsSync(SETTINGS) ? JSON.parse(readFileSync(SETTINGS, 'utf8')) as { version: number, ui: Entry[] } : null
   const document = found ?? { version: 1, ui: [] }
-  if (!document.ui.some(entry => entry.key === 'map.enabled')) {
+  const missing = DEFAULTS.filter(entry => !document.ui.some(kept => kept.key === entry.key))
+  if (missing.length > 0) {
     mkdirSync(dirname(SETTINGS), { recursive: true })
-    writeFileSync(SETTINGS, `${JSON.stringify({ ...document, ui: [...document.ui, { key: 'map.enabled', value: 'false' }] })}\n`)
+    writeFileSync(SETTINGS, `${JSON.stringify({ ...document, ui: [...document.ui, ...missing] })}\n`)
   }
 }
 
 /**
- * Starts the app that `pico-desktop test --e2e` built, and connects to its page (with the map's tiles off, see above).
+ * Starts the app that `pico-desktop test --e2e` built, and connects to its page (with the defaults above).
  *
  * @param options more host arguments, and how long the window may take
  * @returns the app
  */
 export function launchApp(options?: LaunchOptions): Promise<E2eApp> {
-  keepTilesOff()
+  keepDefaults()
 
   return launch(options)
 }

@@ -13,6 +13,18 @@
     "simulator": "Łączy z wbudowanym symulatorem: sprzęt nie jest potrzebny.",
     "last": "Okno otwiera się na ostatnim połączeniu, więc zwykle wystarczy Enter.",
     "cancel": "Anuluj",
+    "again": "Połącz ponownie",
+    "detect": {
+      "device": "Znajdź autopilota",
+      "deviceFound": "Znajdź autopilota (teraz {path})",
+      "baud": "Wypróbuj typowe prędkości",
+      "next": {
+        "NO_SERIAL_PORT": "Podłącz kontroler lotu albo radio telemetrii i połącz ponownie.",
+        "NO_AUTOPILOT_PORT": "Jest kilka portów i żaden nie wygląda na kontroler lotu: wybierz jego port i połącz ponownie.",
+        "PORT_GONE": "Port zniknął: sprawdź kabel, podłącz kontroler lotu z powrotem i połącz ponownie.",
+        "NO_MAVLINK": "Sprawdź, czy port wysyła MAVLink (jego SERIALn_PROTOCOL w pojeździe), albo wybierz jego prędkość, i połącz ponownie."
+      }
+    },
     "open": "Połącz z pojazdem lub zobacz łącze",
     "next": {
       "udp": "Sprawdź, czy pojazd lub symulator wysyła dane na ten host i port, a potem połącz się ponownie.",
@@ -22,6 +34,28 @@
     }
   },
   "topBar": {
+    "link": {
+      "open": "Łącze {value}, {level}: pokaż szczegóły",
+      "title": "Jakość łącza",
+      "level": {
+        "ok": "dobre",
+        "warn": "słabe",
+        "error": "złe"
+      },
+      "quality": "Jakość",
+      "loss": "Utrata pakietów",
+      "lossValue": "{percent}% ({lost} z {sent} pakietów)",
+      "latency": "Opóźnienie",
+      "noLatency": "Brak odpowiedzi na ping",
+      "received": "Odebrane",
+      "sent": "Wysłane",
+      "rate": "{packets} pakietów/s · {bytes}",
+      "silent": "Ostatni pakiet",
+      "silentValue": "{seconds} s temu",
+      "total": "Od połączenia",
+      "totalValue": "utracono {lost} z {sent} pakietów",
+      "window": "Zmierzone w ostatnich {seconds} s."
+    },
     "rebooting": "Restart…",
     "state": {
       "arm": "Uzbrój pojazd (pojazd jest rozbrojony)",
@@ -535,6 +569,9 @@
       "verifiedRule": "Sukces dopiero po potwierdzeniu wartości przez pojazd."
     },
     "feedback": {
+      "popover": "Szczegóły",
+      "popoverTitle": "Jakość łącza",
+      "popoverBody": "Dotarło 98% pakietów, 68 ms w obie strony.",
       "menu": "Mapa",
       "tip": "Zapisano w pojeździe i odczytano z powrotem",
       "tipButton": "Zapisz",
@@ -1441,6 +1478,10 @@
       "label": "Połącz z pojazdem…",
       "keywords": "łącze szeregowy tcp udp port otwórz"
     },
+    "connectAgain": {
+      "label": "Połącz ponownie z ostatnim pojazdem",
+      "keywords": "ponownie ostatni połączenie łącze reconnect"
+    },
     "disconnect": {
       "keywords": "rozłącz zamknij łącze zakończ sesję"
     },
@@ -1481,6 +1522,8 @@
       "noParameters": "Nie ma jeszcze parametrów.",
       "busy": "Parametry są zapisywane lub pobierane albo restart już trwa.",
       "notConnected": "Najpierw połącz się z pojazdem.",
+      "linkUp": "Łącze już działa albo jest nawiązywane.",
+      "noLastConnection": "Nie nawiązano jeszcze żadnego połączenia: użyj Połącz z pojazdem.",
       "stateUnknown": "Stan pojazdu jest nieznany (brak świeżego heartbeat).",
       "armed": "Najpierw rozbrój pojazd. Pojazd w locie nigdy nie jest restartowany.",
       "writing": "Poczekaj, aż parametry zostaną zapisane.",

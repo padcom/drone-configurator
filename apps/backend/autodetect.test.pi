@@ -1,0 +1,213 @@
+// Finding the autopilot's port by its USB identity, and its baud rate by trying the common ones (#27). The ports are
+// in-memory pipes: one rate brings the simulated vehicle, the others silence or noise, and a port can go away.
+import { describe, it, expect } from "std/test"
+import { ByteStream, MemoryStream, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { PortInfo, SerialError } from "padcom/serialport"
+import { DetectError, choosePort, detectBaud, identify, likelyPort, rankOf } from "./autodetect"
+import { described } from "./serial"
+
+const CUBE: PortInfo = { path: "/dev/ttyACM0", vendorId: "2DAE", productId: "1016", product: "CubeOrange" }
+const RADIO: PortInfo = { path: "/dev/ttyUSB0", vendorId: "0403", productId: "6015", product: "FT231X USB UART" }
+const UART: PortInfo = { path: "/dev/ttyS0" }
+const ODD: PortInfo = { path: "/dev/ttyUSB1", vendorId: "abcd", productId: "0001" }
+const ODDER: PortInfo = { path: "/dev/ttyUSB2", vendorId: "abcd", productId: "0002" }
+const PIXHAWK: PortInfo = { path: "/dev/ttyACM1", vendorId: "1209", productId: "5741" }
+
+function knowsBoards(): void throws Error {
+  expect(identify(CUBE)?.name ?? "none").toBe("CubePilot")
+  expect(identify(PIXHAWK)?.name ?? "none").toBe("ArduPilot")
+  expect(identify(RADIO)?.name ?? "none").toBe("FTDI USB-serial")
+  expect(identify(UART)?.name ?? "none").toBe("none")
+  // A vendor matched by product as well: another product of the shared vendor id is not taken.
+  expect(identify({ path: "/dev/x", vendorId: "16d0", productId: "0001" })?.name ?? "none").toBe("none")
+  expect(`${rankOf(CUBE)} ${rankOf(RADIO)} ${rankOf(UART)} ${rankOf(ODD)}`).toBe("2 1 0 0")
+}
+
+function picksTheLikelyPort(): void throws Error {
+  expect(likelyPort([UART, RADIO, CUBE])?.path ?? "none").toBe("/dev/ttyACM0")
+  expect(likelyPort([UART, RADIO])?.path ?? "none").toBe("/dev/ttyUSB0")
+  // Among equals, the first listed.
+  expect(likelyPort([PIXHAWK, CUBE])?.path ?? "none").toBe("/dev/ttyACM1")
+  // Nothing recognised: the one USB port, never a built-in UART, and no guess between two unknown USB devices.
+  expect(likelyPort([UART, ODD])?.path ?? "none").toBe("/dev/ttyUSB1")
+  expect(likelyPort([UART])?.path ?? "none").toBe("none")
+  expect(likelyPort([ODD, ODDER])?.path ?? "none").toBe("none")
+}
+
+function saysWhyNoPort(): void throws Error {
+  expect(choosePort([UART, CUBE]).path).toBe("/dev/ttyACM0")
+  let code = "none"
+  try {
+    choosePort([])
+  } catch (e: DetectError) {
+    code = e.code
+  }
+  expect(code).toBe("NO_SERIAL_PORT")
+  try {
+    choosePort([ODD, ODDER])
+  } catch (e: DetectError) {
+    code = e.code
+  }
+  expect(code).toBe("NO_AUTOPILOT_PORT")
+}
+
+function describesPorts(): void throws Error {
+  const ports = described([UART, RADIO, CUBE]).ports
+  expect(ports.map((p) => `${p.path}:${p.board ?? "-"}:${p.likely ?? false}`).join(" "))
+    .toBe("/dev/ttyS0:-:false /dev/ttyUSB0:FTDI USB-serial:false /dev/ttyACM0:CubePilot:true")
+}
+
+/// A port as the detection sees it: what a rate brings, and whether it was closed.
+class FakePort implements ByteStream {
+  readonly end: MemoryStream
+  public closed: bool = false
+
+  constructor(end: MemoryStream) {
+    this.end = end
+  }
+
+  public read(): Promise<Uint8Array?, Error> {
+    end.read()
+  }
+
+  public write(bytes: Uint8Array): Promise<void, Error> {
+    end.write(bytes)
+  }
+
+  public close(): void {
+    closed = true
+    end.close()
+  }
+}
+
+/// A machine with one port: at `rightBaud` the simulated vehicle is behind it; at another rate it is silent, or sends
+/// noise. After `vanishAfter` opens it is gone.
+class Machine {
+  public opened: int[] = []
+  public ports: FakePort[] = []
+  public sims: SimulatedAutopilot[] = []
+  readonly rightBaud: int
+  readonly noise: bool
+  readonly vanishAfter: int
+
+  constructor(rightBaud: int, noise: bool = false, vanishAfter: int = 100) {
+    this.rightBaud = rightBaud
+    this.noise = noise
+    this.vanishAfter = vanishAfter
+  }
+
+  public async openAt(baud: int): Promise<ByteStream> throws Error {
+    if (opened.length >= vanishAfter) {
+      throw new SerialError("NOT_FOUND", "/dev/ttyACM0: opening it: No such file or directory")
+    }
+    opened.push(baud)
+    const ends = MemoryStream.pair()
+    const port = new FakePort(ends[0])
+    ports.push(port)
+    if (baud == rightBaud) {
+      const sim = new SimulatedAutopilot(ends[1])
+      sim.start(100)
+      sims.push(sim)
+    } else if (noise) {
+      await ends[1].write(Uint8Array.from([0xFD, 0x09, 0x13, 0x55, 0xFE, 0x00, 0xAA, 0x01, 0x02, 0xFD, 0x40, 0x00]))
+    }
+    const s: ByteStream = port
+    return s
+  }
+
+  public stop(): void {
+    for (const s of sims) {
+      s.stop()
+    }
+  }
+}
+
+async function findsTheSecondRate(): Promise<void> throws Error {
+  const m = new Machine(57600, true)
+  const found = await detectBaud((b: int) => m.openAt(b), [115200, 57600, 921600], 400, () => true)
+  expect(`${found!.baud} ${m.opened.join(",")} ${m.ports[0].closed} ${m.ports[1].closed}`).toBe("57600 115200,57600 true false")
+  // What was heard while detecting is the stream's first read: the connection does not wait for the next heartbeat.
+  const first = await found!.stream.read()
+  expect((first?.length ?? 0) > 0).toBe(true)
+  m.stop()
+  found!.stream.close()
+}
+
+async function portVanishes(): Promise<void> throws Error {
+  // Gone before the second rate is opened.
+  const m = new Machine(57600, false, 1)
+  let code = "none"
+  try {
+    await detectBaud((b: int) => m.openAt(b), [115200, 57600], 200, () => true)
+  } catch (e: DetectError) {
+    code = `${e.code} ${e.message}`
+  }
+  expect(code).toBe("PORT_GONE the port went away while trying 57600 baud: /dev/ttyACM0: opening it: No such file or directory")
+  expect(m.ports[0].closed).toBe(true)
+}
+
+async function portEndsWhileListening(): Promise<void> throws Error {
+  // Unplugged while a rate is listened to: its reads end.
+  const ends = MemoryStream.pair()
+  const port = new FakePort(ends[0])
+  const opener = async (_b: int): Promise<ByteStream> throws Error => {
+    ends[1].close()
+    const s: ByteStream = port
+    return s
+  }
+  let code = "none"
+  try {
+    await detectBaud(opener, [115200, 57600], 1000, () => true)
+  } catch (e: DetectError) {
+    code = e.code
+  }
+  expect(`${code} ${port.closed}`).toBe("PORT_GONE true")
+}
+
+async function noRateAnswers(): Promise<void> throws Error {
+  const m = new Machine(0, true)
+  let code = "none"
+  try {
+    await detectBaud((b: int) => m.openAt(b), [115200, 57600], 150, () => true)
+  } catch (e: DetectError) {
+    code = `${e.code} ${e.message}`
+  }
+  expect(`${code} ${m.ports[0].closed} ${m.ports[1].closed}`).toBe("NO_MAVLINK no MAVLink at 115200, 57600 baud true true")
+}
+
+async function firstOpenFails(): Promise<void> throws Error {
+  const m = new Machine(57600, false, 0)
+  let message = "none"
+  try {
+    await detectBaud((b: int) => m.openAt(b), [115200, 57600], 150, () => true)
+  } catch (e: Error) {
+    message = if (e instanceof DetectError) "a detection error" else e.message
+  }
+  expect(message).toBe("/dev/ttyACM0: opening it: No such file or directory")
+}
+
+async function stopsWhenNoLongerWanted(): Promise<void> throws Error {
+  const m = new Machine(57600)
+  let asked = 0
+  const found = await detectBaud((b: int) => m.openAt(b), [115200, 57600], 150, () => {
+    asked += 1
+    return asked == 1
+  })
+  expect(`${found == null} ${m.opened.join(",")}`).toBe("true 115200")
+}
+
+describe("finding the autopilot's port", () => {
+  it("knows autopilots and USB-serial chips by their USB ids", knowsBoards)
+  it("picks the port most likely to be the autopilot", picksTheLikelyPort)
+  it("says why there is no port to use", saysWhyNoPort)
+  it("tells the dashboard what each port is and which one is used", describesPorts)
+})
+
+describe("finding the baud rate", () => {
+  it("finds MAVLink on the second rate tried, past noise on the first", findsTheSecondRate)
+  it("says the port went away when it can't be opened again", portVanishes)
+  it("says the port went away when its reads end", portEndsWhileListening)
+  it("says no rate brought MAVLink, and closes every port it opened", noRateAnswers)
+  it("gives the port's own error when it can't be opened at all", firstOpenFails)
+  it("stops when the detection is no longer wanted", stopsWhenNoLongerWanted)
+})

@@ -5189,18 +5189,32 @@ export function encodeSerialPorts(v: SerialPorts): Cbor {
 export struct SerialPort {
   path: string
   description?: string
+  board?: string
+  likely?: bool
 }
 
 export function decodeSerialPort(v: Cbor, path: string): SerialPort throws InvalidPayload {
-  const m = members(v, path, ["path", "description"])
+  const m = members(v, path, ["path", "description", "board", "likely"])
   const cbor1 = m.get("description")
   let opt1: string? = null
   if (cbor1 != null) {
     opt1 = text(cbor1, `${path}.description`)
   }
+  const cbor2 = m.get("board")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.board`)
+  }
+  const cbor3 = m.get("likely")
+  let opt3: bool? = null
+  if (cbor3 != null) {
+    opt3 = boolean(cbor3, `${path}.likely`)
+  }
   return SerialPort {
     path: text(required(m, "path", path), `${path}.path`),
     description: opt1,
+    board: opt2,
+    likely: opt3,
   }
 }
 
@@ -5210,6 +5224,14 @@ export function encodeSerialPort(v: SerialPort): Cbor {
   const opt1 = v.description
   if (opt1 != null) {
     m.set("description", Cbor.Text(opt1))
+  }
+  const opt2 = v.board
+  if (opt2 != null) {
+    m.set("board", Cbor.Text(opt2))
+  }
+  const opt3 = v.likely
+  if (opt3 != null) {
+    m.set("likely", Cbor.Bool(opt3))
   }
   return Cbor.Dict(m)
 }
@@ -6419,5 +6441,60 @@ export function decodeForwardStatus(v: Cbor, path: string): ForwardStatus throws
 export function encodeForwardStatus(v: ForwardStatus): Cbor {
   const m = new Map<string, Cbor>()
   m.set("endpoints", encodeForwardStatusEndpointsList(v.endpoints))
+  return Cbor.Dict(m)
+}
+
+export struct LinkStats {
+  windowMs: u32
+  received: u32
+  lost: u32
+  rxRate: f64
+  txRate: f64
+  rxBytes: f64
+  txBytes: f64
+  latencyMs?: f64
+  silentMs: u32
+  totalReceived: u32
+  totalLost: u32
+}
+
+export function decodeLinkStats(v: Cbor, path: string): LinkStats throws InvalidPayload {
+  const m = members(v, path, ["windowMs", "received", "lost", "rxRate", "txRate", "rxBytes", "txBytes", "latencyMs", "silentMs", "totalReceived", "totalLost"])
+  const cbor7 = m.get("latencyMs")
+  let opt7: f64? = null
+  if (cbor7 != null) {
+    opt7 = float(cbor7, `${path}.latencyMs`)
+  }
+  return LinkStats {
+    windowMs: (uint(required(m, "windowMs", path), `${path}.windowMs`, 4294967295) as u32),
+    received: (uint(required(m, "received", path), `${path}.received`, 4294967295) as u32),
+    lost: (uint(required(m, "lost", path), `${path}.lost`, 4294967295) as u32),
+    rxRate: float(required(m, "rxRate", path), `${path}.rxRate`),
+    txRate: float(required(m, "txRate", path), `${path}.txRate`),
+    rxBytes: float(required(m, "rxBytes", path), `${path}.rxBytes`),
+    txBytes: float(required(m, "txBytes", path), `${path}.txBytes`),
+    latencyMs: opt7,
+    silentMs: (uint(required(m, "silentMs", path), `${path}.silentMs`, 4294967295) as u32),
+    totalReceived: (uint(required(m, "totalReceived", path), `${path}.totalReceived`, 4294967295) as u32),
+    totalLost: (uint(required(m, "totalLost", path), `${path}.totalLost`, 4294967295) as u32),
+  }
+}
+
+export function encodeLinkStats(v: LinkStats): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("windowMs", Cbor.Uint(v.windowMs as u64))
+  m.set("received", Cbor.Uint(v.received as u64))
+  m.set("lost", Cbor.Uint(v.lost as u64))
+  m.set("rxRate", Cbor.Float(v.rxRate))
+  m.set("txRate", Cbor.Float(v.txRate))
+  m.set("rxBytes", Cbor.Float(v.rxBytes))
+  m.set("txBytes", Cbor.Float(v.txBytes))
+  const opt7 = v.latencyMs
+  if (opt7 != null) {
+    m.set("latencyMs", Cbor.Float(opt7))
+  }
+  m.set("silentMs", Cbor.Uint(v.silentMs as u64))
+  m.set("totalReceived", Cbor.Uint(v.totalReceived as u64))
+  m.set("totalLost", Cbor.Uint(v.totalLost as u64))
   return Cbor.Dict(m)
 }

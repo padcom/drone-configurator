@@ -1,0 +1,286 @@
+// The quality of the link to the vehicle (#29), from the MAVLink specification: packet loss from the sequence numbers of what is
+// received (each sender numbers its packets 0 to 255 and around again, so a gap is that many packets that never arrived), the rates
+// received and sent, and the latency as the round trip of a TIMESYNC (https://mavlink.io/en/services/timesync.html: a request has
+// `tc1` 0 and our time in `ts1`, the answer mirrors `ts1` back), which ArduPilot answers. Streamed as `link.stats` once a second.
+import { Cbor, Communicator, Sink } from "pico-desktop/communicator"
+import { ByteStream, MavLinkConnection, Received, TimeSync } from "padcom/pico-mavlink"
+import { ConnectionState, LinkStats, encodeLinkStats } from "./generated/app"
+import { APP_COMPID, GCS_SYSID } from "./heartbeat"
+import { SessionPart, link } from "./session"
+
+/// How many one-second buckets the window holds.
+export const WINDOW_BUCKETS: int = 5
+
+/// How long one bucket is (ms).
+export const BUCKET_MS: int = 1000
+
+/// How often a TIMESYNC is sent (ms).
+export const PING_MS: int = 1000
+
+/// An answer older than this is not waited for (ms): a reply after it is not a round trip of this link any more.
+export const PING_TIMEOUT_MS: int = 5000
+
+/// What one second of the link counted.
+export class Bucket {
+  public received: int = 0
+  public lost: int = 0
+  public rxBytes: int = 0
+  public sent: int = 0
+  public txBytes: int = 0
+  public rttSum: f64 = 0.0
+  public rtts: int = 0
+}
+
+/// The counters of a link: what is received, by sender, what is sent, and the round trips, in one-second buckets of which the last
+/// `WINDOW_BUCKETS` are kept. Time is passed in (ms), so a test needs no waiting.
+export class LinkMeter {
+  /// The last sequence number of each sender (system * 256 + component).
+  readonly lastSeq: Map<int, int> = new Map<int, int>()
+  /// The buckets, oldest first; the last is the one being filled.
+  buckets: Bucket[] = []
+  /// When the bucket being filled began (ms), when the meter began, and whether it has.
+  bucketAt: int = 0
+  startedAt: int = 0
+  started: bool = false
+  /// When the last packet arrived (ms; 0: none yet).
+  public heardAt: int = 0
+  public totalReceived: int = 0
+  public totalLost: int = 0
+
+  /// Starts again from nothing, at `now`.
+  public reset(now: int): void {
+    lastSeq.clear()
+    buckets = [new Bucket()]
+    bucketAt = now
+    startedAt = now
+    started = true
+    heardAt = 0
+    totalReceived = 0
+    totalLost = 0
+  }
+
+  /// The bucket for `now`: the buckets that ended since are closed (empty ones for seconds with nothing), and at most
+  /// `WINDOW_BUCKETS` are kept.
+  current(now: int): Bucket {
+    if (!started) {
+      reset(now)
+    }
+    while (now - bucketAt >= BUCKET_MS) {
+      buckets.push(new Bucket())
+      bucketAt += BUCKET_MS
+      if (buckets.length > WINDOW_BUCKETS) {
+        buckets = buckets.slice(buckets.length - WINDOW_BUCKETS)
+      }
+    }
+    return buckets[buckets.length - 1]
+  }
+
+  /// A packet from `sender` (system * 256 + component) with sequence number `seq`, `bytes` long, arrived at `now`. The packets
+  /// between the sender's last one and this one were lost; the same number again is a duplicate (counted as received, not lost).
+  public take(sender: int, seq: int, bytes: int, now: int): void {
+    const b = current(now)
+    b.received += 1
+    b.rxBytes += bytes
+    totalReceived += 1
+    heardAt = now
+    const last = lastSeq.get(sender)
+    lastSeq.set(sender, seq)
+    if (last == null) {
+      return
+    }
+    const gap = gapOf(last!, seq)
+    b.lost += gap
+    totalLost += gap
+  }
+
+  /// A frame of `bytes` was sent at `now`.
+  public sent(bytes: int, now: int): void {
+    const b = current(now)
+    b.sent += 1
+    b.txBytes += bytes
+  }
+
+  /// A round trip of `ms` was measured at `now`.
+  public roundTrip(ms: f64, now: int): void {
+    const b = current(now)
+    b.rttSum += ms
+    b.rtts += 1
+  }
+
+  /// What the window says at `now`.
+  public stats(now: int): LinkStats {
+    current(now)
+    const w = sum()
+    const spanMs = windowOf(now)
+    const seconds = (spanMs as f64) / 1000.0
+    const s = LinkStats {
+      windowMs: spanMs as u32,
+      received: w.received as u32,
+      lost: w.lost as u32,
+      rxRate: rate(w.received, seconds),
+      txRate: rate(w.sent, seconds),
+      rxBytes: rate(w.rxBytes, seconds),
+      txBytes: rate(w.txBytes, seconds),
+      silentMs: (if (heardAt == 0) now - startedAt else now - heardAt) as u32,
+      totalReceived: totalReceived as u32,
+      totalLost: totalLost as u32,
+    }
+    if (w.rtts > 0) {
+      s.latencyMs = Math.round(w.rttSum / (w.rtts as f64) * 10.0) / 10.0
+    }
+    return s
+  }
+
+  /// The buckets of the window added up.
+  sum(): Bucket {
+    const out = new Bucket()
+    for (const b of buckets) {
+      out.received += b.received
+      out.lost += b.lost
+      out.rxBytes += b.rxBytes
+      out.sent += b.sent
+      out.txBytes += b.txBytes
+      out.rttSum += b.rttSum
+      out.rtts += b.rtts
+    }
+    return out
+  }
+
+  /// How long the window is at `now` (ms): the full buckets and the part of the one being filled, at least one ms.
+  windowOf(now: int): int {
+    const span = (buckets.length - 1) * BUCKET_MS + (now - bucketAt)
+    if (span < 1) 1 else span
+  }
+}
+
+/// The meter of the session.
+export const meter = new LinkMeter()
+
+/// How many packets are missing between sequence numbers `last` and `seq` (0 to 255, around again): 0 for the next one and for the
+/// same one again (a duplicate), else the numbers skipped, across the wrap.
+export function gapOf(last: int, seq: int): int {
+  const step = (seq - last + 256) % 256
+  if (step == 0) 0 else step - 1
+}
+
+/// `count` per `seconds`, to one decimal.
+function rate(count: int, seconds: f64): f64 {
+  return Math.round((count as f64) / seconds * 10.0) / 10.0
+}
+
+/// The connection's stream, counting what is written (the frames sent) into the meter. Reads and closing go through.
+export class CountedStream implements ByteStream {
+  readonly inner: ByteStream
+
+  constructor(inner: ByteStream) {
+    this.inner = inner
+  }
+
+  public read(): Promise<Uint8Array?, Error> {
+    inner.read()
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    await inner.write(bytes)
+    meter.sent(bytes.length, Date.now() as int)
+  }
+
+  public close(): void {
+    inner.close()
+  }
+}
+
+/// Wraps the stream under the vehicle connection so that what it sends is counted (connection.pi).
+export function counted(inner: ByteStream): ByteStream {
+  const s: ByteStream = new CountedStream(inner)
+  return s
+}
+
+/// Listens to the vehicle while a session is up: counts every packet, and pings with TIMESYNC.
+class Quality implements SessionPart {
+  public conn: MavLinkConnection? = null
+  public listener: int = 0
+  public timer: int = -1
+
+  public attach(c: MavLinkConnection): void {
+    if (conn != null) {
+      detach()
+    }
+    conn = c
+    meter.reset(Date.now() as int)
+    listener = c.on((r: Received) => heard(r))
+    ping()
+    timer = setInterval(() => ping(), PING_MS)
+  }
+
+  public detach(): void {
+    clearInterval(timer)
+    timer = -1
+    const c = conn
+    if (c != null) {
+      c!.off(listener)
+    }
+    conn = null
+  }
+
+  /// A packet arrived: counted, and taken as a round trip when it answers one of our TIMESYNCs.
+  public heard(r: Received): void {
+    const h = r.packet.header
+    const now = Date.now() as int
+    meter.take(h.sysid * 256 + h.compid, h.seq, r.packet.buffer.length, now)
+    const m = r.message
+    if (m instanceof TimeSync) {
+      answered(m, now)
+    }
+  }
+
+  /// A TIMESYNC answer to us (`tc1` is not 0, and it is for our system and component, or for 0/0 from a vehicle that does not fill
+  /// them in): the round trip is from the time we sent, which it mirrors in `ts1`.
+  answered(m: TimeSync, now: int): void {
+    const forUs = (m.targetSystem as int == GCS_SYSID && m.targetComponent as int == APP_COMPID)
+      || (m.targetSystem as int == 0 && m.targetComponent as int == 0)
+    if (m.tc1 == (0 as i64) || !forUs) {
+      return
+    }
+    const rtt = performance.now() - (m.ts1 as f64) / 1000000.0
+    if (rtt >= 0.0 && rtt <= (PING_TIMEOUT_MS as f64)) {
+      meter.roundTrip(rtt, now)
+    }
+  }
+
+  /// Sends a TIMESYNC request to the vehicle, with the time since the program started in `ts1` (ns).
+  async ping(): Promise<void> {
+    const c = conn
+    if (c == null || link.sysid == 0) {
+      return
+    }
+    const m = new TimeSync()
+    m.tc1 = 0 as i64
+    m.ts1 = (performance.now() * 1000000.0) as i64
+    m.targetSystem = link.sysid as u8
+    m.targetComponent = link.compid as u8
+    try {
+      await c!.send(m)
+    } catch (e: Error) {
+      // No link took it (all are down): the next ping goes when there is one.
+    }
+  }
+}
+
+const quality = new Quality()
+
+/// Registers the service's subscription on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("linkstats", quality)
+  c.publish("link.stats", streamStats)
+}
+
+/// The link's quality once a second, while a vehicle is connected.
+function streamStats(_params: Cbor?, sink: Sink): void throws Error {
+  const timer = setInterval(() => {
+    if (link.state.state == ConnectionState.Connected) {
+      sink.next(encodeLinkStats(meter.stats(Date.now() as int)))
+    }
+  }, BUCKET_MS)
+  sink.onClose = () => clearInterval(timer)
+}

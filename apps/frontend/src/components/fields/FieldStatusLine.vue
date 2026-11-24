@@ -1,6 +1,6 @@
 <template>
-  <div class="field-status" :data-status="status">
-    <p :id="statusId" class="status" :class="status">
+  <div class="field-status" :class="{ compact }" :data-status="status">
+    <p :id="statusId" class="status" :class="[status, { 'visually-hidden': quiet }]" :title="compact ? words : undefined">
       <Icon v-if="mark !== undefined" :name="mark" />
       <span>{{ words }}</span>
     </p>
@@ -37,9 +37,15 @@ const props = withDefaults(defineProps<{
   rejection?: string
   /** The id of the line of words, for the control's `aria-describedby`. */
   statusId?: string
+  /**
+   * For a dense layout (a table of fields): the line takes no room while the field shows the vehicle's value (it is still read
+   * out), and is one line, cut with an ellipsis, when it says more (the whole of it is its title).
+   */
+  compact?: boolean
 }>(), {
   rejection: undefined,
   statusId: undefined,
+  compact: false,
 })
 
 const emit = defineEmits<{
@@ -60,6 +66,8 @@ const MARKS: Partial<Record<FieldStatus, IconName>> = {
   draft: 'info',
 }
 const mark = computed(() => MARKS[status.value])
+/** A compact line with nothing to add to the field: the vehicle's value (or none yet) is what the field already shows. */
+const quiet = computed(() => props.compact && (status.value === 'vehicle' || status.value === 'unknown'))
 
 /**
  * A value as the field shows it.

@@ -36,8 +36,11 @@ const LAST_LIST_MS = 30_000
 const SHOW_ATTEMPTS = 3
 const PARAM = 'BATT_CAPACITY'
 const STEP = 100
-/** How much of the vehicle's talk to let through before the cable is pulled: about a third of a full list (~50 kB). */
-const DOWNLOAD_CUT_BYTES = 15_000
+/**
+ * How much of the list itself (PARAM_VALUE or FTP frames, not telemetry) passes before the cable is pulled: about a hundred
+ * parameters one by one, or a third of ArduPilot's packed list over FTP (some 12 kB for its ~1370). Mid-list either way.
+ */
+const DOWNLOAD_CUT_BYTES = 4000
 
 // What the run has started (undefined until it has), and the parameter counts it has seen.
 let sitl: Sitl | undefined
@@ -255,7 +258,7 @@ async function resumesAfterTelemetryCut(): Promise<void> {
 async function resumesAfterDownloadCut(): Promise<void> {
   await showScreen(window(), 'parameters')
   const before = counts.at(-1)
-  const pulled = cable().cutAfter(DOWNLOAD_CUT_BYTES)
+  const pulled = cable().cutInDownload(DOWNLOAD_CUT_BYTES)
   await window().click('#refresh')
   await window().waitForText('#list-status', /Downloading the parameters/u, RECONNECT_MS)
   await pulled

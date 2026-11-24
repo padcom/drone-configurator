@@ -1,7 +1,10 @@
 // What the connection bar sends, from plain values (no DOM).
 import type { ConnectRequest, SerialPort } from '@/generated/app'
 
-/** What the user typed or chose in the connection form. */
+/**
+ * What the user typed or chose in the connection form. For a serial link, an empty device or baud rate is left to the backend
+ * to find (#27): the port most likely to be the autopilot, and the first common rate that brings MAVLink.
+ */
 export interface ConnectionForm {
   /** The kind of link. */
   transport: ConnectRequest['transport']
@@ -9,9 +12,9 @@ export interface ConnectionForm {
   host: string
   /** The port of a UDP or TCP link, as typed (empty: the default). */
   port: string
-  /** The serial device (empty: none listed). */
+  /** The serial device (empty: the one the backend finds). */
   device: string
-  /** The baud rate of a serial link, as chosen. */
+  /** The baud rate of a serial link, as chosen (empty: the one the backend finds). */
   baud: string
 }
 
@@ -22,7 +25,9 @@ export interface ConnectionForm {
  * @returns the request
  */
 function serialRequest(form: ConnectionForm): ConnectRequest {
-  return { transport: 'serial', ...(form.device ? { device: form.device } : {}), baud: Number(form.baud) }
+  const baud = Number(form.baud)
+
+  return { transport: 'serial', ...(form.device ? { device: form.device } : {}), ...(baud > 0 ? { baud } : {}) }
 }
 
 /**
@@ -55,6 +60,12 @@ export const TRANSPORTS = ['udp', 'tcp', 'serial', 'simulator'] as const
 export const LAST_KEY = 'connect.last'
 
 /**
+ * The form before any connection was made: UDP on the default port (14550, where SITL and most telemetry bridges send), and
+ * for serial, the port and the rate found by the backend.
+ */
+export const FIRST_FORM: Readonly<ConnectionForm> = { transport: 'udp', host: '', port: '', device: '', baud: '' }
+
+/**
  * Whether a value read back is a connection form: a known kind of link and the four texts.
  *
  * @param value what was read
@@ -85,12 +96,25 @@ export function parseLast(text: string | undefined): ConnectionForm | null {
 }
 
 /**
- * The device to keep selected when the list of ports changes: the chosen one if it is still there, else the first.
+ * What reconnects to the last connection, read from the settings.
  *
- * @param chosen the device chosen so far
+ * @param text what the settings hold under `connect.last`, if anything
+ * @returns the request, or null when no connection was kept
+ */
+export function lastRequest(text: string | undefined): ConnectRequest | null {
+  const last = parseLast(text)
+
+  return last ? requestFor(last) : null
+}
+
+/**
+ * The device to keep selected when the list of ports changes: the chosen one if it is still there, else the one the backend
+ * finds (an empty string).
+ *
+ * @param chosen the device chosen so far (empty: the one the backend finds)
  * @param ports the ports now listed
- * @returns the device, or an empty string without ports
+ * @returns the device, or an empty string
  */
 export function deviceAmong(chosen: string, ports: SerialPort[]): string {
-  return ports.some(port => port.path === chosen) ? chosen : (ports[0]?.path ?? '')
+  return ports.some(port => port.path === chosen) ? chosen : ''
 }

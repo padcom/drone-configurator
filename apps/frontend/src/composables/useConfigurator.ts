@@ -22,6 +22,7 @@ import { type AnalysisModel, useAnalysis } from './useAnalysis'
 import { type ForwardingModel, useForwarding } from './useForwarding'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
+import { type LinkStatsModel, useLinkStats } from './useLinkStats'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -93,6 +94,8 @@ export interface ConfiguratorHandle {
   forwarding: ForwardingModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
+  /** The quality of the link to the vehicle: loss, rates and latency. */
+  link: LinkStatsModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
@@ -546,6 +549,20 @@ function keepMetadataPath(settings: SettingsModel, path: string): void {
 }
 
 /**
+ * The link's quality, started: it follows what the backend measures while a vehicle is connected.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the link's quality
+ */
+function startLink(client: BackendClient, vehicle: Vehicle): LinkStatsModel {
+  const link = useLinkStats({ client, connection: vehicle.connection })
+  void link.watch()
+
+  return link
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -577,7 +594,7 @@ export function createConfigurator(
   watch(metadata.metadata, () => parameters.refreshWarning())
   const models = {
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
-    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle),
+    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), link: startLink(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
     forwarding: useForwarding({ client, settings }),
   }

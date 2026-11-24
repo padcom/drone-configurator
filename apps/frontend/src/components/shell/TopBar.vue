@@ -71,6 +71,8 @@
             :items="modes.items.value"
             @select="modes.pick"
           />
+          <!-- LINK is the link's quality, from the backend's own measure (link.stats), and the button to its details. -->
+          <LinkIndicator v-else-if="cell.id === 'link'" />
           <template v-else-if="cell.missing">
             <span aria-hidden="true">{{ cell.value }}</span>
             <span class="visually-hidden">{{ t('truth.notReported') }}</span>
@@ -81,6 +83,8 @@
     </dl>
     <div class="actions">
       <!-- The command palette has no button here: it is the command "Show command palette", reached by its key. -->
+      <!-- With the link down and a last connection kept, one click connects to it again (#27); its key works anywhere. -->
+      <CommandButton v-if="again" id="connect-again" command="connect.last" look="primary" icon-position="none" />
       <CommandButton id="disconnect-button" command="vehicle.disconnect" icon-position="none" />
     </div>
   </header>
@@ -90,6 +94,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
+import LinkIndicator from './LinkIndicator.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Menu from '@/components/ui/Menu.vue'
@@ -101,13 +106,15 @@ import { HOME } from '@/screens/registry'
 import { cellsFor, nameWithAge, vehicleCellFor } from '@/lib/fly/topBar'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useCommandRunner } from '@/composables/useCommandRunner'
+import { useCommandContext, useCommands } from '@/composables/useCommands'
 import { useFormat } from '@/i18n/useFormat'
 import { useTelemetry } from '@/composables/useTelemetry'
 
 // The top bar: the logo (home), the vehicle and the link, the five live cells MODE / STATE / BATTERY / GPS / LINK, and
-// Disconnect. The cells show a vehicle only while the link is up (the last telemetry of a link that is gone is not what the
-// vehicle is doing), and an armed vehicle fills its STATE cell amber, with the word ARMED too. Two cells are controls: MODE opens
-// the list of modes (a scrolling menu), and STATE of a disarmed vehicle starts arming.
+// Disconnect, with "Connect again" before it while the link is down and a last connection is kept (#27). The cells show a
+// vehicle only while the link is up (the last telemetry of a link that is gone is not what the vehicle is doing), and an armed
+// vehicle fills its STATE cell amber, with the word ARMED too. Two cells are controls: MODE opens the list of modes (a scrolling
+// menu), and STATE of a disarmed vehicle starts arming.
 const { t } = useI18n()
 const configurator = useConfigurator()
 // The vehicle chip opens the connect dialog by running the `connect.open` command, as the buttons next to it run theirs.
@@ -118,6 +125,10 @@ const state = computed(() => configurator.fields.connection.value.state)
 const vehicle = computed(() => vehicleCellFor(configurator.fields.connection.value, t))
 const cells = computed(() => cellsFor(state.value === 'connected' ? telemetry.value : null, t, format))
 const modes = useModeMenu()
+const commands = useCommands()
+const commandContext = useCommandContext()
+/** Whether "Connect again" is offered: the link is down and a last connection is kept. */
+const again = computed(() => commands.get('connect.last')?.isEnabled(commandContext).enabled === true)
 const { armed } = useArmGrace()
 /** Whether STATE is the arm control: connected, and the heartbeat says disarmed (not armed, not just asked to arm). */
 const canArm = computed(() => state.value === 'connected' && armed.value === false)

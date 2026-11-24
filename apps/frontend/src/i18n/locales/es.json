@@ -13,6 +13,18 @@
     "simulator": "Se conecta al simulador integrado: no hace falta hardware.",
     "last": "Se abre con tu última conexión, así que normalmente basta con pulsar Intro.",
     "cancel": "Cancelar",
+    "again": "Conectar de nuevo",
+    "detect": {
+      "device": "Buscar el autopiloto",
+      "deviceFound": "Buscar el autopiloto (ahora {path})",
+      "baud": "Probar las velocidades habituales",
+      "next": {
+        "NO_SERIAL_PORT": "Conecta la controladora de vuelo o la radio de telemetría y vuelve a conectar.",
+        "NO_AUTOPILOT_PORT": "Hay varios puertos y ninguno parece una controladora de vuelo: elige su puerto y vuelve a conectar.",
+        "PORT_GONE": "El puerto ha desaparecido: revisa el cable, vuelve a enchufar la controladora y vuelve a conectar.",
+        "NO_MAVLINK": "Comprueba que el puerto envía MAVLink (su SERIALn_PROTOCOL en el vehículo) o elige su velocidad, y vuelve a conectar."
+      }
+    },
     "open": "Conectar con un vehículo o ver el enlace",
     "next": {
       "udp": "Comprueba que el vehículo o el simulador envíe a este host y a este puerto, y vuelve a conectar.",
@@ -22,6 +34,28 @@
     }
   },
   "topBar": {
+    "link": {
+      "open": "Enlace {value}, {level}: mostrar los detalles",
+      "title": "Calidad del enlace",
+      "level": {
+        "ok": "bueno",
+        "warn": "débil",
+        "error": "malo"
+      },
+      "quality": "Calidad",
+      "loss": "Pérdida de paquetes",
+      "lossValue": "{percent}% ({lost} de {sent} paquetes)",
+      "latency": "Latencia",
+      "noLatency": "Sin respuesta al ping",
+      "received": "Recibido",
+      "sent": "Enviado",
+      "rate": "{packets} paquetes/s · {bytes}",
+      "silent": "Último paquete",
+      "silentValue": "hace {seconds} s",
+      "total": "Desde la conexión",
+      "totalValue": "{lost} de {sent} paquetes perdidos",
+      "window": "Medido durante los últimos {seconds} s."
+    },
     "rebooting": "Reiniciando…",
     "state": {
       "arm": "Armar el vehículo (el vehículo está desarmado)",
@@ -535,6 +569,9 @@
       "verifiedRule": "Éxito solo cuando el vehículo confirma el valor."
     },
     "feedback": {
+      "popover": "Detalles",
+      "popoverTitle": "Calidad del enlace",
+      "popoverBody": "Llegó el 98% de los paquetes, 68 ms de ida y vuelta.",
       "menu": "Mapa",
       "tip": "Escrito en el vehículo y releído",
       "tipButton": "Escribir",
@@ -1441,6 +1478,10 @@
       "label": "Conectar con un vehículo…",
       "keywords": "enlace serie tcp udp puerto abrir"
     },
+    "connectAgain": {
+      "label": "Conectar de nuevo al último vehículo",
+      "keywords": "reconectar último otra vez enlace reconnect"
+    },
     "disconnect": {
       "keywords": "cerrar enlace terminar sesión"
     },
@@ -1481,6 +1522,8 @@
       "noParameters": "Todavía no hay parámetros.",
       "busy": "Se están escribiendo o descargando parámetros, o ya hay un reinicio en curso.",
       "notConnected": "Conéctate primero a un vehículo.",
+      "linkUp": "Ya hay un enlace activo o en curso.",
+      "noLastConnection": "Aún no se ha hecho ninguna conexión: usa Conectar a un vehículo.",
       "stateUnknown": "Se desconoce el estado del vehículo (sin heartbeat reciente).",
       "armed": "Desarma primero el vehículo. Un vehículo en vuelo nunca se reinicia.",
       "writing": "Espera a que se hayan escrito los parámetros.",

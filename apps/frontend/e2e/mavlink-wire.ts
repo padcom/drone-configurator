@@ -17,6 +17,7 @@ export const MSG_COMMAND_INT = 75
 export const MSG_COMMAND_LONG = 76
 export const MSG_COMMAND_ACK = 77
 export const MSG_EKF_STATUS_REPORT = 193
+export const MSG_TIMESYNC = 111
 
 /** The CRC_EXTRA byte of each message, from the common dialect's XML. */
 const CRC_EXTRA: Record<number, number> = {
@@ -33,6 +34,7 @@ const CRC_EXTRA: Record<number, number> = {
   [MSG_COMMAND_INT]: 158,
   [MSG_COMMAND_LONG]: 152,
   [MSG_COMMAND_ACK]: 143,
+  [MSG_TIMESYNC]: 34,
 }
 
 export const MAV_AUTOPILOT_ARDUPILOTMEGA = 3

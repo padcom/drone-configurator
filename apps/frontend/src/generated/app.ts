@@ -1053,10 +1053,10 @@ function validateSerialPortsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a serial-ports, or null. */
 export const validateSerialPorts = (value: unknown) => run(validateSerialPortsInto, value)
 
-export type SerialPort = { "path": string, "description"?: string }
+export type SerialPort = { "path": string, "description"?: string, "board"?: string, "likely"?: boolean }
 
 function validateSerialPortInto(value: any, path: string): boolean {
-  return map(value, path, ["path","description"]) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["description"] === undefined || nested(value["description"], `${path}.description`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+  return map(value, path, ["path","description","board","likely"]) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["description"] === undefined || nested(value["description"], `${path}.description`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["board"] === undefined || nested(value["board"], `${path}.board`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["likely"] === undefined || nested(value["likely"], `${path}.likely`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
 }
 
 /** The first problem with `value` as a serial-port, or null. */
@@ -1305,6 +1305,15 @@ function validateForwardStatusInto(value: any, path: string): boolean {
 /** The first problem with `value` as a forward-status, or null. */
 export const validateForwardStatus = (value: unknown) => run(validateForwardStatusInto, value)
 
+export type LinkStats = { "windowMs": number, "received": number, "lost": number, "rxRate": number, "txRate": number, "rxBytes": number, "txBytes": number, "latencyMs"?: number, "silentMs": number, "totalReceived": number, "totalLost": number }
+
+function validateLinkStatsInto(value: any, path: string): boolean {
+  return map(value, path, ["windowMs","received","lost","rxRate","txRate","rxBytes","txBytes","latencyMs","silentMs","totalReceived","totalLost"]) && (value["windowMs"] === undefined ? fail(`${path}.windowMs`, 'present') : nested(value["windowMs"], `${path}.windowMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["received"] === undefined ? fail(`${path}.received`, 'present') : nested(value["received"], `${path}.received`, (value, path) => uint(value, path, 0xffffffff))) && (value["lost"] === undefined ? fail(`${path}.lost`, 'present') : nested(value["lost"], `${path}.lost`, (value, path) => uint(value, path, 0xffffffff))) && (value["rxRate"] === undefined ? fail(`${path}.rxRate`, 'present') : nested(value["rxRate"], `${path}.rxRate`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["txRate"] === undefined ? fail(`${path}.txRate`, 'present') : nested(value["txRate"], `${path}.txRate`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["rxBytes"] === undefined ? fail(`${path}.rxBytes`, 'present') : nested(value["rxBytes"], `${path}.rxBytes`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["txBytes"] === undefined ? fail(`${path}.txBytes`, 'present') : nested(value["txBytes"], `${path}.txBytes`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["latencyMs"] === undefined || nested(value["latencyMs"], `${path}.latencyMs`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["silentMs"] === undefined ? fail(`${path}.silentMs`, 'present') : nested(value["silentMs"], `${path}.silentMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["totalReceived"] === undefined ? fail(`${path}.totalReceived`, 'present') : nested(value["totalReceived"], `${path}.totalReceived`, (value, path) => uint(value, path, 0xffffffff))) && (value["totalLost"] === undefined ? fail(`${path}.totalLost`, 'present') : nested(value["totalLost"], `${path}.totalLost`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a link-stats, or null. */
+export const validateLinkStats = (value: unknown) => run(validateLinkStatsInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -1366,6 +1375,7 @@ export interface Services {
   "tuning.stream": { kind: 'subscription', params: TuningParams, value: TuningBatch }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
+  "link.stats": { kind: 'subscription', params: null, value: LinkStats }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
@@ -1612,6 +1622,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "vehicle.messages": {
     params: (value: any, path: string) => validateMessagesParamsInto(value, path),
     value: (value: any, path: string) => validateVehicleMessageInto(value, path),
+  },
+  "link.stats": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateLinkStatsInto(value, path),
   },
   "files.save": {
     request: (value: any, path: string) => validateFileSaveInto(value, path),

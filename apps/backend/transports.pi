@@ -1,10 +1,11 @@
 // The only place that knows how a vehicle is reached: the simulator, UDP, TCP and a serial port, each
 // as pico-mavlink's byte stream.
 import { CommunicatorError } from "pico-desktop/communicator"
-import { SerialPort as SerialDevice, openPort } from "padcom/serialport"
+import { SerialPort as SerialDevice, listPorts, openPort } from "padcom/serialport"
 import { bind, connect } from "std/net"
 import { ByteStream, MemoryStream, SimulatedAutopilot, TcpStream, UdpStream } from "padcom/pico-mavlink"
-import { ConnectRequest } from "./generated/app"
+import { ConnectRequest, ConnectRequestTransport } from "./generated/app"
+import { BAUD_RATES, choosePort, detectBaud } from "./autodetect"
 
 /// A serial port as pico-mavlink's byte stream: the same three methods (each library declares its
 /// own interface, so the application adapts one to the other).
@@ -34,7 +35,7 @@ export function describe(r: ConnectRequest): string {
     Simulator => "the simulator",
     Udp => `udp ${r.host ?? "127.0.0.1"}:${r.port ?? 14550}`,
     Tcp => `tcp ${r.host ?? "127.0.0.1"}:${r.port ?? 5760}`,
-    Serial => `serial ${r.device ?? "(no device)"} at ${r.baud ?? 115200}`,
+    Serial => `serial ${r.device ?? "(the likely autopilot)"} ${if (r.baud != null) `at ${r.baud!}` else "(trying the common rates)"}`,
   }
 }
 
@@ -70,4 +71,41 @@ export async function open(r: ConnectRequest, onSimulator: (sim: SimulatedAutopi
       s
     },
   }
+}
+
+/// A link that was opened, and the request that opens it again: for a serial request that left the device or the rate to
+/// be found, the device and the rate that were found (a reconnect opens them as they are, without detecting again).
+export struct Opened {
+  stream: ByteStream
+  request: ConnectRequest
+}
+
+/// A serial port at a rate, as a byte stream.
+function serialAt(device: string, baud: int): ByteStream throws Error {
+  const s: ByteStream = new SerialStream(openPort(device, { baudRate: baud }))
+  return s
+}
+
+/// Opens the link a connection request asks for, finding what a serial request leaves out (autodetect.pi): the device,
+/// the port most likely to be the autopilot; the rate, the first common rate that brings MAVLink (each listened to for
+/// `windowMs`). Null when `stillWanted` says the detection is no longer wanted.
+export async function openDetecting(
+  r: ConnectRequest,
+  onSimulator: (sim: SimulatedAutopilot) => void,
+  windowMs: int,
+  stillWanted: () => bool,
+): Promise<Opened?> throws Error {
+  if (r.transport != ConnectRequestTransport.Serial || (r.device != null && r.baud != null)) {
+    return Opened { stream: await open(r, onSimulator), request: r }
+  }
+  const device = r.device ?? choosePort(await listPorts()).path
+  if (r.baud != null) {
+    return Opened { stream: serialAt(device, r.baud! as int), request: ConnectRequest { transport: r.transport, device: device, baud: r.baud } }
+  }
+  const found = await detectBaud(async (baud: int): Promise<ByteStream> throws Error => serialAt(device, baud), BAUD_RATES, windowMs, stillWanted)
+  if (found == null) {
+    return null
+  }
+  const request = ConnectRequest { transport: r.transport, device: device, baud: found!.baud as u32 }
+  return Opened { stream: found!.stream, request: request }
 }

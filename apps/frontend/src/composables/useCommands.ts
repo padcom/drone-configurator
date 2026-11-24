@@ -21,7 +21,8 @@ import {
 import { MAX_ITEMS } from '@/lib/plan/model'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens, goToSections } from '@/lib/commands/navigation'
-import { ConnectToVehicle, DisconnectFromVehicle, ShowKeys, ShowPalette } from '@/lib/commands/app'
+import { ConnectAgain, ConnectToVehicle, DisconnectFromVehicle, ShowKeys, ShowPalette } from '@/lib/commands/app'
+import { LAST_KEY, lastRequest } from '@/lib/app/connectionForm'
 import { OpenLogFile } from '@/lib/commands/logs'
 import { LoadMetadata } from '@/lib/commands/metadata'
 import { ParameterProvider } from '@/lib/commands/parameters'
@@ -102,6 +103,7 @@ function makeRegistry(): CommandRegistry {
     new ShowPalette(),
     new ShowKeys(),
     new ConnectToVehicle(),
+    new ConnectAgain(),
     new DisconnectFromVehicle(),
     new DownloadParameters(),
     new SaveSnapshot(),
@@ -147,7 +149,7 @@ async function armedMaybe(vehicle: ReturnType<typeof useConfigurator>['vehicle']
  * @returns the facts
  */
 function vehicleFacts(): VehicleFacts {
-  const { fields, messages, setup, staged, vehicle } = useConfigurator()
+  const { fields, messages, settings, setup, staged, vehicle } = useConfigurator()
   const { armed: known } = useArmGrace()
   const armed = () => known.value
   const downloading = () => (fields.list.value === 'loading' ? 'downloading' : null)
@@ -173,6 +175,8 @@ function vehicleFacts(): VehicleFacts {
     modes: () => setup.modes.value,
     mode: () => fields.telemetry.value?.mode,
     disconnect: () => void vehicle.disconnect(),
+    lastConnection: () => lastRequest(settings.uiValue(LAST_KEY)),
+    connect: request => void vehicle.connect(request),
   }
 }
 

@@ -63,6 +63,13 @@
       "noise": 2,
       "what": "The table's own work for a scroll step: from the scroll to its rows drawn and laid out (before the paint), while the Plan table, at the plan's 1,000 items (its most), is scrolled a few rows at a time. Within a 60 fps frame (16.7 ms) with room left for the paint in the median",
       "measuredBy": "e2e/plan-table-speed.e2e.ts"
+    },
+    "oneKeyConnect": {
+      "unit": "ms",
+      "budget": 2000,
+      "noise": 1.5,
+      "what": "From the key that connects to the last vehicle again (Ctrl+L) to the top bar saying connected, against ArduPilot SITL, its parameters already downloaded once (#27)",
+      "measuredBy": "e2e/sitl-one-key.e2e.ts"
     }
   }
 }

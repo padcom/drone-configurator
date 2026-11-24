@@ -21,6 +21,7 @@ export type Key = Binding
 export const KEYS: readonly Key[] = [
   { actionId: 'palette.open', code: 'KeyP', ctrl: true, scope: GLOBAL, listens: 'keymap' },
   { actionId: 'help.keys', code: 'F1', scope: GLOBAL, listens: 'keymap' },
+  { actionId: 'connect.last', code: 'KeyL', ctrl: true, scope: GLOBAL, listens: 'keymap' },
   { actionId: 'panes.next', code: 'F6', scope: GLOBAL, listens: 'module' },
   { actionId: 'panes.previous', code: 'F6', shift: true, scope: GLOBAL, listens: 'module' },
   { actionId: 'params.search', code: 'Slash', ctrl: true, scope: 'parameters', listens: 'module', typed: '/' },
