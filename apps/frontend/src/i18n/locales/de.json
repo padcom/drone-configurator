@@ -699,6 +699,7 @@
       "unavailable": "Die Kartenkacheln sind nicht verfügbar: {reason}",
       "backingOffPlain": "Die Kartenkacheln pausieren eine Weile nach Problemen mit dem Kachelserver.",
       "generic": "Die Kartenkacheln sind nicht verfügbar.",
+      "someFailed": "Einige Kartenkacheln wurden nicht geladen; sie werden gleich erneut angefordert.",
       "code": {
         "BAD_REQUEST": "Die Adresse der Kachelquelle ist nicht verwendbar.",
         "TOO_BIG": "Der Kachelserver schickte eine zu große Kachel.",

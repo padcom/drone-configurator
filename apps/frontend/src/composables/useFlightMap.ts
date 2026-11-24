@@ -70,6 +70,8 @@ export interface FlightMap {
   readonly changes: Ref<number>
   /** Why wanted tiles have no image (codes, each once). */
   problems: () => string[]
+  /** Whether some of the tiles of the screen are drawn. */
+  someDrawn: () => boolean
   /** Sets the size of the map on screen. */
   resize: (width: number, height: number) => void
   /** The pointer went down at a point of the screen: a drag begins. */
@@ -171,6 +173,10 @@ class FlightMapModel implements FlightMap {
 
   problems(): string[] {
     return this.loader.problems()
+  }
+
+  someDrawn(): boolean {
+    return this.loader.someDrawn()
   }
 
   resize(width: number, height: number): void {

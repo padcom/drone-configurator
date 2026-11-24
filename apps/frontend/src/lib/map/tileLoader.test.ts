@@ -138,6 +138,21 @@ describe('failing', () => {
   })
 })
 
+describe('a hole in the map', () => {
+  it('says whether some of the tiles it wants are drawn, so a failure is told as a hole', async () => {
+    const { loader, asked } = rig()
+    loader.want(row(2))
+
+    expect(loader.someDrawn()).toBe(false)
+    asked[0]?.resolve()
+    asked[1]?.reject('TIMEOUT')
+    await settle()
+
+    expect(loader.someDrawn()).toBe(true)
+    expect(loader.problems()).toEqual(['TIMEOUT'])
+  })
+})
+
 describe('failing for good', () => {
   it('does not ask again for a tile the server lacks, or one that is switched off, until the settings change', async () => {
     const { loader, asked, clock } = rig()

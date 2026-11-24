@@ -699,6 +699,7 @@
       "unavailable": "Las teselas del mapa no están disponibles: {reason}",
       "backingOffPlain": "Las teselas del mapa están en pausa un tiempo por problemas con el servidor.",
       "generic": "Las teselas del mapa no están disponibles.",
+      "someFailed": "Algunas teselas del mapa no se cargaron; se volverán a pedir en breve.",
       "code": {
         "BAD_REQUEST": "La dirección de la fuente de teselas no se puede usar.",
         "TOO_BIG": "El servidor envió una tesela demasiado grande.",

@@ -168,7 +168,8 @@ it('asks the backend for the tiles of the screen, which asks the server with its
   await vi.waitFor(() => expect(asked.length).toBeGreaterThan(3), { timeout: 30_000 })
   expect(asked.every(one => /^\/\d+\/\d+\/\d+\.png$/u.test(one.path))).toBe(true)
   expect(asked.every(one => one.agent.startsWith('DroneConfigurator/'))).toBe(true)
-  expect(await app.evaluate<string>(`document.querySelector('#map-chip')?.textContent ?? ''`)).toBe('')
+  // (a tile the busy fake server was late with is asked for again after RETRY_MS: the chip may say so until then, #543)
+  await app.waitFor(`(document.querySelector('#map-chip')?.textContent ?? '') === ''`, 45_000)
 })
 
 it('zooms with the button and the keys, moves with the arrows, and asks for the tiles of the new zoom', async () => {

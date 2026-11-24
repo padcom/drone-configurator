@@ -699,6 +699,7 @@
       "unavailable": "Kafelki mapy są niedostępne: {reason}",
       "backingOffPlain": "Kafelki mapy są wstrzymane na jakiś czas po kłopotach z serwerem kafelków.",
       "generic": "Kafelki mapy są niedostępne.",
+      "someFailed": "Część kafelków mapy się nie wczytała; za chwilę zostaną pobrane ponownie.",
       "code": {
         "BAD_REQUEST": "Adres źródła kafelków jest nieużyteczny.",
         "TOO_BIG": "Serwer kafelków przysłał zbyt duży kafelek.",
