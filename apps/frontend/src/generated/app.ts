@@ -1062,6 +1062,33 @@ function validateSerialPortInto(value: any, path: string): boolean {
 /** The first problem with `value` as a serial-port, or null. */
 export const validateSerialPort = (value: unknown) => run(validateSerialPortInto, value)
 
+export type SerialBridgeDevice = "TELEM1" | "TELEM2" | "GPS1" | "GPS2" | "SERIAL0" | "SERIAL1" | "SERIAL2" | "SERIAL3" | "SERIAL4" | "SERIAL5" | "SERIAL6" | "SERIAL7" | "SERIAL8" | "SERIAL9"
+
+function validateSerialBridgeDeviceInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["TELEM1","TELEM2","GPS1","GPS2","SERIAL0","SERIAL1","SERIAL2","SERIAL3","SERIAL4","SERIAL5","SERIAL6","SERIAL7","SERIAL8","SERIAL9"])
+}
+
+/** The first problem with `value` as a serial-bridge-device, or null. */
+export const validateSerialBridgeDevice = (value: unknown) => run(validateSerialBridgeDeviceInto, value)
+
+export type SerialBridgeStart = { "device": SerialBridgeDevice, "baudrate"?: number, "port"?: number, "address"?: string }
+
+function validateSerialBridgeStartInto(value: any, path: string): boolean {
+  return map(value, path, ["device","baudrate","port","address"]) && (value["device"] === undefined ? fail(`${path}.device`, 'present') : nested(value["device"], `${path}.device`, (value, path) => validateSerialBridgeDeviceInto(value, path))) && (value["baudrate"] === undefined || nested(value["baudrate"], `${path}.baudrate`, (value, path) => uint(value, path, 0xffffffff))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["address"] === undefined || nested(value["address"], `${path}.address`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a serial-bridge-start, or null. */
+export const validateSerialBridgeStart = (value: unknown) => run(validateSerialBridgeStartInto, value)
+
+export type SerialBridgeState = { "state": "off" | "running" | "releasing", "device"?: SerialBridgeDevice, "baudrate"?: number, "address"?: string, "port"?: number, "client": boolean, "clientAddress"?: string, "toVehicle": number, "fromVehicle": number, "dropped": number, "refused": number, "why"?: string, "releaseFailed"?: boolean, "error"?: string }
+
+function validateSerialBridgeStateInto(value: any, path: string): boolean {
+  return map(value, path, ["state","device","baudrate","address","port","client","clientAddress","toVehicle","fromVehicle","dropped","refused","why","releaseFailed","error"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["off","running","releasing"]))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => validateSerialBridgeDeviceInto(value, path))) && (value["baudrate"] === undefined || nested(value["baudrate"], `${path}.baudrate`, (value, path) => uint(value, path, 0xffffffff))) && (value["address"] === undefined || nested(value["address"], `${path}.address`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["client"] === undefined ? fail(`${path}.client`, 'present') : nested(value["client"], `${path}.client`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["clientAddress"] === undefined || nested(value["clientAddress"], `${path}.clientAddress`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["toVehicle"] === undefined ? fail(`${path}.toVehicle`, 'present') : nested(value["toVehicle"], `${path}.toVehicle`, (value, path) => uint(value, path, 0xffffffff))) && (value["fromVehicle"] === undefined ? fail(`${path}.fromVehicle`, 'present') : nested(value["fromVehicle"], `${path}.fromVehicle`, (value, path) => uint(value, path, 0xffffffff))) && (value["dropped"] === undefined ? fail(`${path}.dropped`, 'present') : nested(value["dropped"], `${path}.dropped`, (value, path) => uint(value, path, 0xffffffff))) && (value["refused"] === undefined ? fail(`${path}.refused`, 'present') : nested(value["refused"], `${path}.refused`, (value, path) => uint(value, path, 0xffffffff))) && (value["why"] === undefined || nested(value["why"], `${path}.why`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["releaseFailed"] === undefined || nested(value["releaseFailed"], `${path}.releaseFailed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a serial-bridge-state, or null. */
+export const validateSerialBridgeState = (value: unknown) => run(validateSerialBridgeStateInto, value)
+
 export type CalibrationKind = "accel" | "level" | "compass" | "radio"
 
 function validateCalibrationKindInto(value: any, path: string): boolean {
@@ -1407,6 +1434,9 @@ export interface Services {
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
+  "serial.bridge.start": { kind: 'method', request: SerialBridgeStart, response: SerialBridgeState }
+  "serial.bridge.stop": { kind: 'method', request: null, response: SerialBridgeState }
+  "serial.bridge.status": { kind: 'subscription', params: null, value: SerialBridgeState }
   "settings.get": { kind: 'method', request: null, response: SettingsState }
   "settings.set": { kind: 'method', request: SettingsPatch, response: SettingsState }
   "settings.changed": { kind: 'event', payload: SettingsState }
@@ -1672,6 +1702,18 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateSerialPortsInto(value, path),
+  },
+  "serial.bridge.start": {
+    request: (value: any, path: string) => validateSerialBridgeStartInto(value, path),
+    response: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
+  },
+  "serial.bridge.stop": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
+  },
+  "serial.bridge.status": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
   },
   "settings.get": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
