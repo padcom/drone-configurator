@@ -133,7 +133,13 @@ const chip = computed(() => {
 
   const { enabled, offline, status } = map
 
-  return chipOf({ enabled: enabled.value, offline: offline.value, status: status.value, problems: flight.problems() }, t)
+  return chipOf({
+    enabled: enabled.value,
+    offline: offline.value,
+    status: status.value,
+    problems: flight.problems(),
+    someDrawn: flight.someDrawn(),
+  }, t)
 })
 
 const mark = computed(() => props.source?.vehicle.value ?? null)

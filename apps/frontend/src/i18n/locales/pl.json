@@ -706,6 +706,7 @@
       "unavailable": "Kafelki mapy są niedostępne: {reason}",
       "backingOffPlain": "Kafelki mapy są wstrzymane na jakiś czas po kłopotach z serwerem kafelków.",
       "generic": "Kafelki mapy są niedostępne.",
+      "someFailed": "Część kafelków mapy się nie wczytała; za chwilę zostaną pobrane ponownie.",
       "code": {
         "BAD_REQUEST": "Adres źródła kafelków jest nieużyteczny.",
         "TOO_BIG": "Serwer kafelków przysłał zbyt duży kafelek.",
@@ -991,6 +992,36 @@
       "never": "Nigdy",
       "noLimit": "Bez limitu",
       "days": "Dni: {days}"
+    },
+    "forward": {
+      "title": "Przekazywanie MAVLink",
+      "help": "Wysyła wszystko, co mówi pojazd, do innych programów (drugiej stacji naziemnej, rejestratora), a to, co one odsyłają, do pojazdu. Nic nie jest przekazywane, dopóki nie dodasz programu. Wolny program nigdy nie wstrzymuje pojazdu: to, czego nie przyjmie, jest odrzucane i liczone.",
+      "none": "Brak programów. Nic nie jest przekazywane.",
+      "on": "Przekazuj",
+      "onFor": "Przekazuj do {name}",
+      "remove": "Usuń",
+      "removeFor": "Usuń {name}",
+      "addTitle": "Dodaj program",
+      "kind": "Protokół",
+      "host": "Host",
+      "port": "Port",
+      "add": "Dodaj",
+      "counts": "Wysłano {sent} · odrzucono {dropped} · odebrano {received}",
+      "refused": "Nieosiągalny: {reason}. Program TCP jest próbowany ponownie co 2 s.",
+      "states": {
+        "off": "Wyłączony",
+        "idle": "Czeka na pojazd",
+        "connecting": "Łączenie",
+        "up": "Działa",
+        "refused": "Odrzucony",
+        "dropping": "Odrzuca: za wolny"
+      },
+      "problems": {
+        "host": "Wpisz nazwę hosta lub adres, bez spacji.",
+        "port": "Wpisz port od 1 do 65535.",
+        "duplicate": "Ten program jest już na liście.",
+        "full": "Może być najwyżej {max} programów. Najpierw usuń jeden."
+      }
     },
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
   },

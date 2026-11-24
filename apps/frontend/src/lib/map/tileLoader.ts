@@ -101,6 +101,15 @@ export class TileLoader<Image> {
   }
 
   /**
+   * Whether some of the tiles that are wanted now are drawn (a failure is then a hole in the map, not a map without tiles).
+   *
+   * @returns true when at least one is
+   */
+  someDrawn(): boolean {
+    return this.wanted.some(place => this.images.has(tileKey(place.z, place.x, place.y)))
+  }
+
+  /**
    * How many tiles are asked for and have not come.
    *
    * @returns the count

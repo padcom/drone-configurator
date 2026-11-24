@@ -20,6 +20,8 @@ export interface ChipState {
   status: MapStatus | null
   /** The codes of the failures of the tiles that are wanted now. */
   problems: readonly string[]
+  /** Whether some of the tiles that are wanted now are drawn: a failure is a hole, and one that passes is retried. */
+  someDrawn?: boolean
 }
 
 /**
@@ -104,7 +106,13 @@ function codeLine(state: ChipState, code: string, say: Say): string {
     return say('map.chip.unavailable', { reason })
   }
 
-  return say(SENTENCES[code] ?? 'map.chip.generic')
+  const own = SENTENCES[code]
+  if (own) {
+    return say(own)
+  }
+
+  // (a failure with no sentence of its own, a time-out say, while other tiles are drawn: holes that are asked for again)
+  return say(state.someDrawn === true ? 'map.chip.someFailed' : 'map.chip.generic')
 }
 
 /**

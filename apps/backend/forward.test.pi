@@ -1,0 +1,267 @@
+// Forwarding the vehicle's MAVLink to other programs (forward.pi), against the simulated vehicle: a second ground station on a UDP
+// port and on a TCP port of this test reads the vehicle's parameters through the forward; a TCP endpoint nobody listens on is
+// refused; one that never reads fills its own queue and drops, while the app's own link to the vehicle goes on at full speed.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor } from "pico-desktop/communicator"
+import { exists, mkdir, remove } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import { Conn, Listener, bind, listen } from "std/net"
+import {
+  ByteStream,
+  MavLinkConnection,
+  MavLinkProtocolV2,
+  ParamEncoding,
+  ParamList,
+  ParamRead,
+  TcpStream,
+  UdpStream,
+  showParam,
+} from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  ForwardState,
+  ForwardStatus,
+  SettingsPatch,
+  UiEntry,
+  decodeConnection,
+  decodeForwardStatus,
+  decodeParamList,
+  encodeConnectRequest,
+  encodeSettingsPatch,
+} from "./generated/app"
+import { ENDPOINTS_KEY, Endpoint, EndpointSetting, MAX_ENDPOINTS, QUEUE_MAX, keyOf, parseEndpoints, runningForTests, statusForTests } from "./forward"
+import { link } from "./session"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+/// A settings directory of this test's own, empty.
+async function freshSettings(name: string): Promise<string> throws Error {
+  const dir = join(env.get("TMPDIR") ?? "/tmp", `drone-configurator-forward-${name}-${pid}`)
+  if (await exists(dir)) {
+    await remove(dir, true)
+  }
+  await mkdir(dir, true)
+  useDirectoryForTests(dir)
+  return dir
+}
+
+async function cleanUp(dir: string): Promise<void> {
+  try {
+    await remove(dir, true)
+  } catch (e: Error) {
+    // Gone already.
+  }
+}
+
+/// Sets the endpoints (as the Settings screen does: the settings' entry, as JSON text).
+async function setEndpoints(f: Frontend, json: string): Promise<void> throws Error {
+  await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: ENDPOINTS_KEY, value: json }] }))
+}
+
+async function connectSimulator(f: Frontend): Promise<void> throws Error {
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))).p ?? Cbor.Null, "$")
+  expect(c.state == ConnectionState.Connected).toBe(true)
+}
+
+/// Waits up to `ms` for the first endpoint to be in `want`; the status then.
+async function waitForEndpoint(want: ForwardState, ms: int): Promise<ForwardStatus> throws Error {
+  let waited = 0
+  let s = await statusForTests()
+  while (waited < ms && (s.endpoints.length == 0 || s.endpoints[0].state != want)) {
+    await delay(50)
+    waited += 50
+    s = await statusForTests()
+  }
+  return s
+}
+
+/// A second ground station (system 250) on a byte stream: what reads parameters through the forward.
+function secondStation(stream: ByteStream): MavLinkConnection {
+  const conn = new MavLinkConnection(stream, { protocol: new MavLinkProtocolV2(250, 190) })
+  conn.run()
+  return conn
+}
+
+/// The endpoints in the settings: only those that make sense, at most 16, and text that is not a list is none.
+async function readsTheSettings(): Promise<void> throws Error {
+  expect(parseEndpoints(null).length).toBe(0)
+  expect(parseEndpoints("not json").length).toBe(0)
+  expect(parseEndpoints("{\"kind\":\"udp\"}").length).toBe(0)
+  const mixed = parseEndpoints("[{\"kind\":\"udp\",\"host\":\"127.0.0.1\",\"port\":14550,\"on\":true},{\"kind\":\"serial\",\"host\":\"x\",\"port\":1,\"on\":true},{\"kind\":\"tcp\",\"host\":\"\",\"port\":5760,\"on\":true},{\"kind\":\"tcp\",\"host\":\"h\",\"port\":70000,\"on\":true},{\"kind\":\"tcp\",\"host\":\"gcs.local\",\"port\":5762,\"on\":false}]")
+  expect(mixed.map((e: EndpointSetting) => `${keyOf(e)} ${e.on}`).join(", ")).toBe("udp:127.0.0.1:14550 true, tcp:gcs.local:5762 false")
+  const many: string[] = []
+  for (let i = 0; i < 20; i++) {
+    many.push(`{"kind":"udp","host":"127.0.0.1","port":${15000 + i},"on":true}`)
+  }
+  expect(parseEndpoints(`[${many.join(",")}]`).length).toBe(MAX_ENDPOINTS)
+}
+
+/// Nothing is forwarded until an endpoint is added: the router has the vehicle's link alone.
+async function offByDefault(): Promise<void> throws Error {
+  const dir = await freshSettings("off")
+  const f = await start()
+  const sub = await f.subscribe("forward.status")
+  const first = decodeForwardStatus((await f.event("forward.status")).p ?? Cbor.Null, "$")
+  expect(first.endpoints.length).toBe(0)
+  await connectSimulator(f)
+  expect(link.router!.linkInfo().length).toBe(1)
+  expect(runningForTests().size).toBe(0)
+  await f.unsubscribe(sub)
+  await f.call("vehicle.disconnect")
+  await cleanUp(dir)
+}
+
+/// A UDP endpoint gets the vehicle's frames, and a second station there reads a parameter through it (its request goes to the
+/// vehicle, the answer comes back). Before a vehicle is connected it is idle; turned off, it is closed and says off.
+async function forwardsOverUdp(): Promise<void> throws Error {
+  const dir = await freshSettings("udp")
+  const f = await start()
+  const socket = await bind(0)
+  await setEndpoints(f, `[{"kind":"udp","host":"127.0.0.1","port":${socket.addr.port},"on":true}]`)
+  expect((await statusForTests()).endpoints[0].state == ForwardState.Idle).toBe(true)
+  await connectSimulator(f)
+  const up = await waitForEndpoint(ForwardState.Up, 3000)
+  expect(up.endpoints[0].state == ForwardState.Up).toBe(true)
+  const station = secondStation(new UdpStream(socket))
+  const p = await new ParamRead(station, { system: 1, component: 1 }, ParamEncoding.CCast).run("BATT_CAPACITY")
+  expect(`${p.id}=${showParam(p.value)}`).toBe("BATT_CAPACITY=5200")
+  const s = await statusForTests()
+  expect(s.endpoints[0].sent > (0 as u32)).toBe(true)
+  expect(s.endpoints[0].received > (0 as u32)).toBe(true)
+  expect(s.endpoints[0].dropped).toBe(0 as u32)
+  // The app's own link is not disturbed by the second station.
+  const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete}`).toBe("12 true")
+  await setEndpoints(f, `[{"kind":"udp","host":"127.0.0.1","port":${socket.addr.port},"on":false}]`)
+  const off = await waitForEndpoint(ForwardState.Off, 3000)
+  expect(off.endpoints[0].state == ForwardState.Off).toBe(true)
+  expect(runningForTests().size).toBe(0)
+  station.close()
+  await f.call("vehicle.disconnect")
+  await cleanUp(dir)
+}
+
+/// The test's TCP server: the connection the backend makes to it.
+async function accepted(server: Listener): Promise<Conn> throws Error {
+  const c = await server.accept()
+  if (c == null) {
+    throw new Error("the server closed")
+  }
+  return c!
+}
+
+/// A TCP endpoint is connected to, and a second station there downloads the whole parameter list through it.
+async function forwardsOverTcp(): Promise<void> throws Error {
+  const dir = await freshSettings("tcp")
+  const f = await start()
+  const server = await listen(0)
+  await setEndpoints(f, `[{"kind":"tcp","host":"127.0.0.1","port":${server.addr.port},"on":true}]`)
+  await connectSimulator(f)
+  const station = secondStation(new TcpStream(await accepted(server)))
+  const list = await new ParamList(station, { system: 1, component: 1 }, ParamEncoding.CCast).run()
+  expect(`${list.count} ${list.complete}`).toBe("12 true")
+  expect((await waitForEndpoint(ForwardState.Up, 3000)).endpoints[0].state == ForwardState.Up).toBe(true)
+  station.close()
+  // The program went away: the endpoint says so, and is tried again.
+  const gone = await waitForEndpoint(ForwardState.Refused, 3000)
+  expect(gone.endpoints[0].state == ForwardState.Refused).toBe(true)
+  const again = await accepted(server)
+  expect((await waitForEndpoint(ForwardState.Up, 5000)).endpoints[0].state == ForwardState.Up).toBe(true)
+  again.close()
+  server.close()
+  await f.call("vehicle.disconnect")
+  await cleanUp(dir)
+}
+
+/// A TCP endpoint that refuses says so, with the reason, and the vehicle's link is as it was.
+async function saysRefused(): Promise<void> throws Error {
+  const dir = await freshSettings("refused")
+  const f = await start()
+  // A port that was free a moment ago: nobody listens on it.
+  const probe = await listen(0)
+  const port = probe.addr.port
+  probe.close()
+  await setEndpoints(f, `[{"kind":"tcp","host":"127.0.0.1","port":${port},"on":true}]`)
+  await connectSimulator(f)
+  const s = await waitForEndpoint(ForwardState.Refused, 3000)
+  expect(s.endpoints[0].state == ForwardState.Refused).toBe(true)
+  expect((s.endpoints[0].error ?? "").length > 0).toBe(true)
+  const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete}`).toBe("12 true")
+  await f.call("vehicle.disconnect")
+  await cleanUp(dir)
+}
+
+/// A program that takes the connection and never reads: its queue fills, its frames are dropped and counted, it says it is
+/// dropping, and the app's link to the vehicle is not held up (a write to the endpoint never waits, and a download is as fast).
+async function aDeadEndpointDoesNotHoldUpTheVehicle(): Promise<void> throws Error {
+  const dir = await freshSettings("dead")
+  const f = await start()
+  const server = await listen(0)
+  await setEndpoints(f, `[{"kind":"tcp","host":"127.0.0.1","port":${server.addr.port},"on":true}]`)
+  await connectSimulator(f)
+  const stuck = await accepted(server)
+  expect((await waitForEndpoint(ForwardState.Up, 3000)).endpoints[0].state == ForwardState.Up).toBe(true)
+  let found: Endpoint? = null
+  for (const e of runningForTests().values()) {
+    found = e
+  }
+  const endpoint = found!
+  // Far more than the socket's buffers and the queue hold: writes go on returning at once.
+  const big = new Uint8Array(65536)
+  const started = Date.now() as int
+  for (let i = 0; i < 4 * QUEUE_MAX; i++) {
+    await endpoint.write(big)
+  }
+  expect((Date.now() as int) - started < 2000).toBe(true)
+  expect(endpoint.queued() <= QUEUE_MAX).toBe(true)
+  const s = await waitForEndpoint(ForwardState.Dropping, 3000)
+  expect(s.endpoints[0].state == ForwardState.Dropping).toBe(true)
+  expect(s.endpoints[0].dropped > (0 as u32)).toBe(true)
+  // The vehicle's link goes on: a download and a write-free read, at the speed of a link with no endpoint.
+  const before = Date.now() as int
+  const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete}`).toBe("12 true")
+  expect((Date.now() as int) - before < 5000).toBe(true)
+  stuck.close()
+  server.close()
+  await f.call("vehicle.disconnect")
+  await cleanUp(dir)
+}
+
+/// With an endpoint up, a vehicle link that ends is still noticed at once (the endpoint is not taken for the vehicle).
+async function aLinkThatEndsIsStillLost(): Promise<void> throws Error {
+  const dir = await freshSettings("lost")
+  const f = await start()
+  const socket = await bind(0)
+  await setEndpoints(f, `[{"kind":"udp","host":"127.0.0.1","port":${socket.addr.port},"on":true}]`)
+  await connectSimulator(f)
+  expect((await waitForEndpoint(ForwardState.Up, 3000)).endpoints[0].state == ForwardState.Up).toBe(true)
+  const sub = await f.subscribe("vehicle.connection")
+  await f.event("vehicle.connection")
+  simulatorForTests()!.stop()
+  const lost = decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$")
+  expect(`${lost.state == ConnectionState.Reconnecting} ${lost.error ?? ""}`).toBe("true the link ended")
+  await f.unsubscribe(sub)
+  await f.call("vehicle.disconnect")
+  // The session is over: the endpoint is closed, and idle.
+  expect(runningForTests().size).toBe(0)
+  expect((await statusForTests()).endpoints[0].state == ForwardState.Idle).toBe(true)
+  socket.close()
+  await cleanUp(dir)
+}
+
+describe("forwarding MAVLink to other programs", () => {
+  it("reads the endpoints from the settings", readsTheSettings)
+  it("forwards nothing until an endpoint is added", offByDefault)
+  it("forwards over UDP both ways: a second station reads a parameter", forwardsOverUdp)
+  it("forwards over TCP both ways, and connects again after the program goes", forwardsOverTcp)
+  it("says a TCP endpoint is refused", saysRefused)
+  it("drops for an endpoint that does not read, and never holds up the vehicle", aDeadEndpointDoesNotHoldUpTheVehicle)
+  it("still notices a vehicle link that ends while an endpoint is up", aLinkThatEndsIsStillLost)
+})

@@ -84,7 +84,9 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   // operations on it outlive a dropped link, and reconnect.pi adds a new link to the router when the old one
   // comes back (#28). `close()` closes the router and with it every link.
   const registry = defaultRegistry()
-  const router = new MavLinkRouter({ registry, keepOpen: true })
+  // With `forward`, what one link delivers goes on to the others: the endpoints of the forwarding (forward.pi) are links too.
+  // With the vehicle's link alone there is nothing to forward to.
+  const router = new MavLinkRouter({ registry, keepOpen: true, forward: true })
   router.addLink(stream!)
   // (as the vehicle's ground station: its heartbeats count for the vehicle's GCS failsafe, whatever RC control does; see heartbeat.pi)
   // (what is sent is counted for the link's quality: linkstats.pi)
