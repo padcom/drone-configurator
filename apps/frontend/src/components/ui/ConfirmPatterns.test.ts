@@ -203,6 +203,7 @@ describe('a second-press button that is turned off for any other reason', () => 
   })
 })
 
+// eslint-disable-next-line max-lines-per-function -- the cases of one button's reason to be off, kept together
 describe('a second-press button whose reason to be off changes as the page reads again', () => {
   it('keeps what it says when it is off from the first press on, whatever follows the wait that passes', async () => {
     const button = second()
@@ -227,9 +228,20 @@ describe('a second-press button whose reason to be off changes as the page reads
 
     expect(button.classes()).toContain('armed')
     await button.setProps({ off: null })
+    await button.trigger('focus')
     await button.trigger('blur')
 
     expect(button.classes()).not.toContain('armed')
+  })
+
+  it('does not go back for the blur the browser makes late, after it was turned off and on again', async () => {
+    // Chromium takes the focus from a button that was turned off at a frame it draws, which can come after the button is on
+    // again: that blur is nobody leaving it.
+    const button = await paused()
+    await button.setProps({ off: null })
+    await button.trigger('blur')
+
+    expect(button.classes()).toContain('armed')
   })
 })
 
