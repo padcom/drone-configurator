@@ -1,7 +1,9 @@
-// Parameter metadata: what a metadata file says about parameters (descriptions, units, ranges, named values), loaded
-// from a file the user picks. It talks to the backend through the client (docs/frontend-state.md).
+// Parameter metadata: what a metadata file says about parameters (descriptions, units, ranges, named values), downloaded from
+// ArduPilot's server for the connected vehicle (the backend's `metadata.fetch`, which keeps it on disk: #35), or loaded from a
+// file the user picks. It talks to the backend through the client (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
+import type { MetadataFile, MetadataVehicle } from '@/generated/app'
 import { say } from '@/i18n/say'
 import { type Metadata, parseMetadata } from '@/lib/params/metadata'
 
@@ -13,6 +15,29 @@ export interface MetadataDeps {
   rememberPath?: (path: string) => void
 }
 
+/** Where the metadata in use came from: nothing, a file the user loaded, or ArduPilot's server. */
+export type MetadataSource = 'none' | 'file' | 'download'
+
+/** What the last download gave: for which vehicle and version, and how it came. */
+export interface DownloadedMetadata {
+  /** The kind of vehicle. */
+  vehicle: MetadataVehicle
+  /** The firmware version the vehicle said (absent when it said no released one). */
+  version?: string
+  /** Whether the file is that version's (false: the latest, which may differ). */
+  exact: boolean
+  /** It came from this computer's cache, not the server just now. */
+  fromCache: boolean
+  /** It is the latest file, past its time, given because the server could not be reached. */
+  stale: boolean
+  /** When the server gave it (ms since 1970). */
+  fetchedAt: number
+  /** How long it took to get and read (ms). */
+  loadMs: number
+  /** How many parameters it describes. */
+  count: number
+}
+
 /** The metadata, as refs and actions. */
 export interface MetadataModel {
   /** Loaded parameter metadata, by parameter id (empty: none). */
@@ -21,8 +46,25 @@ export interface MetadataModel {
   readonly error: ShallowRef<string | null>
   /** How many files were tried (loaded or not; a file that could not be opened too): the result of each is to be told. */
   readonly loads: ShallowRef<number>
+  /** Where the metadata in use came from. */
+  readonly source: ShallowRef<MetadataSource>
+  /** What the last download that worked gave (null until one did). */
+  readonly downloaded: ShallowRef<DownloadedMetadata | null>
+  /** Why the last download did not give metadata, or null. */
+  readonly downloadError: ShallowRef<string | null>
+  /** Whether a download runs. */
+  readonly downloading: ShallowRef<boolean>
   /** Loads parameter metadata (replacing what was loaded). */
   load: (text: string) => void
+  /**
+   * Downloads the connected vehicle's metadata (from the cache when it has it, unless `refresh`) and uses it. One that does not
+   * come leaves what is in use, unless it was downloaded for a vehicle (it may be another kind's: nothing is invented, so it
+   * goes).
+   * A file from the cache that cannot be read is asked for again from the server.
+   *
+   * @returns what was downloaded, or null when nothing was (the reason is in `downloadError`)
+   */
+  download: (options?: { refresh?: boolean }) => Promise<DownloadedMetadata | null>
   /** Lets the user pick a metadata file (the host's open dialog) and loads it; the path of a file that loaded is kept. */
   openFile: () => Promise<void>
   /**
@@ -40,6 +82,10 @@ class ParamMetadata implements MetadataModel {
   readonly metadata = shallowRef<Metadata>(new Map())
   readonly error = shallowRef<string | null>(null)
   readonly loads = shallowRef(0)
+  readonly source = shallowRef<MetadataSource>('none')
+  readonly downloaded = shallowRef<DownloadedMetadata | null>(null)
+  readonly downloadError = shallowRef<string | null>(null)
+  readonly downloading = shallowRef(false)
 
   /**
    * Makes the metadata.
@@ -84,8 +130,81 @@ class ParamMetadata implements MetadataModel {
     }
     this.metadata.value = loaded
     this.error.value = null
+    this.source.value = 'file'
 
     return true
+  }
+
+  async download(options: { refresh?: boolean } = {}): Promise<DownloadedMetadata | null> {
+    const started = performance.now()
+    this.downloading.value = true
+
+    try {
+      return this.took(await this.fetchReadable(options.refresh === true), started)
+    } catch (error) {
+      return this.notDownloaded(describeError(error), options.refresh === true)
+    } finally {
+      this.downloading.value = false
+    }
+  }
+
+  /**
+   * Asks the backend for the file, and reads it: a file from the cache that cannot be read is asked for again from the server.
+   *
+   * @param refresh whether the server is asked even when the cache has the file
+   * @returns the file and what it says, or why it is not metadata
+   */
+  private async fetchReadable(refresh: boolean): Promise<{ file: MetadataFile, read: Metadata | string }> {
+    const file = await this.deps.client.call('metadata.fetch', refresh ? { refresh } : {})
+    const read = parseMetadata(file.text)
+    if (typeof read === 'string' && file.fromCache) {
+      return this.fetchReadable(true)
+    }
+
+    return { file, read }
+  }
+
+  /**
+   * Uses what a download gave.
+   *
+   * @param got the file and what it says
+   * @param got.file the file
+   * @param got.read what it says, or why it is not metadata
+   * @param started when the download started (performance.now())
+   * @returns what was downloaded, or null when it is not metadata
+   */
+  private took({ file, read }: { file: MetadataFile, read: Metadata | string }, started: number): DownloadedMetadata | null {
+    if (typeof read === 'string') {
+      return this.notDownloaded(read, false)
+    }
+    const { vehicle, version, exact, fromCache, stale, fetchedAt } = file
+    const loadMs = performance.now() - started
+    this.metadata.value = read
+    this.source.value = 'download'
+    this.downloadError.value = null
+    this.downloaded.value = { vehicle, version, exact, fromCache, stale, fetchedAt: Number(fetchedAt), loadMs, count: read.size }
+
+    return this.downloaded.value
+  }
+
+  /**
+   * A download that gave nothing: says why, and drops metadata that was downloaded for a vehicle, unless this was the refresh of
+   * it (the same vehicle's).
+   *
+   * @param reason why
+   * @param refresh whether it was a refresh
+   * @returns null
+   */
+  private notDownloaded(reason: string, refresh: boolean): null {
+    this.downloadError.value = reason
+
+    if (!refresh && this.source.value === 'download') {
+      this.metadata.value = new Map()
+      this.source.value = 'none'
+      this.downloaded.value = null
+    }
+
+    return null
   }
 
   async openFile(): Promise<void> {

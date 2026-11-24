@@ -933,7 +933,29 @@
       "pathHelp": "Where the parameter metadata file is. A file you load by hand is kept here, and loaded again at start when the switch below is on.",
       "choose": "Choose file…",
       "autoload": "Load the parameter metadata when the application starts",
-      "autoloadHelp": "With this off nothing is loaded at start, and the path above is kept."
+      "autoloadHelp": "With this off nothing is loaded at start, and the path above is kept.",
+      "download": "Download the parameter metadata for the connected vehicle",
+      "downloadHelp": "From ArduPilot's server, for the vehicle's type and firmware version, and kept on this computer for the next time. A file you load is used instead.",
+      "refresh": "Download again",
+      "status": {
+        "downloading": "Downloading the parameter metadata…",
+        "file": "A file you loaded is in use. Nothing is downloaded while it is.",
+        "none": "Nothing downloaded yet. It is downloaded when a vehicle is connected.",
+        "failed": "Not downloaded: {error}. Parameters are shown without descriptions.",
+        "exact": "{vehicle} {version} metadata from ArduPilot, downloaded {date}.",
+        "latest": "Latest {vehicle} metadata from ArduPilot, downloaded {date}: the vehicle did not report a released firmware version.",
+        "latestFor": "Latest {vehicle} metadata from ArduPilot, downloaded {date}: ArduPilot has none for {version}.",
+        "fromCache": "Loaded from this computer in {seconds} s.",
+        "stale": "ArduPilot's server could not be reached, so it may be out of date."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Dismiss",
     "title": "Settings",
@@ -1366,7 +1388,7 @@
   },
   "reason": {
     "notJson": "not JSON",
-    "xml": "an XML file: only JSON is read (ArduPilot's apm.pdef.json, or our own format)",
+    "xml": "an XML file that is not ArduPilot's apm.pdef.xml",
     "notMetadata": "not a parameter metadata file: expected ArduPilot's apm.pdef.json, or our own format",
     "metadataVersion": "metadata version {version} (this app reads version 1)",
     "noParameters": "it describes no parameters",
@@ -1385,6 +1407,9 @@
     "metadataLoad": "Can't load the metadata: {reason}.",
     "metadataLoadFrom": "Can't load the metadata from {path}: {reason}.",
     "metadataReadFrom": "Can't load the metadata from {path}: {error}",
+    "metadataLatest": "The vehicle did not report a released firmware version, so ArduPilot's latest {vehicle} metadata is used. Some parameters may differ.",
+    "metadataLatestFor": "ArduPilot has no metadata for {vehicle} {version}, so the latest is used. Some parameters may differ.",
+    "metadataRefresh": "Can't download the metadata again: {error}. The metadata in use is kept.",
     "metadataPathNotKept": "The path of {path} was not kept: only a .json file is loaded when the application starts.",
     "open": "Couldn't open it: {error}",
     "settingsUnavailable": "The settings are not available: {error}",

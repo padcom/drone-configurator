@@ -933,7 +933,29 @@
       "pathHelp": "Wo die Datei mit den Parameter-Metadaten liegt. Eine Datei, die Sie von Hand laden, wird hier gemerkt und beim Start wieder geladen, wenn der Schalter unten an ist.",
       "choose": "Datei wählen…",
       "autoload": "Parameter-Metadaten beim Start der Anwendung laden",
-      "autoloadHelp": "Ist er aus, wird beim Start nichts geladen; der Pfad oben bleibt erhalten."
+      "autoloadHelp": "Ist er aus, wird beim Start nichts geladen; der Pfad oben bleibt erhalten.",
+      "download": "Parameter-Metadaten für das verbundene Fahrzeug herunterladen",
+      "downloadHelp": "Vom Server von ArduPilot, passend zu Fahrzeugtyp und Firmware-Version, und auf diesem Computer für das nächste Mal gespeichert. Eine Datei, die Sie laden, wird stattdessen verwendet.",
+      "refresh": "Erneut herunterladen",
+      "status": {
+        "downloading": "Parameter-Metadaten werden heruntergeladen…",
+        "file": "Eine von Ihnen geladene Datei wird verwendet. Solange das so ist, wird nichts heruntergeladen.",
+        "none": "Noch nichts heruntergeladen. Das geschieht, sobald ein Fahrzeug verbunden ist.",
+        "failed": "Nicht heruntergeladen: {error}. Parameter werden ohne Beschreibungen angezeigt.",
+        "exact": "Metadaten für {vehicle} {version} von ArduPilot, heruntergeladen am {date}.",
+        "latest": "Neueste Metadaten für {vehicle} von ArduPilot, heruntergeladen am {date}: Das Fahrzeug hat keine veröffentlichte Firmware-Version gemeldet.",
+        "latestFor": "Neueste Metadaten für {vehicle} von ArduPilot, heruntergeladen am {date}: ArduPilot hat keine für {version}.",
+        "fromCache": "In {seconds} s von diesem Computer geladen.",
+        "stale": "Der Server von ArduPilot war nicht erreichbar, daher sind sie womöglich veraltet."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Schließen",
     "title": "Einstellungen",
@@ -1366,7 +1388,7 @@
   },
   "reason": {
     "notJson": "kein JSON",
-    "xml": "eine XML-Datei: gelesen wird nur JSON (ArduPilots apm.pdef.json oder unser eigenes Format)",
+    "xml": "eine XML-Datei, die nicht ArduPilots apm.pdef.xml ist",
     "notMetadata": "keine Parameter-Metadaten-Datei: erwartet wird ArduPilots apm.pdef.json oder unser eigenes Format",
     "metadataVersion": "Metadatenversion {version} (diese App liest Version 1)",
     "noParameters": "sie beschreibt keine Parameter",
@@ -1385,6 +1407,9 @@
     "metadataLoad": "Die Metadaten können nicht geladen werden: {reason}.",
     "metadataLoadFrom": "Die Metadaten aus {path} können nicht geladen werden: {reason}.",
     "metadataReadFrom": "Die Metadaten aus {path} können nicht geladen werden: {error}",
+    "metadataLatest": "Das Fahrzeug hat keine veröffentlichte Firmware-Version gemeldet, daher werden die neuesten Metadaten für {vehicle} von ArduPilot verwendet. Einige Parameter können abweichen.",
+    "metadataLatestFor": "ArduPilot hat keine Metadaten für {vehicle} {version}, daher werden die neuesten verwendet. Einige Parameter können abweichen.",
+    "metadataRefresh": "Die Metadaten können nicht erneut heruntergeladen werden: {error}. Die verwendeten Metadaten bleiben erhalten.",
     "metadataPathNotKept": "Der Pfad von {path} wurde nicht gemerkt: beim Start der Anwendung wird nur eine .json-Datei geladen.",
     "open": "Konnte nicht geöffnet werden: {error}",
     "settingsUnavailable": "Die Einstellungen sind nicht verfügbar: {error}",

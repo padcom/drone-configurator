@@ -1,0 +1,308 @@
+// `metadata.fetch` against a LOCAL fake of ArduPilot's server (never the real one): the exact version's file is preferred and kept,
+// the latest is given (and said: `exact` false) when the server has none for the version, offline with nothing kept is an error and
+// with something kept is that, a stale latest file is asked for again and given when the server is gone, a corrupt or cut entry is
+// fetched again, `refresh` asks the server, a page that is not a definition file is never kept, and with no vehicle named it is the
+// connected vehicle's kind and version.
+import { describe, it, expect } from "std/test"
+import { mkdir, readDir, readText, remove, writeText } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { serve, HttpServer } from "std/http"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  MetadataAsk,
+  MetadataFile,
+  MetadataFileFormat,
+  MetadataVehicle,
+  decodeMetadataFile,
+  encodeConnectRequest,
+  encodeMetadataAsk,
+} from "./generated/app"
+import { clockForTests, isVersion, isWhole, kindOfType, urlOf, useServerForTests } from "./metadata"
+import { restartForTests as restartSettings, useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const XML_457: string = "<?xml version=\"1.0\"?>\n<paramfile>\n  <vehicles>\n    <parameters name=\"ArduCopter\">\n      <param humanName=\"RTL altitude\" name=\"ArduCopter:RTL_ALT\" documentation=\"Height to return at.\" user=\"Standard\">\n        <field name=\"Units\">cm</field>\n      </param>\n    </parameters>\n  </vehicles>\n</paramfile>\n"
+const JSON_LATEST: string = "{\"json\": {\"version\": 0}, \"ArduCopter\": {\"RTL_ALT\": {\"DisplayName\": \"RTL altitude\", \"Units\": \"cm\"}}}"
+
+/// What the fake server does, and what it saw.
+class Fake {
+  public hits: string[] = []
+  public userAgent: string = ""
+  /// "ok", "down" (answers 503), "html" (answers 200 with a page that is not a definition file).
+  public mode: string = "ok"
+}
+
+const fake = new Fake()
+
+async function handle(req: Request): Promise<Response> {
+  const rest = if (req.url.startsWith("/")) req.url else req.url.slice(req.url.indexOf("//") + 2)
+  const path = rest.slice(rest.indexOf("/"))
+  fake.hits.push(path)
+  fake.userAgent = req.headers.get("user-agent") ?? ""
+  if (fake.mode == "down") {
+    return new Response("busy", { status: 503 })
+  }
+  if (fake.mode == "html") {
+    return new Response("<html><body>maintenance</body></html>", { status: 200 })
+  }
+  if (path == "/versioned/Copter/stable-4.5.7/apm.pdef.xml") {
+    return new Response(XML_457, { status: 200 })
+  }
+  if (path.endsWith("/apm.pdef.json")) {
+    return new Response(JSON_LATEST, { status: 200 })
+  }
+  return new Response("not found", { status: 404 })
+}
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  public readonly server: HttpServer
+
+  constructor(f: Frontend, root: string, server: HttpServer) {
+    this.f = f
+    this.root = root
+    this.server = server
+  }
+
+  public cache(): string {
+    return join(root, "cache", "metadata")
+  }
+}
+
+/// A backend over a fresh directory, and a fake server it asks.
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-metadata-${pid}-${Date.now() as int}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  restartSettings()
+  clockForTests(0)
+  fake.hits = []
+  fake.mode = "ok"
+  const server = await serve({ port: 0 }, handle)
+  useServerForTests(`http://127.0.0.1:${server.addr.port}`)
+  return new Rig(await start(), root, server)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await r.server.shutdown()
+  useServerForTests(null)
+  clockForTests(0)
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+async function ask(r: Rig, a: MetadataAsk): Promise<Envelope> throws Error {
+  return await r.f.call("metadata.fetch", encodeMetadataAsk(a))
+}
+
+async function fileFor(r: Rig, a: MetadataAsk): Promise<MetadataFile> throws Error {
+  const e = await ask(r, a)
+  if (e.err != null) {
+    panic(`metadata.fetch failed: ${e.err!.code} ${e.err!.message}`)
+  }
+  return decodeMetadataFile(e.p ?? Cbor.Null, "$")
+}
+
+function copter(version: string?): MetadataAsk {
+  return MetadataAsk { vehicle: MetadataVehicle.Copter, version: version }
+}
+
+async function takesTheExactVersionFromTheServerAndKeepsIt(): Promise<void> throws Error {
+  const r = await rig()
+  const first = await fileFor(r, copter("4.5.7"))
+  expect(first.exact).toBe(true)
+  expect(first.format == MetadataFileFormat.Xml).toBe(true)
+  expect(first.fromCache).toBe(false)
+  expect(first.version ?? "").toBe("4.5.7")
+  expect(first.text).toBe(XML_457)
+  expect(fake.hits.length).toBe(1)
+  expect(fake.hits[0]).toBe("/versioned/Copter/stable-4.5.7/apm.pdef.xml")
+  expect(fake.userAgent.startsWith("DroneConfigurator/")).toBe(true)
+  // The next is the disk's, without asking the server, even a year later (a released version never changes).
+  clockForTests(365 * 86400000)
+  const again = await fileFor(r, copter("4.5.7"))
+  expect(again.fromCache).toBe(true)
+  expect(again.exact).toBe(true)
+  expect(again.text).toBe(XML_457)
+  expect(fake.hits.length).toBe(1)
+  await done(r)
+}
+
+async function givesTheLatestAndSaysSoWhenTheServerHasNoFileForTheVersion(): Promise<void> throws Error {
+  const r = await rig()
+  const file = await fileFor(r, copter("4.7.9"))
+  expect(file.exact).toBe(false)
+  expect(file.format == MetadataFileFormat.Json).toBe(true)
+  expect(file.version ?? "").toBe("4.7.9")
+  expect(file.text).toBe(JSON_LATEST)
+  expect(fake.hits.join(" ")).toBe("/versioned/Copter/stable-4.7.9/apm.pdef.xml /ArduCopter/apm.pdef.json")
+  // Without a version, and for a kind the server keeps no versions of, it is the latest straight away.
+  fake.hits = []
+  const blimp = await fileFor(r, MetadataAsk { vehicle: MetadataVehicle.Blimp, version: "1.0.0" })
+  expect(blimp.exact).toBe(false)
+  expect(fake.hits.join(" ")).toBe("/Blimp/apm.pdef.json")
+  fake.hits = []
+  const rover = await fileFor(r, MetadataAsk { vehicle: MetadataVehicle.Rover })
+  expect(rover.exact).toBe(false)
+  expect(rover.version == null).toBe(true)
+  expect(fake.hits.join(" ")).toBe("/APMrover2/apm.pdef.json")
+  await done(r)
+}
+
+async function isAnErrorOfflineWithNothingKept(): Promise<void> throws Error {
+  const r = await rig()
+  await r.server.shutdown()
+  const e = await ask(r, copter("4.5.7"))
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  // Nothing was kept of it.
+  let entries = 0
+  for await (const _e of readDir(r.cache())) {
+    entries += 1
+  }
+  expect(entries).toBe(0)
+  useServerForTests(null)
+  await remove(r.root, true)
+}
+
+async function usesWhatIsKeptWhenTheServerIsGone(): Promise<void> throws Error {
+  const r = await rig()
+  await fileFor(r, copter("4.5.7"))
+  await fileFor(r, copter("4.7.9"))
+  fake.mode = "down"
+  fake.hits = []
+  expect((await fileFor(r, copter("4.5.7"))).fromCache).toBe(true)
+  expect(fake.hits.length).toBe(0)
+  // The latest is fresh for 7 days: from the disk without asking.
+  const fresh = await fileFor(r, copter(null))
+  expect(fresh.fromCache).toBe(true)
+  expect(fresh.stale).toBe(false)
+  expect(fake.hits.length).toBe(0)
+  // After that it is asked for again, and the one kept is given, marked stale, while the server is down.
+  clockForTests(8 * 86400000)
+  const stale = await fileFor(r, copter(null))
+  expect(stale.fromCache).toBe(true)
+  expect(stale.stale).toBe(true)
+  expect(stale.text).toBe(JSON_LATEST)
+  expect(fake.hits.join(" ")).toBe("/ArduCopter/apm.pdef.json")
+  // And a server that is back gives a new one.
+  fake.mode = "ok"
+  const renewed = await fileFor(r, copter(null))
+  expect(renewed.fromCache).toBe(false)
+  expect(renewed.stale).toBe(false)
+  await done(r)
+}
+
+async function fetchesACorruptEntryAgain(): Promise<void> throws Error {
+  const r = await rig()
+  await fileFor(r, copter("4.5.7"))
+  const path = join(r.cache(), "copter-4.5.7.xml")
+  // Cut short: the size is not what the .meta says.
+  await writeText(path, XML_457.slice(0, 40))
+  const cut = await fileFor(r, copter("4.5.7"))
+  expect(cut.fromCache).toBe(false)
+  expect(cut.text).toBe(XML_457)
+  expect(fake.hits.length).toBe(2)
+  // A .meta that is not one.
+  await writeText(`${path}.meta`, "garbage")
+  expect((await fileFor(r, copter("4.5.7"))).fromCache).toBe(false)
+  expect(fake.hits.length).toBe(3)
+  // The same size, but not a definition file.
+  await writeText(path, "x".repeat(XML_457.length))
+  expect((await fileFor(r, copter("4.5.7"))).fromCache).toBe(false)
+  expect(fake.hits.length).toBe(4)
+  // And whole again: from the disk.
+  expect((await readText(path))).toBe(XML_457)
+  expect((await fileFor(r, copter("4.5.7"))).fromCache).toBe(true)
+  expect(fake.hits.length).toBe(4)
+  await done(r)
+}
+
+async function asksTheServerOnRefresh(): Promise<void> throws Error {
+  const r = await rig()
+  await fileFor(r, copter("4.5.7"))
+  const again = await fileFor(r, MetadataAsk { vehicle: MetadataVehicle.Copter, version: "4.5.7", refresh: true })
+  expect(again.fromCache).toBe(false)
+  expect(fake.hits.length).toBe(2)
+  // A refresh that cannot reach the server is an error, not the file that was kept: the page keeps what it has, and says so.
+  await fileFor(r, copter("4.7.9"))
+  fake.mode = "down"
+  const failed = await ask(r, MetadataAsk { vehicle: MetadataVehicle.Copter, version: "4.7.9", refresh: true })
+  expect(codeOf(failed)).toBe("UNAVAILABLE")
+  await done(r)
+}
+
+async function neverKeepsAPageThatIsNotADefinitionFile(): Promise<void> throws Error {
+  const r = await rig()
+  fake.mode = "html"
+  expect(codeOf(await ask(r, copter("4.5.7")))).toBe("UNAVAILABLE")
+  fake.mode = "ok"
+  const file = await fileFor(r, copter("4.5.7"))
+  expect(file.fromCache).toBe(false)
+  expect(file.text).toBe(XML_457)
+  await done(r)
+}
+
+async function refusesAVersionThatIsNotThreeNumbers(): Promise<void> throws Error {
+  const r = await rig()
+  for (const bad of ["4.5", "4.5.7.1", "../4.5.7", "4.5.x", "", "4.5.7/../../x", "1234.0.0"]) {
+    expect(codeOf(await ask(r, copter(bad)))).toBe("BAD_REQUEST")
+  }
+  expect(fake.hits.length).toBe(0)
+  await done(r)
+}
+
+async function isTheConnectedVehiclesWithNoVehicleNamed(): Promise<void> throws Error {
+  const r = await rig()
+  expect(codeOf(await ask(r, MetadataAsk {}))).toBe("NOT_CONNECTED")
+  await r.f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  // The simulator is a quadrotor that says it runs 4.5.7 of the kind "dev": a build that is no release has no file of its own on the
+  // server, so it is the latest, without asking for the version's.
+  const file = await fileFor(r, MetadataAsk {})
+  expect(file.vehicle == MetadataVehicle.Copter).toBe(true)
+  expect(file.version == null).toBe(true)
+  expect(file.exact).toBe(false)
+  expect(fake.hits.join(" ")).toBe("/ArduCopter/apm.pdef.json")
+  await r.f.call("vehicle.disconnect")
+  await done(r)
+}
+
+function namesTheKindsAndTheFiles(): void {
+  expect(kindOfType("QUADROTOR") == MetadataVehicle.Copter).toBe(true)
+  expect(kindOfType("HELICOPTER") == MetadataVehicle.Copter).toBe(true)
+  expect(kindOfType("VTOL_TILTROTOR") == MetadataVehicle.Plane).toBe(true)
+  expect(kindOfType("SURFACE_BOAT") == MetadataVehicle.Rover).toBe(true)
+  expect(kindOfType("SUBMARINE") == MetadataVehicle.Sub).toBe(true)
+  expect(kindOfType("ANTENNA_TRACKER") == MetadataVehicle.Tracker).toBe(true)
+  expect(kindOfType("AIRSHIP") == MetadataVehicle.Blimp).toBe(true)
+  expect(kindOfType("GCS") == null).toBe(true)
+  expect(urlOf("https://s/", MetadataVehicle.Sub, "4.5.3")).toBe("https://s/versioned/Sub/stable-4.5.3/apm.pdef.xml")
+  expect(urlOf("https://s/", MetadataVehicle.Tracker, null)).toBe("https://s/AntennaTracker/apm.pdef.json")
+  expect(urlOf("https://s/", MetadataVehicle.Blimp, "1.0.0")).toBe("")
+  expect(isVersion("4.7.1")).toBe(true)
+  expect(isVersion("10.0.12")).toBe(true)
+  expect(isVersion("4.7")).toBe(false)
+  expect(isWhole(XML_457, MetadataFileFormat.Xml)).toBe(true)
+  expect(isWhole(XML_457.slice(0, 60), MetadataFileFormat.Xml)).toBe(false)
+  expect(isWhole(JSON_LATEST, MetadataFileFormat.Json)).toBe(true)
+  expect(isWhole("{\"error\": 1}", MetadataFileFormat.Json)).toBe(false)
+}
+
+describe("metadata.fetch", () => {
+  it("names the kinds of vehicle and the server's files", namesTheKindsAndTheFiles)
+  it("takes the exact version from the server, and keeps it for good", takesTheExactVersionFromTheServerAndKeepsIt)
+  it("gives the latest, and says so, when the server has no file for the version", givesTheLatestAndSaysSoWhenTheServerHasNoFileForTheVersion)
+  it("is an error offline with nothing kept, and keeps nothing", isAnErrorOfflineWithNothingKept)
+  it("uses what is kept when the server is gone, the latest marked stale after 7 days", usesWhatIsKeptWhenTheServerIsGone)
+  it("fetches a corrupt or cut entry again", fetchesACorruptEntryAgain)
+  it("asks the server on refresh, and fails rather than give the old file", asksTheServerOnRefresh)
+  it("never keeps a page that is not a definition file", neverKeepsAPageThatIsNotADefinitionFile)
+  it("refuses a version that is not three numbers", refusesAVersionThatIsNotThreeNumbers)
+  it("is the connected vehicle's kind and version when no vehicle is named", isTheConnectedVehiclesWithNoVehicleNamed)
+})

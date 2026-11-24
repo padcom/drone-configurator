@@ -1,6 +1,7 @@
-// The settings about the parameter metadata file: where the user last loaded it from, and whether it is loaded again when the
-// application starts. Both are entries of the settings document (`ui` entries), so a settings file written before them has
-// neither, and then the load at start is ON with nothing to load.
+// The settings about the parameter metadata: where the user last loaded a file from, whether it is loaded again when the
+// application starts, and whether the connected vehicle's is downloaded. They are entries of the settings document (`ui`
+// entries), so a settings file written before them has none, and then the load at start is ON with nothing to load, and the
+// download is ON.
 
 /** The key of the entry that holds the path of the metadata file, as the user wrote or chose it ('' or nothing: none). */
 export const METADATA_PATH_KEY = 'metadata.path'
@@ -40,4 +41,20 @@ export function pathToLoad(path: string | undefined, autoload: string | undefine
   const trimmed = (path ?? '').trim()
 
   return autoloadOn(autoload) && trimmed !== '' ? trimmed : null
+}
+
+/**
+ * The key of the switch "Download the parameter metadata for the connected vehicle": `on` or `off` (a settings file from
+ * before it has neither, and then it is on).
+ */
+export const METADATA_DOWNLOAD_KEY = 'metadata.download'
+
+/**
+ * Whether the metadata of a vehicle that is connected is downloaded.
+ *
+ * @param text what the settings hold under the switch's key, if anything
+ * @returns false only when the user turned it off
+ */
+export function downloadOn(text: string | undefined): boolean {
+  return text !== 'off'
 }

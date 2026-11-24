@@ -933,7 +933,29 @@
       "pathHelp": "Dónde está el archivo de metadatos de parámetros. Un archivo que cargue a mano se guarda aquí y se vuelve a cargar al iniciar si el interruptor de abajo está activado.",
       "choose": "Elegir archivo…",
       "autoload": "Cargar los metadatos de parámetros al iniciar la aplicación",
-      "autoloadHelp": "Desactivado, no se carga nada al iniciar y la ruta de arriba se conserva."
+      "autoloadHelp": "Desactivado, no se carga nada al iniciar y la ruta de arriba se conserva.",
+      "download": "Descargar los metadatos de parámetros del vehículo conectado",
+      "downloadHelp": "Desde el servidor de ArduPilot, según el tipo de vehículo y la versión del firmware, y se guardan en este equipo para la próxima vez. Si cargas un archivo, se usa ese.",
+      "refresh": "Descargar de nuevo",
+      "status": {
+        "downloading": "Descargando los metadatos de parámetros…",
+        "file": "Se usa un archivo que cargaste. Mientras tanto no se descarga nada.",
+        "none": "Aún no se ha descargado nada. Se descarga al conectar un vehículo.",
+        "failed": "No descargados: {error}. Los parámetros se muestran sin descripciones.",
+        "exact": "Metadatos de {vehicle} {version} de ArduPilot, descargados el {date}.",
+        "latest": "Últimos metadatos de {vehicle} de ArduPilot, descargados el {date}: el vehículo no indicó una versión de firmware publicada.",
+        "latestFor": "Últimos metadatos de {vehicle} de ArduPilot, descargados el {date}: ArduPilot no tiene para {version}.",
+        "fromCache": "Cargados desde este equipo en {seconds} s.",
+        "stale": "No se pudo contactar con el servidor de ArduPilot, así que pueden estar desactualizados."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Cerrar",
     "title": "Ajustes",
@@ -1366,7 +1388,7 @@
   },
   "reason": {
     "notJson": "no es JSON",
-    "xml": "un archivo XML: solo se lee JSON (el apm.pdef.json de ArduPilot o nuestro propio formato)",
+    "xml": "un archivo XML que no es el apm.pdef.xml de ArduPilot",
     "notMetadata": "no es un archivo de metadatos de parámetros: se esperaba el apm.pdef.json de ArduPilot o nuestro formato",
     "metadataVersion": "metadatos versión {version} (esta app lee la versión 1)",
     "noParameters": "no describe ningún parámetro",
@@ -1385,6 +1407,9 @@
     "metadataLoad": "No se pueden cargar los metadatos: {reason}.",
     "metadataLoadFrom": "No se pueden cargar los metadatos de {path}: {reason}.",
     "metadataReadFrom": "No se pueden cargar los metadatos de {path}: {error}",
+    "metadataLatest": "El vehículo no indicó una versión de firmware publicada, así que se usan los últimos metadatos de {vehicle} de ArduPilot. Algunos parámetros pueden diferir.",
+    "metadataLatestFor": "ArduPilot no tiene metadatos para {vehicle} {version}, así que se usan los últimos. Algunos parámetros pueden diferir.",
+    "metadataRefresh": "No se pueden descargar de nuevo los metadatos: {error}. Se conservan los que están en uso.",
     "metadataPathNotKept": "No se guardó la ruta de {path}: al iniciar la aplicación solo se carga un archivo .json.",
     "open": "No se pudo abrir: {error}",
     "settingsUnavailable": "Los ajustes no están disponibles: {error}",

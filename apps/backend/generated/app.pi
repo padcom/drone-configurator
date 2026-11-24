@@ -6076,6 +6076,141 @@ export function encodeMotorTestState(v: MotorTestState): Cbor {
   return Cbor.Dict(m)
 }
 
+export struct MetadataAsk {
+  vehicle?: MetadataVehicle
+  version?: string
+  refresh?: bool
+}
+
+export function decodeMetadataAsk(v: Cbor, path: string): MetadataAsk throws InvalidPayload {
+  const m = members(v, path, ["vehicle", "version", "refresh"])
+  const cbor0 = m.get("vehicle")
+  let opt0: MetadataVehicle? = null
+  if (cbor0 != null) {
+    opt0 = decodeMetadataVehicle(cbor0, `${path}.vehicle`)
+  }
+  const cbor1 = m.get("version")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.version`)
+  }
+  const cbor2 = m.get("refresh")
+  let opt2: bool? = null
+  if (cbor2 != null) {
+    opt2 = boolean(cbor2, `${path}.refresh`)
+  }
+  return MetadataAsk {
+    vehicle: opt0,
+    version: opt1,
+    refresh: opt2,
+  }
+}
+
+export function encodeMetadataAsk(v: MetadataAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.vehicle
+  if (opt0 != null) {
+    m.set("vehicle", encodeMetadataVehicle(opt0))
+  }
+  const opt1 = v.version
+  if (opt1 != null) {
+    m.set("version", Cbor.Text(opt1))
+  }
+  const opt2 = v.refresh
+  if (opt2 != null) {
+    m.set("refresh", Cbor.Bool(opt2))
+  }
+  return Cbor.Dict(m)
+}
+
+export enum MetadataVehicle { Copter, Plane, Rover, Sub, Tracker, Blimp }
+
+export function decodeMetadataVehicle(v: Cbor, path: string): MetadataVehicle throws InvalidPayload {
+  match (text(v, path)) {
+    "copter" => MetadataVehicle.Copter,
+    "plane" => MetadataVehicle.Plane,
+    "rover" => MetadataVehicle.Rover,
+    "sub" => MetadataVehicle.Sub,
+    "tracker" => MetadataVehicle.Tracker,
+    "blimp" => MetadataVehicle.Blimp,
+    _ => throw new InvalidPayload(path, "copter or plane or rover or sub or tracker or blimp"),
+  }
+}
+
+export function encodeMetadataVehicle(v: MetadataVehicle): Cbor {
+  match (v) {
+    Copter => Cbor.Text("copter"),
+    Plane => Cbor.Text("plane"),
+    Rover => Cbor.Text("rover"),
+    Sub => Cbor.Text("sub"),
+    Tracker => Cbor.Text("tracker"),
+    Blimp => Cbor.Text("blimp"),
+  }
+}
+
+export enum MetadataFileFormat { Json, Xml }
+
+export function decodeMetadataFileFormat(v: Cbor, path: string): MetadataFileFormat throws InvalidPayload {
+  match (text(v, path)) {
+    "json" => MetadataFileFormat.Json,
+    "xml" => MetadataFileFormat.Xml,
+    _ => throw new InvalidPayload(path, "json or xml"),
+  }
+}
+
+export function encodeMetadataFileFormat(v: MetadataFileFormat): Cbor {
+  match (v) {
+    Json => Cbor.Text("json"),
+    Xml => Cbor.Text("xml"),
+  }
+}
+
+export struct MetadataFile {
+  vehicle: MetadataVehicle
+  version?: string
+  exact: bool
+  format: MetadataFileFormat
+  text: string
+  fromCache: bool
+  stale: bool
+  fetchedAt: u64
+}
+
+export function decodeMetadataFile(v: Cbor, path: string): MetadataFile throws InvalidPayload {
+  const m = members(v, path, ["vehicle", "version", "exact", "format", "text", "fromCache", "stale", "fetchedAt"])
+  const cbor1 = m.get("version")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.version`)
+  }
+  return MetadataFile {
+    vehicle: decodeMetadataVehicle(required(m, "vehicle", path), `${path}.vehicle`),
+    version: opt1,
+    exact: boolean(required(m, "exact", path), `${path}.exact`),
+    format: decodeMetadataFileFormat(required(m, "format", path), `${path}.format`),
+    text: text(required(m, "text", path), `${path}.text`),
+    fromCache: boolean(required(m, "fromCache", path), `${path}.fromCache`),
+    stale: boolean(required(m, "stale", path), `${path}.stale`),
+    fetchedAt: (uint(required(m, "fetchedAt", path), `${path}.fetchedAt`, 18446744073709551615) as u64),
+  }
+}
+
+export function encodeMetadataFile(v: MetadataFile): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("vehicle", encodeMetadataVehicle(v.vehicle))
+  const opt1 = v.version
+  if (opt1 != null) {
+    m.set("version", Cbor.Text(opt1))
+  }
+  m.set("exact", Cbor.Bool(v.exact))
+  m.set("format", encodeMetadataFileFormat(v.format))
+  m.set("text", Cbor.Text(v.text))
+  m.set("fromCache", Cbor.Bool(v.fromCache))
+  m.set("stale", Cbor.Bool(v.stale))
+  m.set("fetchedAt", Cbor.Uint(v.fetchedAt as u64))
+  return Cbor.Dict(m)
+}
+
 export struct MapTileAsk {
   source?: string
   z: u8

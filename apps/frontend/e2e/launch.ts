@@ -7,6 +7,8 @@
 // whose map would ask a tile server for its tiles, and no test ever calls a real one (flight-map.e2e.ts has a server of its own).
 // The recording of every connection (#30) is OFF too unless the test's settings say otherwise (`presetSettings`): a recording
 // is a log in Flights, and the specs that look at Flights count on the logs they made themselves.
+// The download of the connected vehicle's parameter metadata (#35) is OFF too unless the test's settings say otherwise: no test
+// asks ArduPilot's server by accident, and the specs that look at a parameter's description count on the metadata they loaded.
 // The last connection is the built-in simulator unless the test's own settings say otherwise: a new install opens the Connect
 // dialog on UDP (#27), and the tests that only press Connect mean the simulator (one-key.e2e.ts starts from what it chooses).
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -34,6 +36,7 @@ interface Entry {
 const QUIET: readonly Entry[] = [
   { key: 'map.enabled', value: 'false' },
   { key: 'recording.enabled', value: 'false' },
+  { key: 'metadata.download', value: 'off' },
   { key: 'connect.last', value: JSON.stringify({ transport: 'simulator', host: '', port: '', device: '', baud: '' }) },
 ]
 
