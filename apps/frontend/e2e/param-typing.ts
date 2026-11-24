@@ -12,7 +12,12 @@ export interface Typed {
 
 /**
  * A page script that types each query a letter at a time into the search and says how long each letter took until the table's
- * rows had been made (the next task: the input event, Vue's update, the rows in the page), and what the first row is at the end.
+ * rows had been made (the next task: the input event, Vue's update in the microtasks after it, the rows in the page), and what
+ * the first row is at the end.
+ *
+ * The next task is a message to the page's own channel, not `setTimeout(0)`: a timer set from a timer's continuation five deep
+ * is held back to at least 4 ms by the browser (the HTML standard's clamping), with milliseconds of jitter on a busy machine,
+ * which would be timed as if it were the search's.
  *
  * @param queries what is typed
  * @returns the script, which gives the times and the first rows
@@ -20,6 +25,11 @@ export interface Typed {
 function typing(queries: string[]): string {
   return `(async () => {
     const input = document.getElementById('filter')
+    const channel = new MessageChannel()
+    const nextTask = () => new Promise(resolve => {
+      channel.port1.onmessage = resolve
+      channel.port2.postMessage(0)
+    })
     const times = []
     const firsts = []
     for (const query of ${JSON.stringify(queries)}) {
@@ -27,7 +37,7 @@ function typing(queries: string[]): string {
         const start = performance.now()
         input.value = query.slice(0, i)
         input.dispatchEvent(new Event('input', { bubbles: true }))
-        await new Promise(resolve => setTimeout(resolve, 0))
+        await nextTask()
         times.push(performance.now() - start)
       }
       firsts.push(document.querySelector('#rows tr[data-id]')?.dataset.id ?? '')
