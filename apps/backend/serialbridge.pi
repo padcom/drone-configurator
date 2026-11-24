@@ -1,0 +1,505 @@
+// The serial bridge (#198): a serial port of the vehicle (its GPS, a telemetry radio, SERIALn) reached by a program on this computer
+// through a local TCP port, over MAVLink's SERIAL_CONTROL (pico-mavlink's `SerialControlStream`, built to the MAVLink specification and
+// ArduPilot's documentation of GCS pass-through).
+//
+// What it promises (packages/contracts/app.cddl, `serial.bridge.*`):
+//  - the port is LOCKED (SERIAL_CONTROL's EXCLUSIVE) from the start until the bridge ends, and the state says which one it is;
+//  - it is ALWAYS given back when the bridge ends, by whichever way: `serial.bridge.stop`, the session ending (a disconnect, the app
+//    closing: the session keeps the connection open for it, `link.farewells`), the link lost, the vehicle arming. A release that could
+//    not go out (the link was down) is tried once more when the link is back;
+//  - nothing is started for a vehicle that is armed or may be (`ARMED`, `STATE_UNKNOWN`): a GPS taken away in flight is a vehicle
+//    without a position. A vehicle that arms while the bridge runs ends it;
+//  - one program at a time: a second one reads one line that says why, and is closed (`refused` counts them);
+//  - the local port listens on 127.0.0.1 unless asked otherwise.
+// What the device says while no program is connected has nobody to go to: it is dropped and counted (`dropped`).
+import { Cbor, Communicator, CommunicatorError, RequestContext, Sink } from "pico-desktop/communicator"
+import { Conn, Listener, listen } from "std/net"
+import { delay } from "std/timers"
+import { MavLinkConnection, SerialControlDev, SerialControlStream } from "padcom/pico-mavlink"
+import {
+  ConnectionState,
+  SerialBridgeDevice,
+  SerialBridgeStart,
+  SerialBridgeState,
+  SerialBridgeStateState,
+  decodeSerialBridgeStart,
+  encodeSerialBridgeState,
+} from "./generated/app"
+import { SessionPart, armedState, connectedLink, link } from "./session"
+
+/// How the bridge is paced (a test may change it).
+class Limits {
+  /// How often the bridge looks at the session (the link, the armed state) and sends the byte counts when they changed (ms).
+  public tickMs: int = 250
+  /// How often a release that could not go out is tried again while the link is up (ms).
+  public retryMs: int = 1000
+}
+
+export const limits = new Limits()
+
+/// The fastest speed a port is set to (bits a second): ArduPilot's own list of SERIALn_BAUD ends at 2 Mbit/s.
+export const MAX_BAUD: int = 4000000
+
+/// The largest count the contract carries (u32): a count goes no higher.
+const MAX_COUNT: int = 4294967295
+
+/// The line a second program reads before it is closed.
+export const REFUSAL: string = "drone-configurator: this serial bridge serves one program at a time, and another one is connected\r\n"
+
+/// The SERIAL_CONTROL_DEV of a device the contract names.
+export function deviceId(d: SerialBridgeDevice): int {
+  match (d) {
+    TELEM1 => SerialControlDev.DEV_TELEM1,
+    TELEM2 => SerialControlDev.DEV_TELEM2,
+    GPS1 => SerialControlDev.DEV_GPS1,
+    GPS2 => SerialControlDev.DEV_GPS2,
+    SERIAL0 => SerialControlDev.SERIAL0,
+    SERIAL1 => SerialControlDev.SERIAL1,
+    SERIAL2 => SerialControlDev.SERIAL2,
+    SERIAL3 => SerialControlDev.SERIAL3,
+    SERIAL4 => SerialControlDev.SERIAL4,
+    SERIAL5 => SerialControlDev.SERIAL5,
+    SERIAL6 => SerialControlDev.SERIAL6,
+    SERIAL7 => SerialControlDev.SERIAL7,
+    SERIAL8 => SerialControlDev.SERIAL8,
+    SERIAL9 => SerialControlDev.SERIAL9,
+  }
+}
+
+/// A count as the contract carries it.
+function counted(n: int): u32 {
+  return (if (n > MAX_COUNT) MAX_COUNT else n) as u32
+}
+
+/// Registers the methods and the subscription on `c`, and the bridge's part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("serialbridge", bridge)
+  c.handle("serial.bridge.start", startBridge)
+  c.handle("serial.bridge.stop", stopBridge)
+  c.publish("serial.bridge.status", watchBridge)
+}
+
+/// The bridge: one at a time, for the session's vehicle.
+export class Bridge implements SessionPart {
+  public conn: MavLinkConnection? = null
+  /// Counts the bridges: what a bridge's late news (its loops, its release) says of an older one is ignored.
+  public serial: int = 0
+  public phase: SerialBridgeStateState = SerialBridgeStateState.Off
+  public stream: SerialControlStream? = null
+  public listener: Listener? = null
+  public client: Conn? = null
+  /// A stream whose release could not go out: tried again while the link is up, until it gets out or the session ends.
+  public unreleased: SerialControlStream? = null
+  /// What the last bridge was.
+  public device: SerialBridgeDevice? = null
+  public baudrate: int = 0
+  public address: string = ""
+  public port: int = 0
+  public clientAddress: string = ""
+  public toVehicle: int = 0
+  public fromVehicle: int = 0
+  public dropped: int = 0
+  public refused: int = 0
+  public why: string = ""
+  public releaseFailed: bool = false
+  public error: string = ""
+  public watchers: Sink[] = []
+  /// The release under way (what `serial.bridge.stop` waits for).
+  public releasing: Promise<void>? = null
+  /// The counts changed since they were last sent.
+  dirty: bool = false
+  timer: int = -1
+  retryTimer: int = -1
+
+  public attach(c: MavLinkConnection): void {
+    conn = c
+  }
+
+  /// The session ends (a disconnect, the app closing, another vehicle): the bridge ends with it, and the port is given back while
+  /// the session keeps the connection open for it. A release still owed is the old connection's: nothing more can be done.
+  public detach(): void {
+    finish("DISCONNECTED")
+    forgetUnreleased()
+    conn = null
+  }
+
+  public get running(): bool {
+    return phase == SerialBridgeStateState.Running
+  }
+
+  /// The state, as the contract says it.
+  public state(): SerialBridgeState {
+    const s = SerialBridgeState {
+      state: phase,
+      client: client != null,
+      toVehicle: counted(toVehicle),
+      fromVehicle: counted(fromVehicle),
+      dropped: counted(dropped),
+      refused: counted(refused),
+    }
+    if (device != null) {
+      s.device = device!
+      s.address = address
+      s.port = port as u16
+    }
+    if (baudrate > 0) {
+      s.baudrate = baudrate as u32
+    }
+    if (client != null) {
+      s.clientAddress = clientAddress
+    }
+    if (why != "") {
+      s.why = why
+    }
+    if (releaseFailed) {
+      s.releaseFailed = true
+    }
+    if (error != "") {
+      s.error = error
+    }
+    return s
+  }
+
+  /// Sends the state to everyone who watches.
+  public announce(): void {
+    dirty = false
+    const encoded = encodeSerialBridgeState(state())
+    for (const w of watchers) {
+      w.next(encoded)
+    }
+  }
+
+  /// A bridge begins: the port is taken (the stream's first request), the local port is the listener's.
+  public begin(c: MavLinkConnection, ask: SerialBridgeStart, l: Listener): void {
+    serial += 1
+    const mine = serial
+    phase = SerialBridgeStateState.Running
+    device = ask.device
+    baudrate = (ask.baudrate ?? (0 as u32)) as int
+    address = l.addr.hostname
+    port = l.addr.port
+    toVehicle = 0
+    fromVehicle = 0
+    dropped = 0
+    refused = 0
+    why = ""
+    releaseFailed = false
+    error = ""
+    clientAddress = ""
+    listener = l
+    const s = new SerialControlStream(c, { system: link.sysid, component: link.compid }, { device: deviceId(ask.device), baudrate: baudrate })
+    stream = s
+    timer = setInterval(() => this.tick(mine), limits.tickMs)
+    fromDevice(mine, s)
+    accept(mine, l)
+    announce()
+  }
+
+  /// Looks at the session: a link that is not up, or a vehicle that armed, ends the bridge; the counts go out when they changed.
+  public tick(mine: int): void {
+    if (mine != serial || !running) {
+      return
+    }
+    if (link.state.state != ConnectionState.Connected) {
+      finish("LINK_LOST")
+      return
+    }
+    if (armedState() == true) {
+      finish("ARMED")
+      return
+    }
+    if (dirty) {
+      announce()
+    }
+  }
+
+  /// What the device says goes to the program; with no program it is dropped (and counted). The stream ending while the bridge runs
+  /// is the connection ending.
+  async fromDevice(mine: int, s: SerialControlStream): Promise<void> {
+    while (true) {
+      let bytes: Uint8Array? = null
+      try {
+        bytes = await s.read()
+      } catch (e: Error) {
+        bytes = null
+      }
+      if (mine != serial || !running) {
+        return
+      }
+      if (bytes == null) {
+        finish("LINK_LOST")
+        return
+      }
+      fromVehicle += bytes!.length
+      dirty = true
+      const c = client
+      if (c == null) {
+        dropped += bytes!.length
+      } else {
+        await toProgram(c!, bytes!)
+      }
+    }
+  }
+
+  /// Writes to the program; a program that has gone is let go.
+  async toProgram(c: Conn, bytes: Uint8Array): Promise<void> {
+    try {
+      await c.write(bytes)
+    } catch (e: Error) {
+      letGo(c)
+    }
+  }
+
+  /// Takes the programs that connect: the first is served, the others are refused while it is.
+  async accept(mine: int, l: Listener): Promise<void> {
+    while (true) {
+      let c: Conn? = null
+      try {
+        c = await l.accept()
+      } catch (e: Error) {
+        if (mine == serial && running) {
+          error = e.message
+          finish("LISTEN_FAILED")
+        }
+        return
+      }
+      if (c == null) {
+        return
+      }
+      if (mine != serial || !running) {
+        c!.close()
+        return
+      }
+      if (client != null) {
+        refuse(c!)
+      } else {
+        client = c
+        clientAddress = `${c!.remoteAddr.hostname}:${c!.remoteAddr.port}`
+        announce()
+        serve(mine, c!)
+      }
+    }
+  }
+
+  /// A second program: it reads why, and is closed.
+  async refuse(c: Conn): Promise<void> {
+    refused += 1
+    announce()
+    try {
+      await c.writeText(REFUSAL)
+    } catch (e: Error) {
+    }
+    c.close()
+  }
+
+  /// What the program writes goes to the device, in order, until the program goes or the bridge ends.
+  async serve(mine: int, c: Conn): Promise<void> {
+    while (true) {
+      let bytes: Uint8Array? = null
+      try {
+        bytes = await c.read()
+      } catch (e: Error) {
+        bytes = null
+      }
+      const s = stream
+      if (bytes == null || mine != serial || !running || s == null) {
+        break
+      }
+      try {
+        await s!.write(bytes!)
+        toVehicle += bytes!.length
+        dirty = true
+      } catch (e: Error) {
+        error = e.message
+        dirty = true
+      }
+    }
+    letGo(c)
+  }
+
+  /// The program has gone (or is let go): the next one may connect.
+  letGo(c: Conn): void {
+    c.close()
+    const current = client
+    if (current != null && current! == c) {
+      client = null
+      clientAddress = ""
+      announce()
+    }
+  }
+
+  /// The bridge ends with `reason`: the local port closes, the program is let go, and the port goes back to the vehicle (the session
+  /// keeps the connection open until the release has gone out). Nothing happens when none runs.
+  public finish(reason: string): void {
+    if (!running) {
+      return
+    }
+    phase = SerialBridgeStateState.Releasing
+    why = reason
+    clearInterval(timer)
+    timer = -1
+    const l = listener
+    listener = null
+    if (l != null) {
+      l!.close()
+    }
+    const c = client
+    client = null
+    clientAddress = ""
+    if (c != null) {
+      c!.close()
+    }
+    const s = stream
+    stream = null
+    announce()
+    if (s != null) {
+      link.farewells += 1
+      releasing = giveBack(serial, s!)
+    } else {
+      phase = SerialBridgeStateState.Off
+      announce()
+    }
+  }
+
+  /// Hands the port back, and says how that went. One that could not go out is owed: tried again while the link is up.
+  async giveBack(mine: int, s: SerialControlStream): Promise<void> {
+    await s.release()
+    link.farewells -= 1
+    if (mine != serial) {
+      return
+    }
+    phase = SerialBridgeStateState.Off
+    releaseFailed = s.releaseFailed
+    if (s.releaseFailed) {
+      owe(s)
+    }
+    announce()
+  }
+
+  /// A release that did not go out: tried again every `retryMs` while the session's link is up.
+  public owe(s: SerialControlStream): void {
+    forgetUnreleased()
+    unreleased = s
+    retryTimer = setInterval(() => this.retry(), limits.retryMs)
+  }
+
+  forgetUnreleased(): void {
+    unreleased = null
+    if (retryTimer >= 0) {
+      clearInterval(retryTimer)
+      retryTimer = -1
+    }
+  }
+
+  /// Tries a release that is owed once more, when the link is up again.
+  async retry(): Promise<void> {
+    const s = unreleased
+    if (s == null || link.state.state != ConnectionState.Connected || link.conn == null || link.conn! != s!.conn) {
+      return
+    }
+    forgetUnreleased()
+    await s!.release()
+    if (s!.releaseFailed) {
+      owe(s!)
+      return
+    }
+    if (phase == SerialBridgeStateState.Off && releaseFailed) {
+      releaseFailed = false
+      announce()
+    }
+  }
+}
+
+/// The bridge of this backend (exported for the tests).
+export const bridge = new Bridge()
+
+/// Refuses a vehicle that is armed or may be: unknown counts as armed.
+function checkDisarmed(): void throws CommunicatorError {
+  const armed = armedState()
+  if (armed == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s, or an arm is in flight): no port is taken")
+  }
+  if (armed!) {
+    throw new CommunicatorError("ARMED", "the vehicle is armed: a port is taken only on the ground")
+  }
+}
+
+/// Refuses what may not begin now (nothing is sent to the vehicle); the connection when it may.
+function checkStart(ask: SerialBridgeStart): MavLinkConnection throws CommunicatorError {
+  const conn = connectedLink()
+  checkDisarmed()
+  if (bridge.phase != SerialBridgeStateState.Off) {
+    throw new CommunicatorError("BUSY", "a serial bridge is already running, or still giving its port back")
+  }
+  const baud = (ask.baudrate ?? (0 as u32)) as int
+  if (baud > MAX_BAUD) {
+    throw new CommunicatorError("INVALID_VALUE", `the baud rate is at most ${MAX_BAUD}, not ${baud}`)
+  }
+  return conn
+}
+
+/// Listens on the local port. The listener of a bridge that just ended lets go of its port a moment after it is closed: a port in use is
+/// tried again a few times (a stop and a start on the same port, at once), before it is `PORT_UNAVAILABLE`.
+async function listenOn(port: int, address: string): Promise<Listener> throws CommunicatorError {
+  let why = ""
+  for (let i = 0; i < LISTEN_TRIES; i++) {
+    try {
+      return await listen(port, address)
+    } catch (e: Error) {
+      why = e.message
+    }
+    if (port == 0 || !why.includes("in use")) {
+      break
+    }
+    await nap(LISTEN_RETRY_MS)
+  }
+  throw new CommunicatorError("PORT_UNAVAILABLE", `${address}:${port} cannot be listened on: ${why}`)
+}
+
+/// How many times, and how far apart (ms), a local port in use is tried.
+const LISTEN_TRIES: int = 5
+const LISTEN_RETRY_MS: int = 100
+
+/// Waits `ms`; an aborted wait is the end of it.
+async function nap(ms: int): Promise<void> {
+  try {
+    await delay(ms)
+  } catch (e: Error) {
+    return
+  }
+}
+
+async function startBridge(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeSerialBridgeStart(payload ?? Cbor.Null, "$")
+  checkStart(ask)
+  const address = ask.address ?? "127.0.0.1"
+  const port = (ask.port ?? (0 as u16)) as int
+  const l = await listenOn(port, address)
+  // The world may have changed while the port was opened: the checks again, before anything is sent.
+  let conn: MavLinkConnection? = null
+  try {
+    conn = checkStart(ask)
+  } catch (e: CommunicatorError) {
+    l.close()
+    throw e
+  }
+  bridge.begin(conn!, ask, l)
+  encodeSerialBridgeState(bridge.state())
+}
+
+async function stopBridge(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  bridge.finish("STOPPED")
+  const work = bridge.releasing
+  if (work != null) {
+    await work!
+  }
+  encodeSerialBridgeState(bridge.state())
+}
+
+function watchBridge(_params: Cbor?, sink: Sink): void throws Error {
+  sink.next(encodeSerialBridgeState(bridge.state()))
+  bridge.watchers.push(sink)
+  sink.onClose = () => {
+    bridge.watchers = bridge.watchers.filter((w: Sink) => w.id != sink.id)
+  }
+}

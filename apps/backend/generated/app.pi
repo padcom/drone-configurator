@@ -5258,6 +5258,236 @@ export function encodeSerialPort(v: SerialPort): Cbor {
   return Cbor.Dict(m)
 }
 
+export enum SerialBridgeDevice { TELEM1, TELEM2, GPS1, GPS2, SERIAL0, SERIAL1, SERIAL2, SERIAL3, SERIAL4, SERIAL5, SERIAL6, SERIAL7, SERIAL8, SERIAL9 }
+
+export function decodeSerialBridgeDevice(v: Cbor, path: string): SerialBridgeDevice throws InvalidPayload {
+  match (text(v, path)) {
+    "TELEM1" => SerialBridgeDevice.TELEM1,
+    "TELEM2" => SerialBridgeDevice.TELEM2,
+    "GPS1" => SerialBridgeDevice.GPS1,
+    "GPS2" => SerialBridgeDevice.GPS2,
+    "SERIAL0" => SerialBridgeDevice.SERIAL0,
+    "SERIAL1" => SerialBridgeDevice.SERIAL1,
+    "SERIAL2" => SerialBridgeDevice.SERIAL2,
+    "SERIAL3" => SerialBridgeDevice.SERIAL3,
+    "SERIAL4" => SerialBridgeDevice.SERIAL4,
+    "SERIAL5" => SerialBridgeDevice.SERIAL5,
+    "SERIAL6" => SerialBridgeDevice.SERIAL6,
+    "SERIAL7" => SerialBridgeDevice.SERIAL7,
+    "SERIAL8" => SerialBridgeDevice.SERIAL8,
+    "SERIAL9" => SerialBridgeDevice.SERIAL9,
+    _ => throw new InvalidPayload(path, "TELEM1 or TELEM2 or GPS1 or GPS2 or SERIAL0 or SERIAL1 or SERIAL2 or SERIAL3 or SERIAL4 or SERIAL5 or SERIAL6 or SERIAL7 or SERIAL8 or SERIAL9"),
+  }
+}
+
+export function encodeSerialBridgeDevice(v: SerialBridgeDevice): Cbor {
+  match (v) {
+    TELEM1 => Cbor.Text("TELEM1"),
+    TELEM2 => Cbor.Text("TELEM2"),
+    GPS1 => Cbor.Text("GPS1"),
+    GPS2 => Cbor.Text("GPS2"),
+    SERIAL0 => Cbor.Text("SERIAL0"),
+    SERIAL1 => Cbor.Text("SERIAL1"),
+    SERIAL2 => Cbor.Text("SERIAL2"),
+    SERIAL3 => Cbor.Text("SERIAL3"),
+    SERIAL4 => Cbor.Text("SERIAL4"),
+    SERIAL5 => Cbor.Text("SERIAL5"),
+    SERIAL6 => Cbor.Text("SERIAL6"),
+    SERIAL7 => Cbor.Text("SERIAL7"),
+    SERIAL8 => Cbor.Text("SERIAL8"),
+    SERIAL9 => Cbor.Text("SERIAL9"),
+  }
+}
+
+export struct SerialBridgeStart {
+  device: SerialBridgeDevice
+  baudrate?: u32
+  port?: u16
+  address?: string
+}
+
+export function decodeSerialBridgeStart(v: Cbor, path: string): SerialBridgeStart throws InvalidPayload {
+  const m = members(v, path, ["device", "baudrate", "port", "address"])
+  const cbor1 = m.get("baudrate")
+  let opt1: u32? = null
+  if (cbor1 != null) {
+    opt1 = (uint(cbor1, `${path}.baudrate`, 4294967295) as u32)
+  }
+  const cbor2 = m.get("port")
+  let opt2: u16? = null
+  if (cbor2 != null) {
+    opt2 = (uint(cbor2, `${path}.port`, 65535) as u16)
+  }
+  const cbor3 = m.get("address")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.address`)
+  }
+  return SerialBridgeStart {
+    device: decodeSerialBridgeDevice(required(m, "device", path), `${path}.device`),
+    baudrate: opt1,
+    port: opt2,
+    address: opt3,
+  }
+}
+
+export function encodeSerialBridgeStart(v: SerialBridgeStart): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("device", encodeSerialBridgeDevice(v.device))
+  const opt1 = v.baudrate
+  if (opt1 != null) {
+    m.set("baudrate", Cbor.Uint(opt1 as u64))
+  }
+  const opt2 = v.port
+  if (opt2 != null) {
+    m.set("port", Cbor.Uint(opt2 as u64))
+  }
+  const opt3 = v.address
+  if (opt3 != null) {
+    m.set("address", Cbor.Text(opt3))
+  }
+  return Cbor.Dict(m)
+}
+
+export enum SerialBridgeStateState { Off, Running, Releasing }
+
+export function decodeSerialBridgeStateState(v: Cbor, path: string): SerialBridgeStateState throws InvalidPayload {
+  match (text(v, path)) {
+    "off" => SerialBridgeStateState.Off,
+    "running" => SerialBridgeStateState.Running,
+    "releasing" => SerialBridgeStateState.Releasing,
+    _ => throw new InvalidPayload(path, "off or running or releasing"),
+  }
+}
+
+export function encodeSerialBridgeStateState(v: SerialBridgeStateState): Cbor {
+  match (v) {
+    Off => Cbor.Text("off"),
+    Running => Cbor.Text("running"),
+    Releasing => Cbor.Text("releasing"),
+  }
+}
+
+export struct SerialBridgeState {
+  state: SerialBridgeStateState
+  device?: SerialBridgeDevice
+  baudrate?: u32
+  address?: string
+  port?: u16
+  client: bool
+  clientAddress?: string
+  toVehicle: u32
+  fromVehicle: u32
+  dropped: u32
+  refused: u32
+  why?: string
+  releaseFailed?: bool
+  error?: string
+}
+
+export function decodeSerialBridgeState(v: Cbor, path: string): SerialBridgeState throws InvalidPayload {
+  const m = members(v, path, ["state", "device", "baudrate", "address", "port", "client", "clientAddress", "toVehicle", "fromVehicle", "dropped", "refused", "why", "releaseFailed", "error"])
+  const cbor1 = m.get("device")
+  let opt1: SerialBridgeDevice? = null
+  if (cbor1 != null) {
+    opt1 = decodeSerialBridgeDevice(cbor1, `${path}.device`)
+  }
+  const cbor2 = m.get("baudrate")
+  let opt2: u32? = null
+  if (cbor2 != null) {
+    opt2 = (uint(cbor2, `${path}.baudrate`, 4294967295) as u32)
+  }
+  const cbor3 = m.get("address")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.address`)
+  }
+  const cbor4 = m.get("port")
+  let opt4: u16? = null
+  if (cbor4 != null) {
+    opt4 = (uint(cbor4, `${path}.port`, 65535) as u16)
+  }
+  const cbor6 = m.get("clientAddress")
+  let opt6: string? = null
+  if (cbor6 != null) {
+    opt6 = text(cbor6, `${path}.clientAddress`)
+  }
+  const cbor11 = m.get("why")
+  let opt11: string? = null
+  if (cbor11 != null) {
+    opt11 = text(cbor11, `${path}.why`)
+  }
+  const cbor12 = m.get("releaseFailed")
+  let opt12: bool? = null
+  if (cbor12 != null) {
+    opt12 = boolean(cbor12, `${path}.releaseFailed`)
+  }
+  const cbor13 = m.get("error")
+  let opt13: string? = null
+  if (cbor13 != null) {
+    opt13 = text(cbor13, `${path}.error`)
+  }
+  return SerialBridgeState {
+    state: decodeSerialBridgeStateState(required(m, "state", path), `${path}.state`),
+    device: opt1,
+    baudrate: opt2,
+    address: opt3,
+    port: opt4,
+    client: boolean(required(m, "client", path), `${path}.client`),
+    clientAddress: opt6,
+    toVehicle: (uint(required(m, "toVehicle", path), `${path}.toVehicle`, 4294967295) as u32),
+    fromVehicle: (uint(required(m, "fromVehicle", path), `${path}.fromVehicle`, 4294967295) as u32),
+    dropped: (uint(required(m, "dropped", path), `${path}.dropped`, 4294967295) as u32),
+    refused: (uint(required(m, "refused", path), `${path}.refused`, 4294967295) as u32),
+    why: opt11,
+    releaseFailed: opt12,
+    error: opt13,
+  }
+}
+
+export function encodeSerialBridgeState(v: SerialBridgeState): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("state", encodeSerialBridgeStateState(v.state))
+  const opt1 = v.device
+  if (opt1 != null) {
+    m.set("device", encodeSerialBridgeDevice(opt1))
+  }
+  const opt2 = v.baudrate
+  if (opt2 != null) {
+    m.set("baudrate", Cbor.Uint(opt2 as u64))
+  }
+  const opt3 = v.address
+  if (opt3 != null) {
+    m.set("address", Cbor.Text(opt3))
+  }
+  const opt4 = v.port
+  if (opt4 != null) {
+    m.set("port", Cbor.Uint(opt4 as u64))
+  }
+  m.set("client", Cbor.Bool(v.client))
+  const opt6 = v.clientAddress
+  if (opt6 != null) {
+    m.set("clientAddress", Cbor.Text(opt6))
+  }
+  m.set("toVehicle", Cbor.Uint(v.toVehicle as u64))
+  m.set("fromVehicle", Cbor.Uint(v.fromVehicle as u64))
+  m.set("dropped", Cbor.Uint(v.dropped as u64))
+  m.set("refused", Cbor.Uint(v.refused as u64))
+  const opt11 = v.why
+  if (opt11 != null) {
+    m.set("why", Cbor.Text(opt11))
+  }
+  const opt12 = v.releaseFailed
+  if (opt12 != null) {
+    m.set("releaseFailed", Cbor.Bool(opt12))
+  }
+  const opt13 = v.error
+  if (opt13 != null) {
+    m.set("error", Cbor.Text(opt13))
+  }
+  return Cbor.Dict(m)
+}
+
 export enum CalibrationKind { Accel, Level, Compass, Radio }
 
 export function decodeCalibrationKind(v: Cbor, path: string): CalibrationKind throws InvalidPayload {

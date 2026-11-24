@@ -6,7 +6,7 @@ import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
   CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
-  ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
+  ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
@@ -19,6 +19,7 @@ import { forwardStatusOf } from './mock-forward'
 import { MockMap } from './mock-map'
 import { MockRecording } from './mock-recording'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
+import { MockSerialBridge, type MockSerialBridgeControl } from './mock-serial-bridge'
 import { type LinkStats, linkStatsAt } from './mock-link'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
 
@@ -133,6 +134,8 @@ export interface MockControl {
   motors?: MockMotorsControl
   /** What the Tune screen's stream has done, and what it is sent (see `MockTuningControl`). */
   tuning?: MockTuningControl
+  /** The serial bridge: its state, a program that connects, bytes, an end. */
+  serialBridge?: MockSerialBridgeControl
   /** Sets what `link.stats` says from now on (null: the mock's own healthy link again). */
   link?: (stats: LinkStats | null) => void
   /** The recording fails (or no longer does), or the limit removed this many old recordings in all: `recording.changed` is sent. */
@@ -207,6 +210,7 @@ class MockVehicle {
   /** The motor test. */
   readonly motors: MockMotors
   readonly tuning: MockTuning
+  readonly serialBridge: MockSerialBridge
   /** Arming, disarming, the flight mode and the pre-arm checks. */
   readonly arming: MockArming
 
@@ -225,6 +229,7 @@ class MockVehicle {
     this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
     this.motors = new MockMotors(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
     this.tuning = new MockTuning(send, () => this.connection.state === 'connected')
+    this.serialBridge = new MockSerialBridge({ send, connected: () => this.connection.state === 'connected', armed: () => this.armedState() })
     this.arming = new MockArming({
       connected: () => this.connection.state === 'connected',
       armed: () => this.armedState(),
@@ -236,6 +241,7 @@ class MockVehicle {
     if (options.control) {
       options.control.motors = this.motors.control()
       options.control.tuning = this.tuning.control()
+      options.control.serialBridge = this.serialBridge.control()
       options.control.arming = this.arming.control()
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => this.announceParam(id, value)
@@ -283,6 +289,7 @@ class MockVehicle {
     this.calibration.reset()
     this.motors.reset()
     this.tuning.reset()
+    this.serialBridge.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
     this.forwardSubscribers.clear()
@@ -301,6 +308,7 @@ class MockVehicle {
       this.forwardSubscribers.delete(e.s!)
       this.motors.unsubscribe(e.s!)
       this.tuning.unsubscribe(e.s!)
+      this.serialBridge.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
     } else if (e.k === 'request' || e.k === 'subscribe') {
@@ -420,6 +428,9 @@ class MockVehicle {
       }
       case 'metadata.fetch': return this.metadataFetch(e.p as MetadataAsk, ok, fail)
       case 'serial.ports': return ok({ ports: SERIAL_PORTS })
+      case 'serial.bridge.start': return this.serialBridge.start(e.p as SerialBridgeStart, ok, fail)
+      case 'serial.bridge.stop': return this.serialBridge.stop(ok)
+      case 'serial.bridge.status': return this.serialBridge.subscribe(e)
       case 'settings.get': return ok(this.settingsState())
       case 'settings.set': {
         this.settings = patchSettings(this.settings, e.p as SettingsPatch)
@@ -565,6 +576,9 @@ class MockVehicle {
   push(connection: Connection) {
     const recordingChanges = (connection.state === 'connected') !== (this.connection.state === 'connected')
     this.connection = connection
+    if (connection.state !== 'connected') {
+      this.serialBridge.disconnected()
+    }
     for (const s of this.watchers) {
       this.send({ k: 'event', n: 'vehicle.connection', s, p: connection })
     }
