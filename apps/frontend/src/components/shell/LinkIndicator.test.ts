@@ -17,10 +17,9 @@ import { createBackendClient } from '@/backend/client'
 const started: { wrapper: VueWrapper, handle: ReturnType<typeof createConfigurator> }[] = []
 
 afterEach(async () => {
-  for (const { wrapper, handle } of started.splice(0)) {
-    wrapper.unmount()
-    await handle.vehicle.disconnect()
-  }
+  const done = started.splice(0)
+  done.forEach(({ wrapper }) => wrapper.unmount())
+  await Promise.all(done.map(({ handle }) => handle.vehicle.disconnect()))
   document.body.innerHTML = ''
 })
 
