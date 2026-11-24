@@ -255,7 +255,27 @@ services = {
   ; end in `.json`, is over 16 MiB, or cannot be read: "INVALID_PATH", "NOT_FOUND", "NOT_A_FILE", "NOT_JSON", "TOO_LARGE",
   ; "UNREADABLE".
   "files.read": ["method", file-read, file-contents],
+  ; ArduPilot's parameter metadata (#35), DOWNLOADED, never bundled (it is GPL): the backend fetches the definitions for a kind of
+  ; vehicle and firmware version from ArduPilot's server (autotest.ardupilot.org/Parameters/), keeps them on disk per vehicle and
+  ; version, and gives the page the file's text, which the page reads (`format`: "xml" for a released version's file, "json" for
+  ; the latest). Without `vehicle` it is the connected vehicle's kind and version (AUTOPILOT_VERSION, asked for). The exact version is
+  ; preferred: a version the server has no file for (a beta, a version newer than the server's list, a vehicle that did not say)
+  ; gives the latest file, with `exact` false. A released version's file never changes, so it is kept for good; the latest is asked
+  ; for again after 7 days, and a stale one is given (`stale`) when the server cannot be reached. `refresh` asks the server even when
+  ; the cache has the file. A cache entry that is cut short or is not a definition file is fetched again. Fails with `BAD_REQUEST` (a
+  ; version that is not three numbers), `NOT_CONNECTED` (no `vehicle`, and none is connected), `UNSUPPORTED_VEHICLE` (the connected
+  ; vehicle is not an ArduPilot of a kind the server has files for), `TOO_LARGE` (over 16 MiB) and `UNAVAILABLE` (the server cannot
+  ; be reached or has no file, and nothing is kept).
+  ; A file is fetched in parts of 128 KiB (HTTP ranges, held together by the file's ETag; a server that sends the whole file at once
+  ; is taken as it is): a part may take 30 s, so a slow link that makes progress gets the file (a link that cannot move 128 KiB
+  ; in 30 s, under about 35 kbit/s, is "cannot be reached"), and the whole download may take 20 minutes. The page waits for the
+  ; answer longer than that. `metadata.progress` says how far a download from the server is, after each part.
+  "metadata.fetch": ["method", metadata-ask, metadata-file],
+  "metadata.progress": ["event", metadata-progress],
   "serial.ports": ["method", null, serial-ports],
+  ; MAVLink services that announce themselves on the local network (#197), over multicast DNS service discovery (RFC 6762,
+  ; RFC 6763). See `discovered-services`.
+  "discovery.browse": ["method", null, discovered-services],
   ; THE SERIAL BRIDGE (#198): a serial port of the vehicle (its GPS, a telemetry radio, SERIALn) reached by a program on this
   ; computer through a local TCP port, over MAVLink's SERIAL_CONTROL (pico-mavlink's SerialControlStream). `serial.bridge.start`
   ; takes the port from whatever uses it on the vehicle (SERIAL_CONTROL's EXCLUSIVE: a GPS driver, a MAVLink link) and listens on
@@ -329,13 +349,18 @@ services = {
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
 ; without hardware or SITL; "udp" listens on `host`:`port` (default 127.0.0.1:14550, where SITL and most telemetry
-; bridges send); "serial" is a USB or UART port (`device`, at `baud`). A serial request without `device` uses the port
+; bridges send); "udp-client" sends to `host`:`port` first (default 127.0.0.1:14550: a vehicle, a companion computer or a
+; MAVLink router that listens there) and takes the datagrams that come back, from a port of its own (#197); "tcp" connects to
+; `host`:`port` (default 127.0.0.1:5760); "tcp-server" listens on `host`:`port` (default 127.0.0.1:5760) and takes the vehicle,
+; or a forwarder, that connects in: one at a time, and the next one when it goes (the session waits up to 30 s for the first
+; heartbeat, not 3). The two that listen take `host` as the address to listen on: 127.0.0.1 unless the user chose every
+; interface ("0.0.0.0", which exposes the port to the network); "serial" is a USB or UART port (`device`, at `baud`). A serial request without `device` uses the port
 ; most likely to be an autopilot (`serial-port.likely`); without `baud` the backend tries the common rates in turn until
 ; MAVLink arrives (#27). A failed detection says why in `connection.errorCode`: "NO_SERIAL_PORT" (no port to try),
 ; "NO_AUTOPILOT_PORT" (several ports, none recognised), "PORT_GONE" (the port went away while it was being tried),
 ; "NO_MAVLINK" (no rate brought MAVLink).
 connect-request = {
-  transport: "simulator" / "udp" / "tcp" / "serial",
+  transport: "simulator" / "udp" / "udp-client" / "tcp" / "tcp-server" / "serial",
   ? host: tstr,
   ? port: uint .size 2,
   ? device: tstr,
@@ -1222,6 +1247,16 @@ file-read = { path: tstr }
 
 file-contents = { text: tstr }
 
+; What answered a look for MAVLink services on the local network, in about two seconds: the DNS-SD service types
+; `_mavlink._udp` and `_mavlink._tcp`, the ones BlueOS and CubePilot's Herelink announce and QGroundControl browses. The
+; backend asks once, from a port of its own, and the responders answer it directly (a one-shot query, RFC 6762 section
+; 5.1), so only what answers on the network of the machine's default route is found, and nothing that announces itself
+; later. A `_mavlink._udp` service is reached by sending to it ("udp-client"), a `_mavlink._tcp` one by connecting to it
+; ("tcp"). `name` is the name the service gives itself; `host` its IPv4 address when it was told, else its host name.
+; `error` says why nothing could be asked (no network); an empty list with no error is a look that found nothing.
+discovered-services = { services: [* discovered-service], ? error: tstr }
+discovered-service = { name: tstr, transport: "udp-client" / "tcp", host: tstr, port: uint .size 2 }
+
 ; The serial ports the backend's machine has (padcom/serialport's listPorts).
 serial-ports = { ports: [* serial-port] }
 
@@ -1413,6 +1448,27 @@ motor-test-state = {
 
 ; A tile: the zoom, the column and the row of the web-mercator grid (0 to 2^z - 1). `source` is `osm` or `custom`; absent, the one
 ; the settings choose.
+; What `metadata.fetch` is asked: a kind of vehicle and its version ("4.7.1"), or nothing for the connected vehicle.
+metadata-ask = { ? vehicle: metadata-vehicle, ? version: tstr, ? refresh: bool }
+metadata-vehicle = "copter" / "plane" / "rover" / "sub" / "tracker" / "blimp"
+
+; How far a download of a definition file from the server is: `received` of `total` bytes.
+metadata-progress = { received: uint .size 4, total: uint .size 4 }
+
+; A definition file: its `text` in its `format`, for `vehicle` at `version` (absent when the vehicle did not say a released one).
+; `exact` is whether the file is that version's (false: the latest). `fromCache`: from the disk, not the server just now; `stale`: the
+; latest file, past its 7 days, given because the server cannot be reached; `fetchedAt` when the server gave it (ms since 1970).
+metadata-file = {
+  vehicle: metadata-vehicle,
+  ? version: tstr,
+  exact: bool,
+  format: "json" / "xml",
+  text: tstr,
+  fromCache: bool,
+  stale: bool,
+  fetchedAt: uint .size 8,
+}
+
 map-tile-ask = { ? source: tstr, z: uint .size 1, x: uint .size 4, y: uint .size 4 }
 
 ; A tile: `contentType` image/png, image/jpeg or image/webp, the image in `bytes`. `fromCache`: it came from the disk, not the

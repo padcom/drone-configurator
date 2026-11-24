@@ -69,6 +69,20 @@ export function percentile(values: number[], share: number): number {
 }
 
 /**
+ * The 95th percentile of some samples, by the lower nearest rank (⌊(n − 1) × 0.95⌋ in sorted order): with fewer than 21 samples
+ * it is the second slowest, so ONE slow sample (a busy CI runner) does not decide it, as the judging means; with many samples it
+ * is the usual 95th. (The plain nearest rank of 5 samples is the slowest one: one outlier failed coldStart, #559.)
+ *
+ * @param values the samples
+ * @returns the value, 0 for no samples
+ */
+export function percentile95(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+
+  return sorted[Math.floor((sorted.length - 1) * 0.95)] ?? 0
+}
+
+/**
  * The budget of a name in budgets.json.
  *
  * @param name the budget's name
@@ -112,7 +126,7 @@ export function judge(name: string, samples: number[], budget: Budget = budgetOf
     throw new Error(`no samples for the budget "${name}"`)
   }
   const median = percentile(samples, 0.5)
-  const p95 = percentile(samples, 0.95)
+  const p95 = percentile95(samples)
   const limit95 = budget.budget * budget.noise
   const verdict = {
     name, unit: budget.unit, samples: samples.length, median, p95, budget: budget.budget, limit95,

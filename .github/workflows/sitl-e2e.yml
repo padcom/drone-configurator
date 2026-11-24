@@ -15,6 +15,10 @@ on:
         description: The specs to run (`all`, or names such as `sitl.e2e.ts`; the ones that don't start a SITL are left out)
         type: string
         default: all
+      kind:
+        description: Which specs `specs` picks from (.github/shard.mjs `--kind`) — `sitl` (the default) or `weekly` (weekly-e2e.yml)
+        type: string
+        default: sitl
 
 permissions:
   contents: read
@@ -90,8 +94,9 @@ jobs:
           SITL_DIR: ${{ runner.temp }}/sitl
           SHARD: ${{ matrix.shard }}
           SELECTED: ${{ inputs.specs }}
+          KIND: ${{ inputs.kind }}
         run: |
-          mapfile -t specs < <(node .github/shard.mjs --kind sitl --shard "$SHARD" --of 3 --only "$SELECTED")
+          mapfile -t specs < <(node .github/shard.mjs --kind "$KIND" --shard "$SHARD" --of 3 --only "$SELECTED")
           echo "shard $SHARD of 3: ${#specs[@]} specs: ${specs[*]}"
           if [ "${#specs[@]}" -eq 0 ]; then
             echo "no SITL spec the change needs is in this shard"

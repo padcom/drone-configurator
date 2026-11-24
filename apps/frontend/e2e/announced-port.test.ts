@@ -26,6 +26,10 @@ describe('announcedPort', () => {
     await expect(announcedPort(run('console.log("listening 5760"); setInterval(() => {}, 1000)'))).resolves.toBe(5760)
   })
 
+  it('reads the port a vehicle that connects to the app names (#197)', async () => {
+    await expect(announcedPort(run('console.log("connected to 5770"); setInterval(() => {}, 1000)'))).resolves.toBe(5770)
+  })
+
   it('passes on the lines after it', async () => {
     const lines: string[] = []
     await announcedPort(run('console.log("listening 5760\\nparam-set"); setInterval(() => {}, 1000)'), line => lines.push(line))

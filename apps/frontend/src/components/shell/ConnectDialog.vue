@@ -4,18 +4,19 @@
     <form id="connect" class="connect-form" @submit.prevent="connect">
       <div id="transport" class="connect-tabs" role="group" :aria-label="t('connection.transport.label')">
         <button
-          v-for="transport in TRANSPORTS"
-          :id="`transport-${transport}`"
-          :key="transport"
+          v-for="tab in ALL_TABS"
+          :id="`transport-${tab}`"
+          :key="tab"
           type="button"
           class="connect-tab"
-          :aria-pressed="form.transport === transport ? 'true' : 'false'"
-          @click="form.transport = transport"
+          :aria-pressed="shown === tab ? 'true' : 'false'"
+          @click="choose(tab)"
         >
-          {{ t(`connection.transport.${transport}`) }}
+          {{ t(`connection.transport.${tab}`) }}
         </button>
       </div>
-      <p v-if="form.transport === 'simulator'" class="connect-note">{{ t('connect.simulator') }}</p>
+      <ConnectFound v-if="shown === 'found'" @pick="connectTo" />
+      <p v-else-if="form.transport === 'simulator'" class="connect-note">{{ t('connect.simulator') }}</p>
       <template v-else-if="serial">
         <label class="connect-field">{{ t('connection.device') }}
           <Select id="device" v-model="form.device" :options="devices" />
@@ -26,12 +27,22 @@
         </label>
       </template>
       <template v-else>
-        <label class="connect-field">{{ t('connection.host') }}
+        <div id="link-role" class="connect-field">
+          <SegmentedControl v-model="form.transport" :label="t('connect.role.label')" :options="roles" />
+          <span class="connect-note">{{ t(`connect.role.note.${form.transport}`) }}</span>
+        </div>
+        <label v-if="!listening" class="connect-field">{{ t('connection.host') }}
           <TextInput id="host" v-model="form.host" mono large placeholder="127.0.0.1" />
         </label>
         <label class="connect-field">{{ t('connection.port') }}
-          <TextInput id="port" v-model="form.port" mono large placeholder="14550" inputmode="numeric" />
+          <TextInput
+            id="port" v-model="form.port" mono large :placeholder="DEFAULT_PORTS[form.transport]" inputmode="numeric"
+          />
         </label>
+        <div v-if="listening" class="connect-field">
+          <Checkbox id="all-interfaces" v-model="everywhere">{{ t('connect.everywhere') }}</Checkbox>
+          <span id="exposure" class="connect-note">{{ exposure }}</span>
+        </div>
       </template>
     </form>
     <Banner v-if="failure" id="connect-error" tone="error" urgent>
@@ -40,7 +51,7 @@
     <p class="connect-note">{{ t('connect.last') }}</p>
     <template #actions>
       <Button id="connect-cancel" @click="dialog.hide()">{{ t('connect.cancel') }}</Button>
-      <Button id="connect-button" form="connect" type="submit" variant="primary" data-initial-focus>
+      <Button v-if="shown !== 'found'" id="connect-button" form="connect" type="submit" variant="primary" data-initial-focus>
         {{ t('connection.connect') }}
       </Button>
     </template>
@@ -51,20 +62,27 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  type ConnectionForm, FIRST_FORM, LAST_KEY, TRANSPORTS, deviceAmong, parseLast, requestFor,
+  ALL_INTERFACES, type ConnectionForm, DEFAULT_PORTS, FIRST_FORM, LAST_KEY, ROLES, TABS, type Tab, deviceAmong, listens,
+  parseLast, requestFor, tabOf, transportFor,
 } from '@/lib/app/connectionForm'
 import { DETECT_CODES, likelyPath } from '@/lib/app/detect'
-import type { SerialPort } from '@/generated/app'
+import type { DiscoveredService, SerialPort } from '@/generated/app'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
+import Checkbox from '@/components/ui/Checkbox.vue'
 import Dialog from '@/components/ui/Dialog.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import Select from '@/components/ui/Select.vue'
 import TextInput from '@/components/ui/TextInput.vue'
+import ConnectFound from './ConnectFound.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useConnectDialog } from '@/composables/useConnectDialog'
 
-// The Connect dialog, opened from the top bar's vehicle cell: a tab for each kind of link (UDP, TCP, Serial, Simulator),
-// the fields of the one chosen, and Connect. The last connection that was made is kept in the settings and is what the
+// The Connect dialog, opened from the top bar's vehicle cell: a tab for what was found on the network (#197, ConnectFound.vue)
+// and one for each kind of link (UDP, TCP, Serial, Simulator), the fields of the one chosen, and Connect. UDP and TCP each go
+// both ways round (#197): the backend listens and the vehicle sends or connects to it, or the backend goes to the vehicle. A
+// port the backend listens on is on this computer only unless the user chooses every network interface, and is told that this
+// exposes it. The last connection that was made is kept in the settings and is what the
 // dialog shows next time, so Enter is usually all it takes (and the `connect.last` command makes it one key from anywhere).
 // Before the first connection it is UDP on the default port. For serial, the port and the rate may be left to the backend,
 // which finds the autopilot by its USB identity and tries the common rates (#27). It closes itself when the link is up. When
@@ -76,6 +94,24 @@ const { vehicle, fields, settings } = useConfigurator()
 const dialog = useConnectDialog()
 const form = reactive<ConnectionForm>({ ...FIRST_FORM })
 const serial = computed(() => form.transport === 'serial')
+const listening = computed(() => listens(form.transport))
+// The Found tab is shown over the form, which keeps what it holds.
+const finding = ref(false)
+const shown = computed<Tab | 'found'>(() => (finding.value ? 'found' : tabOf(form.transport)))
+const roles = computed(() => (form.transport.startsWith('udp') ? ROLES.udp : ROLES.tcp)
+  .map(transport => ({ value: transport, label: t(`connect.role.${transport}`) })))
+// Whether a port the backend listens on is open to the network.
+const everywhere = computed({
+  get: () => form.host.trim() === ALL_INTERFACES,
+  set: (on: boolean) => {
+    form.host = on ? ALL_INTERFACES : ''
+  },
+})
+const exposure = computed(() => {
+  const port = form.port.trim() || DEFAULT_PORTS[form.transport]
+
+  return everywhere.value ? t('connect.exposed', { port }) : t('connect.loopback', { port })
+})
 const state = computed(() => fields.connection.value.state)
 const bauds = computed(() => [
   { value: '', label: t('connect.detect.baud') },
@@ -131,6 +167,22 @@ function pick(from: ConnectionForm): ConnectionForm {
 // What Connect was last pressed with: it becomes the last connection only once the link is up.
 let attempted = ''
 
+/** The tabs, in the order of the design: what was found first. */
+const ALL_TABS = ['found', ...TABS] as const
+
+/**
+ * Shows a tab: the Found tab over the form, or the form on a kind of link of the tab.
+ *
+ * @param tab the tab
+ */
+function choose(tab: Tab | 'found'): void {
+  finding.value = tab === 'found'
+
+  if (tab !== 'found') {
+    form.transport = transportFor(tab, form.transport)
+  }
+}
+
 /** Asks the backend to connect to what the form says. */
 function connect(): void {
   attempted = JSON.stringify(pick(form))
@@ -139,8 +191,20 @@ function connect(): void {
   void vehicle.connect(requestFor(form))
 }
 
+/**
+ * Connects to a service that was found on the network, as if it had been typed: it is kept as the last connection once the link
+ * is up, so Connect again goes back to it.
+ *
+ * @param service what was found
+ */
+function connectTo(service: DiscoveredService): void {
+  Object.assign(form, { transport: service.transport, host: service.host, port: String(service.port) })
+  connect()
+}
+
 // The dialog opens on the last connection that was made, with no failure left over from before.
 watch(dialog.open, open => {
+  finding.value = false
   const last = open ? parseLast(settings.uiValue(LAST_KEY)) : null
   seenError.value = open ? fields.error.value : undefined
 
