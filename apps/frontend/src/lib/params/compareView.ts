@@ -4,6 +4,7 @@ import type { Translate } from '@/lib/fly/telemetryCards'
 import type { ParamMeta } from './metadata'
 import type { Change } from './paramDiff'
 import { type CompareCounts, type CompareRow, valueText } from './paramCompare'
+import { renamedOther } from './renameWords'
 
 /** The cells of a row, as text. */
 export interface CompareCells {
@@ -77,9 +78,12 @@ function shown(value: number | null, meta: ParamMeta | undefined, translate: Tra
  * @returns the text of each cell
  */
 export function cellsOf(row: CompareRow, meta: ParamMeta | undefined, translate: Translate): CompareCells {
+  const other = shown(row.other, meta, translate)
+
   return {
     vehicle: shown(row.param?.value ?? null, meta, translate),
-    other: shown(row.other, meta, translate),
+    // A value the other side names as an older firmware did says its old name and value too (#202).
+    other: row.renamed ? renamedOther(other, row.renamed, translate) : other,
     ...statusOf(row, translate),
   }
 }

@@ -85,6 +85,16 @@ export class TcpVehicle {
   }
 
   /**
+   * Builds and starts a Copter of 4.7 that never arms (#202): RTL_ALT and WPNAV_SPEED are RTL_ALT_M (in metres) and WP_SPD (in
+   * m/s), and it does not say its version.
+   *
+   * @returns the running vehicle, with its port known
+   */
+  static startRenamed(): Promise<TcpVehicle> {
+    return TcpVehicle.#launch({ ...environment(false, false, '', false), VEHICLE_RENAMED: '1' })
+  }
+
+  /**
    * Builds and starts one that listens on a UDP port instead, and answers whoever sent to it last (#197: the app's "udp-client").
    *
    * @returns the running vehicle, with its UDP port known

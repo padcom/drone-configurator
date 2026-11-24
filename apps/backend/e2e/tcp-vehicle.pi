@@ -174,7 +174,13 @@ function serve(inner: ByteStream): EndWatchingStream {
   muted = false
   held.clear()
   const setup = env.get("VEHICLE_SETUP") == "1"
-  sim = new SimulatedAutopilot(stream, withDefaults(if (setup) setupParams() else defaultSimParams()))
+  const renamed = env.get("VEHICLE_RENAMED") == "1"
+  const params = if (setup) setupParams() else if (renamed) renamedParams() else defaultSimParams()
+  sim = new SimulatedAutopilot(stream, withDefaults(params))
+  // A Copter of 4.7 (#202): it has RTL_ALT_M and WP_SPD, and does not say its version (its names decide the renames).
+  if (renamed) {
+    sim!.answersVersion = false
+  }
   // MAVLink signing (#33): the key of the last connection, and `signing on` or `signing off` to say which (never the key).
   const key = keptKey.key
   if (key != null) {
@@ -209,6 +215,9 @@ function serve(inner: ByteStream): EndWatchingStream {
   }
   // A vehicle that stays disarmed and has nothing else (a write from a parameter file's review is refused while armed).
   if (env.get("VEHICLE_DISARMED") == "1") {
+    stayDisarmed(sim!)
+  }
+  if (renamed) {
     stayDisarmed(sim!)
   }
   if (env.get("VEHICLE_50HZ") == "1") {
@@ -258,6 +267,21 @@ function calibratesQuickly(sim: SimulatedAutopilot): void {
     up.text = "AHRS: EKF3 active"
     sim.conn.send(up)
   }, 1500)
+}
+
+/// The usual parameters under the names a Copter of 4.7 gives them (#202): RTL_ALT is RTL_ALT_M (15 m, as the usual 1500 cm) and
+/// WPNAV_SPEED is WP_SPD (10 m/s, as the usual 1000 cm/s), so that a file saved from an older firmware has names to rename.
+function renamedParams(): SimParam[] {
+  const r32 = MavParamType.REAL32
+  return defaultSimParams().map((p) => {
+    if (p.id == "RTL_ALT") {
+      return SimParam { id: "RTL_ALT_M", value: TypedParamValue.Real(15.0, r32) }
+    }
+    if (p.id == "WPNAV_SPEED") {
+      return SimParam { id: "WP_SPD", value: TypedParamValue.Real(10.0, r32) }
+    }
+    return p
+  })
 }
 
 /// The parameters of a Copter that was set up as far as the Setup pages can see, except its compass (its offsets are zero), so that

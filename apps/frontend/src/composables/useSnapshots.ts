@@ -10,8 +10,10 @@ import { notConfirmedText, showNumber } from '@/lib/params/paramValue'
 import { type Change, type Review, parseSnapshot, review, saveSnapshot } from '@/lib/params/snapshot'
 import type { Metadata } from '@/lib/params/metadata'
 import { type ParamFileFormat, formatParamFile, looksLikeJson, parseParamFile } from '@/lib/params/paramFile'
+import { diffOptions } from '@/lib/params/paramDiff'
 import { reviewFile } from '@/lib/params/paramFileReview'
 import type { AppliedChange } from '@/state/state'
+import type { RenameSource } from './renameSource'
 import type { WriteLock } from './writeLock'
 
 /** What the snapshots need from the rest of the interface. */
@@ -30,6 +32,8 @@ export interface SnapshotsDeps {
   mayBeArmed?: () => boolean
   /** The parameter metadata, when loaded: its read-only parameters are not written, and its ranges give warnings. */
   metadata?: () => Metadata
+  /** ArduPilot's renames: a name the vehicle's firmware renamed is offered under its new name, converted (#202). */
+  renames?: RenameSource
 }
 
 /** The snapshots, as refs and actions. */
@@ -123,6 +127,7 @@ class Snapshots implements SnapshotsModel {
     try {
       const { text } = await this.deps.client.call('files.openParams', null)
       if (text !== undefined) {
+        await this.deps.renames?.ready()
         this.load(text)
       }
     } catch (error) {
@@ -184,17 +189,15 @@ class Snapshots implements SnapshotsModel {
   }
 
   /**
-   * What a review compares with: the vehicle's parameters, the vehicle, and the metadata.
+   * What a review compares with: the vehicle's parameters, the vehicle, the metadata and the renames.
    *
    * @returns them
    */
   private against() {
-    const metadata = this.deps.metadata?.()
-
     return {
       params: this.deps.parameters.params.value,
       vehicle: this.deps.connection.value.vehicle,
-      options: metadata ? { metadata } : {},
+      options: diffOptions(this.deps.metadata?.(), this.deps.renames?.now()),
     }
   }
 

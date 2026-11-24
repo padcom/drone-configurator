@@ -6,6 +6,7 @@ import { validateDraft } from './draft'
 import type { Param } from '@/generated/app'
 import { type Metadata, checkMeta } from './metadata'
 import { canonical } from './paramValue'
+import { type RenameContext, type Renamed, renameWanted } from './renames'
 
 /** One value that is wanted for a parameter. */
 export interface WantedValue {
@@ -19,6 +20,8 @@ export interface WantedValue {
   type?: string
   /** Why the source itself says it is not to be applied (a line for another component of the vehicle), if it does. */
   problem?: string
+  /** The old name and value, when the source names it as an older firmware did (#202): `id` and `value` are the vehicle's. */
+  renamed?: Renamed
 }
 
 /** One parameter that would change, or why it can't. */
@@ -33,6 +36,8 @@ export interface Change {
   problem: string | null
   /** What the metadata finds unusual about the value (outside its range, not one of its values), or null. A warning only. */
   warning: string | null
+  /** The old name and value, when the source names it as an older firmware did (#202). */
+  renamed?: Renamed
 }
 
 /** What applying the wanted values would change. */
@@ -47,6 +52,19 @@ export interface Diff {
 export interface DiffOptions {
   /** The parameter metadata: its read-only parameters are not written, and its ranges and values give warnings. */
   metadata?: Metadata
+  /** ArduPilot's renames and what the vehicle is: a name the vehicle's firmware renamed is offered under its new name (#202). */
+  renames?: RenameContext
+}
+
+/**
+ * The options of a diff, with only what is given.
+ *
+ * @param metadata the metadata, if loaded
+ * @param renames the renames, if loaded
+ * @returns the options
+ */
+export function diffOptions(metadata: Metadata | undefined, renames: RenameContext | undefined): DiffOptions {
+  return { ...(metadata ? { metadata } : {}), ...(renames ? { renames } : {}) }
 }
 
 /**
@@ -123,14 +141,14 @@ function changeOf(wanted: WantedValue, current: Param, options: DiffOptions): Ch
 }
 
 /**
- * What applying one wanted value would change.
+ * What applying one wanted value would change, before it says where a renamed value came from.
  *
  * @param wanted the wanted value
  * @param current the vehicle's parameter, if it has one
  * @param options the metadata
  * @returns the change (with why it can't be applied, if so), or null if the value is the same already
  */
-export function changeFor(wanted: WantedValue, current: Param | undefined, options: DiffOptions = {}): Change | null {
+function plainChangeFor(wanted: WantedValue, current: Param | undefined, options: DiffOptions): Change | null {
   const { id, value: to } = wanted
   if (!current) {
     return { id, from: null, to, problem: say('problem.notOnVehicle'), warning: null }
@@ -143,6 +161,32 @@ export function changeFor(wanted: WantedValue, current: Param | undefined, optio
 }
 
 /**
+ * What applying one wanted value would change.
+ *
+ * @param wanted the wanted value
+ * @param current the vehicle's parameter, if it has one
+ * @param options the metadata
+ * @returns the change (with why it can't be applied, and its old name if it was renamed), or null if it is the same already
+ */
+export function changeFor(wanted: WantedValue, current: Param | undefined, options: DiffOptions = {}): Change | null {
+  const change = plainChangeFor(wanted, current, options)
+
+  return change && wanted.renamed ? { ...change, renamed: wanted.renamed } : change
+}
+
+/**
+ * The wanted values with the names the vehicle's firmware renamed put under their new names, when the renames are given.
+ *
+ * @param wanted the wanted values
+ * @param params the vehicle's parameters now
+ * @param options the renames, if given
+ * @returns the values
+ */
+export function withRenames(wanted: WantedValue[], params: Param[], options: DiffOptions): WantedValue[] {
+  return options.renames ? renameWanted(wanted, params, options.renames) : wanted
+}
+
+/**
  * What applying the wanted values to a vehicle with `params` would change.
  *
  * @param wanted the wanted values
@@ -152,7 +196,7 @@ export function changeFor(wanted: WantedValue, current: Param | undefined, optio
  */
 export function diffValues(wanted: WantedValue[], params: Param[], options: DiffOptions = {}): Diff {
   const byId = new Map(params.map(param => [param.id, param]))
-  const found = wanted.map(value => changeFor(value, byId.get(value.id), options))
+  const found = withRenames(wanted, params, options).map(value => changeFor(value, byId.get(value.id), options))
   const changes = found.filter((change): change is Change => change !== null)
 
   return { changes, unchanged: found.length - changes.length }
