@@ -39,6 +39,9 @@ export class TcpVehicle {
   startedSigned = false
   /** Every line it printed (a test looks for what must never be in them: a key). */
   readonly lines: string[] = []
+  /** The serial ports SERIAL_CONTROL holds now (SERIAL_CONTROL_DEV numbers), and how many times one was handed back. */
+  readonly serialHeld = new Set<number>()
+  serialReleases = 0
   /** The TCP port it listens on, once it has said so. */
   port = 0
   readonly #child: ChildProcessByStdio<Writable, Readable, null>
@@ -133,6 +136,8 @@ export class TcpVehicle {
     } else if (line.startsWith('interval ')) {
       const [, id, microseconds] = line.split(' ')
       this.intervals.set(Number(id), Number(microseconds))
+    } else if (line.startsWith('serial-')) {
+      this.#heardSerial(line)
     } else {
       this.#heardMotor(line)
       this.#heardSigning(line)
@@ -149,6 +154,21 @@ export class TcpVehicle {
       this.signingSetups += 1
     } else if (line.startsWith('signing ')) {
       this.startedSigned = line === 'signing on'
+    }
+  }
+
+  /**
+   * Follows the serial ports that SERIAL_CONTROL takes and hands back.
+   *
+   * @param line `serial-take <device>` or `serial-release <device>`
+   */
+  #heardSerial(line: string) {
+    const [what, device] = line.split(' ')
+    if (what === 'serial-take') {
+      this.serialHeld.add(Number(device))
+    } else {
+      this.serialHeld.delete(Number(device))
+      this.serialReleases += 1
     }
   }
 

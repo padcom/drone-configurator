@@ -62,6 +62,10 @@
       "totalValue": "{lost} von {sent} Paketen verloren",
       "window": "Gemessen über die letzten {seconds} s."
     },
+    "bridge": {
+      "locked": "{port} gesperrt",
+      "open": "Eine serielle Brücke hält diesen Port des Fahrzeugs: anzeigen und beenden"
+    },
     "rebooting": "Neustart…",
     "state": {
       "arm": "Fahrzeug scharf schalten (das Fahrzeug ist entschärft)",
@@ -107,6 +111,13 @@
       "stateImportedChanged": "Importiert, Kopie seitdem verändert",
       "importedMark": "Importiert, nicht mit einem Fahrzeug abgeglichen. Die Werte sind so, wie das Programm sie aufgezeichnet hat, das die Datei geschrieben hat.",
       "notVerifiedImported": "Diese Kopie ist nicht die importierte Datei (ihre Prüfsumme hat sich geändert): nichts wird aus ihr verwendet. Öffne die Logdatei erneut.",
+      "recordedRow": "Aufgezeichnet {time}",
+      "recordedHeading": "Aufzeichnung vom {time}",
+      "recordedMark": "Von dieser App aus der Verbindung zum Fahrzeug aufgezeichnet. Die Werte sind so, wie das Fahrzeug sie gesendet hat.",
+      "notVerifiedRecorded": "Diese Aufzeichnung ist nicht beendet (sie läuft noch, oder die App wurde währenddessen beendet): Es wird noch nichts daraus übernommen. Sie wird abgeschlossen, wenn die nächste Aufzeichnung beginnt.",
+      "stateRecording": "Wird aufgezeichnet",
+      "stateRecorded": "Aufgezeichnet, Datei unverändert",
+      "stateRecordedUnfinished": "Aufgezeichnet, nicht beendet oder seitdem geändert",
       "reportRead": "Gelesene Einträge: {records}. Übersprungen: {skipped} Byte Schaden, {crc} Frames mit falscher Prüfsumme, {unknown} Frames von Nachrichtentypen, die diese App nicht kennt.",
       "reportSegments": "Zeitabschnitte in der Aufzeichnung: {count}. Eine Lücke oder ein Rücksprung der Uhr beginnt einen neuen.",
       "reportCutEnd": "Die Datei endet mitten in einem Eintrag. So endet eine Aufzeichnung, die abgebrochen wurde (Stromausfall, Programm beendet): das ist kein Schaden.",
@@ -899,7 +910,33 @@
     "stop": "Not-Aus",
     "current": "jetzt"
   },
+  "recording": {
+    "stopped": "Telemetrieaufzeichnung gestoppt: {reason}.",
+    "linkCarriesOn": "Die Verbindung zum Fahrzeug bleibt bestehen.",
+    "failure": { "disk-full": "der Datenträger ist voll", "write-failed": "die Datei konnte nicht geschrieben werden", "no-folder": "der Ordner kann nicht verwendet werden", "limit": "die Aufzeichnung hat allein die Größengrenze erreicht" },
+    "next": { "disk-full": "Geben Sie Speicherplatz frei oder wählen Sie in den Einstellungen einen anderen Ordner.", "write-failed": "Prüfen Sie den Ordner in den Einstellungen und verbinden Sie sich erneut.", "no-folder": "Wählen Sie in den Einstellungen einen Ordner, in den geschrieben werden kann.", "limit": "Erhöhen Sie die Grenze in den Einstellungen und verbinden Sie sich erneut." },
+    "openSettings": "Einstellungen öffnen",
+    "removedToast": "Alte Aufzeichnungen entfernt, um unter der Grenze zu bleiben: {count}."
+  },
   "settings": {
+    "recording": {
+      "title": "Aufzeichnung",
+      "acts": "Jede Verbindung wird in ein Telemetrie-Log (tlog) aufgezeichnet, benannt nach ihrem Beginn. Die Aufzeichnungen stehen unter Logs, bei den Flügen.",
+      "enabled": "Jede Verbindung aufzeichnen",
+      "enabledHelp": "Gilt ab der nächsten Verbindung. Eine fehlgeschlagene Aufzeichnung unterbricht nie die Verbindung.",
+      "folder": "Ordner für Aufzeichnungen",
+      "folderHelp": "Leer lassen für den Datenordner der App. Gilt ab der nächsten Verbindung.",
+      "folderInUse": "Verwendet: {path}. Leer lassen für den Datenordner der App. Gilt ab der nächsten Verbindung.",
+      "limit": "Grenze für alle Aufzeichnungen",
+      "limitHelp": "Würden die Aufzeichnungen mehr belegen, werden die ältesten entfernt. Die laufende wird nie entfernt.",
+      "noLimit": "Keine Grenze",
+      "now": "Aufzeichnung in {file}: bisher {size}.",
+      "off": "Keine Aufzeichnung: ausgeschaltet.",
+      "idle": "Die Aufzeichnung beginnt mit der nächsten Verbindung.",
+      "recording": "Aufzeichnung läuft.",
+      "failed": "Aufzeichnung gestoppt.",
+      "removed": "Seit dem Start der App entfernte alte Aufzeichnungen: {count} ({size})."
+    },
     "metadata": {
       "title": "Parameter-Metadaten",
       "path": "Metadaten-Datei",
@@ -1470,6 +1507,7 @@
         "signing": "Zu Einrichtung wechseln: Signierung",
         "serial": "Zu Einrichtung wechseln: Serielle Ports",
         "devices": "Zu Einrichtung wechseln: Geräte",
+        "bridge": "Zu Einrichtung wechseln: Serielle Brücke",
         "info": "Zu Einrichtung wechseln: Fahrzeuginformationen"
       },
       "tune": {
@@ -1705,6 +1743,7 @@
       "initial": "Erstabstimmung",
       "serial": "Serielle Ports",
       "devices": "Geräte",
+      "bridge": "Serielle Brücke",
       "info": "Fahrzeuginformationen"
     },
     "group": {
@@ -2040,6 +2079,55 @@
       "motor": "Motor {number} bei {angle} Grad, dreht {spin}",
       "cw": "im Uhrzeigersinn",
       "ccw": "gegen den Uhrzeigersinn"
+    },
+    "bridge": {
+      "summary": "Erreiche ein Gerät hinter dem Autopiloten, etwa ein GPS oder ein Funkmodul, aus einem anderen Programm auf diesem Computer. Das Programm verbindet sich mit einem lokalen TCP-Port, und der Port des Fahrzeugs ist für die Brücke gesperrt, bis du sie beendest.",
+      "port": "Port des Fahrzeugs",
+      "name": {
+        "gps": "GPS {n}",
+        "telem": "Telemetrie {n}",
+        "serial": "Seriell {n}"
+      },
+      "baud": "Geschwindigkeit",
+      "baudUnchanged": "Unverändert",
+      "baudValue": "{baud} Baud",
+      "localPort": "Lokaler TCP-Port",
+      "portHelp": "Programme auf diesem Computer verbinden sich mit 127.0.0.1 an diesem Port. Leer lassen für einen beliebigen freien Port.",
+      "portInvalid": "Der Port ist eine ganze Zahl von 1 bis 65535, oder leer für einen beliebigen freien Port.",
+      "start": "Brücke starten",
+      "stop": "Beenden und Port freigeben",
+      "locked": "{port} ist für die Brücke gesperrt, bis du sie beendest. Programme verbinden sich mit {address}.",
+      "releasing": "{port} wird an das Fahrzeug zurückgegeben…",
+      "fact": {
+        "program": "Programm",
+        "toVehicle": "Bytes zum Fahrzeug",
+        "fromVehicle": "Bytes vom Fahrzeug",
+        "dropped": "Bytes ohne Programm, das sie annimmt",
+        "refused": "Abgewiesene Programme"
+      },
+      "connected": "Verbunden von {address}",
+      "waiting": "Noch keins. Es kann sich jeweils ein Programm verbinden.",
+      "armed": "Das Fahrzeug ist scharf geschaltet: Ein Port wird nur am Boden übernommen.",
+      "unknown": "Der Zustand des Fahrzeugs ist unbekannt: Ein Port wird nur von einem Fahrzeug übernommen, das sicher entschärft ist.",
+      "released": "{port} gehört wieder dem Fahrzeug.",
+      "releaseFailed": "{port} ist womöglich noch gesperrt: Das Fahrzeug hat die Freigabe nicht erhalten. Sie wird erneut gesendet, sobald die Verbindung zurück ist, und ein Neustart des Fahrzeugs gibt den Port ebenfalls frei.",
+      "refused": {
+        "ARMED": "Nicht gestartet: Das Fahrzeug ist scharf geschaltet. Entschärfe es zuerst.",
+        "STATE_UNKNOWN": "Nicht gestartet: Der Zustand des Fahrzeugs ist unbekannt. Warte auf seinen Heartbeat.",
+        "NOT_CONNECTED": "Nicht gestartet: Kein Fahrzeug ist verbunden.",
+        "BUSY": "Nicht gestartet: Eine Brücke läuft bereits.",
+        "PORT_UNAVAILABLE": "Nicht gestartet: Der lokale Port ist belegt oder nicht erlaubt. Wähle einen anderen.",
+        "INVALID_VALUE": "Nicht gestartet: Die Geschwindigkeit ist zu hoch.",
+        "other": "Nicht gestartet: Die Brücke wurde abgelehnt."
+      },
+      "ended": {
+        "STOPPED": "Die Brücke wurde beendet.",
+        "DISCONNECTED": "Die Brücke endete mit der Verbindung.",
+        "LINK_LOST": "Die Verbindung ging verloren, daher endete die Brücke.",
+        "ARMED": "Das Fahrzeug wurde scharf geschaltet, daher endete die Brücke.",
+        "LISTEN_FAILED": "Der lokale Port ist ausgefallen, daher endete die Brücke.",
+        "other": "Die Brücke endete."
+      }
     },
     "serial": {
       "summary": "Wofür jeder serielle Port des Boards genutzt wird und wie schnell er spricht.",

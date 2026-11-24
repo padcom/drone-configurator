@@ -25,7 +25,9 @@ import { register as registerMissions } from "./missions"
 import { register as registerMotors } from "./motors"
 import { register as registerParams } from "./params"
 import { register as registerReboot } from "./reboot"
+import { register as registerRecording } from "./recording"
 import { register as registerSerial } from "./serial"
+import { register as registerSerialBridge } from "./serialbridge"
 import { link } from "./session"
 import { register as registerSettings } from "./settings"
 import { register as registerSigning } from "./signing"
@@ -85,7 +87,9 @@ export function createBackend(transport: Transport): Communicator {
   registerMessages(c)
   registerFiles(c)
   registerSerial(c)
+  registerSerialBridge(c)
   registerSettings(c)
   registerSigning(c)
+  registerRecording(c)
   return c
 }

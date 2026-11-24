@@ -256,6 +256,22 @@ services = {
   ; "UNREADABLE".
   "files.read": ["method", file-read, file-contents],
   "serial.ports": ["method", null, serial-ports],
+  ; THE SERIAL BRIDGE (#198): a serial port of the vehicle (its GPS, a telemetry radio, SERIALn) reached by a program on this
+  ; computer through a local TCP port, over MAVLink's SERIAL_CONTROL (pico-mavlink's SerialControlStream). `serial.bridge.start`
+  ; takes the port from whatever uses it on the vehicle (SERIAL_CONTROL's EXCLUSIVE: a GPS driver, a MAVLink link) and listens on
+  ; `address` (127.0.0.1 unless asked otherwise) at `port` (0 or none: a free one; the state says which). What the program writes
+  ; goes to the device, what the device says goes to the program. ONE program at a time: a second one is refused (it reads one line
+  ; that says why, and is closed; `refused` counts them). The port is LOCKED for as long as the bridge runs, and is ALWAYS given back
+  ; when it ends, by whichever way: `serial.bridge.stop`, the vehicle disconnected or its link lost, the app closing, or the vehicle
+  ; arming (a GPS taken away in flight is a vehicle without a position). The release is tried again (and, when it could not go out,
+  ; once more when the link comes back); `releaseFailed` says it never got out. Refused, with nothing sent: `NOT_CONNECTED`,
+  ; `ARMED`, `STATE_UNKNOWN` (no heartbeat for 3 s, or an arm in flight: counts as armed), `BUSY` (a bridge runs or is releasing its
+  ; port), `INVALID_VALUE` (a baud rate over 4000000) and `PORT_UNAVAILABLE` (the local port cannot be listened on: in use, or
+  ; not allowed). `serial.bridge.stop` answers once the release is over (a bridge that is off answers at once, with its state).
+  ; `serial.bridge.status` says the state at once and whenever it changes (the byte counts at most 4 times a second).
+  "serial.bridge.start": ["method", serial-bridge-start, serial-bridge-state],
+  "serial.bridge.stop": ["method", null, serial-bridge-state],
+  "serial.bridge.status": ["subscription", null, serial-bridge-state],
   ; Settings that survive a restart (see `settings`). `settings.set` takes a patch and answers with the document it made.
   "settings.get": ["method", null, settings-state],
   "settings.set": ["method", settings-patch, settings-state],
@@ -284,6 +300,20 @@ services = {
   ; Deletes every tile of the cache (only the app's own tiles folder; links in it are removed, never followed).
   "map.clear": ["method", null, map-cleared],
   "map.status": ["event", map-status],
+  ; Recording every connection (#30): from the moment a link is opened until the session ends (a link that drops and comes back
+  ; stays in the same recording), every whole, checked MAVLink frame both ways is written to a `.tlog` (an 8-byte big-endian
+  ; time in microseconds since 1970, then the frame) in the recordings folder, at most a second or 16 KiB behind. It is named
+  ; for when it started, in local time: `YYYY-MM-DD_HH-MM-SS.tlog` while it is made, `YYYY-MM-DD_HH-MM-SS-CCCCCCCC.tlog` (the CRC-32
+  ; of its bytes) once it ended; it is in the library as `recorded/<name>` (`logs.local.list`). What the backend does is set by
+  ; the settings document, read at each connection (`ui` entries `recording.enabled` "true"/"false", default on;
+  ; `recording.folder`, default "" for `<data>/recordings`; `recording.limitMb`, default 2000, "0" for none). When the recordings
+  ; in the folder would hold more than the limit, the oldest are removed (never the one being made), and `removed` says how many.
+  ; A recording that cannot be written (a full disk, a write error, a folder that cannot be made, or the one being made reaching
+  ; the limit by itself) stops, and `failure` says why: the link carries on. `recording.changed` is sent when anything here
+  ; changes (the bytes at most once a second); `recording.dismiss` forgets the failure that is shown.
+  "recording.state": ["method", null, recording-state],
+  "recording.dismiss": ["method", null, recording-state],
+  "recording.changed": ["event", recording-state],
   ; Forwarding the vehicle's MAVLink to other programs (#34). Which programs is the settings document's `ui` entry
   ; `forward.endpoints`, which the backend reads itself (when a vehicle connects, and after every `settings.set`): a JSON array of
   ; `{ "kind": "udp" | "tcp", "host": text, "port": 1-65535, "on": bool }`, at most 16, none by default (forwarding is off). While a
@@ -508,6 +538,11 @@ local-log = {
   ; imported, `verified` in the summary means only that the copy still has that CRC, and nothing is known of where the file
   ; came from ("imported, not checked against a vehicle").
   source: "dataflash" / "tlog",
+  ; A recording this app made of a connection (`recording.state`, key `recorded/<name>`, source `tlog`): `started` is when it
+  ; began (ms since 1970), `live` that it is being made now. It is `verified` once it ended (its CRC-32 is in its name); one that
+  ; did not end (the app stopped during it) is closed when the next recording starts.
+  ? started: uint .size 8,
+  ? live: bool,
   ? summary: local-log-summary,
 }
 
@@ -1209,6 +1244,44 @@ serial-ports = { ports: [* serial-port] }
 ; is (an autopilot's maker or a USB-serial chip), and `likely` marks the one port a serial request without a device uses.
 serial-port = { path: tstr, ? description: tstr, ? board: tstr, ? likely: bool }
 
+; A serial device of the vehicle, as SERIAL_CONTROL_DEV names it: the first two telemetry ports and GPS ports, or SERIAL0 to SERIAL9
+; (the port numbers of the SERIALn_* parameters).
+serial-bridge-device = "TELEM1" / "TELEM2" / "GPS1" / "GPS2" / "SERIAL0" / "SERIAL1" / "SERIAL2" / "SERIAL3" / "SERIAL4" / "SERIAL5"
+  / "SERIAL6" / "SERIAL7" / "SERIAL8" / "SERIAL9"
+
+; What `serial.bridge.start` asks: the device; its speed in bits a second (0 or none: as it is); the local TCP port (0 or none: a free
+; one) and the address to listen on (none: 127.0.0.1, this computer only).
+serial-bridge-start = {
+  device: serial-bridge-device,
+  ? baudrate: uint .size 4,
+  ? port: uint .size 2,
+  ? address: tstr,
+}
+
+; The bridge. `state`: `off` (none runs: the fields say how the last one ended), `running` (the device is LOCKED for SERIAL_CONTROL)
+; or `releasing` (it ended, and the port is being given back). `device`, `baudrate`, `address` and `port` are the last bridge's;
+; `client` says a program is connected (`clientAddress` is where from). Bytes: `toVehicle` written to the device, `fromVehicle`
+; read from it, `dropped` of those read while no program was connected (nobody to give them to). `refused` counts the programs
+; turned away while one was connected. When it ended: `why` (`STOPPED` by the user, `DISCONNECTED` the session ended, `LINK_LOST`,
+; `ARMED` the vehicle armed, `LISTEN_FAILED` the local port failed), and `releaseFailed` when the release never got out (the
+; vehicle may still hold the port until it reboots). `error` is the last thing that went wrong while it ran (a write that failed).
+serial-bridge-state = {
+  state: "off" / "running" / "releasing",
+  ? device: serial-bridge-device,
+  ? baudrate: uint .size 4,
+  ? address: tstr,
+  ? port: uint .size 2,
+  client: bool,
+  ? clientAddress: tstr,
+  toVehicle: uint .size 4,
+  fromVehicle: uint .size 4,
+  dropped: uint .size 4,
+  refused: uint .size 4,
+  ? why: tstr,
+  ? releaseFailed: bool,
+  ? error: tstr,
+}
+
 ; ---- Calibrations ----
 
 calibration-kind = "accel" / "level" / "compass" / "radio"
@@ -1449,3 +1522,23 @@ signing-status = {
 }
 ; A random key (no passphrase), or the SHA-256 of a passphrase (as other ground stations make them): 1 to 256 characters.
 signing-provision = { ? passphrase: tstr }
+
+; What the recording of the connections is doing (`recording.state`). `folder` is the folder in use (the setting, or the default),
+; `limitMb` the limit (0: none). `key` and `path` name the recording being made, `bytes` what it holds so far (0 when none is
+; made). `removed` and `removedBytes` count the recordings removed for the limit since the app started.
+recording-state = {
+  enabled: bool,
+  folder: tstr,
+  limitMb: uint .size 4,
+  ? key: tstr,
+  ? path: tstr,
+  bytes: uint .size 8,
+  ? failure: recording-failure,
+  removed: uint .size 4,
+  removedBytes: uint .size 8,
+}
+
+; Why the recording stopped: `disk-full` (the disk has no room), `write-failed` (another error of the disk), `no-folder` (the folder
+; cannot be made or used), `limit` (the recording being made reached the limit by itself). `message` is in English, for people.
+recording-failure = { code: recording-failure-code, message: tstr }
+recording-failure-code = "disk-full" / "write-failed" / "no-folder" / "limit"

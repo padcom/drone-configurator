@@ -82,6 +82,7 @@ const SETUP_PARTS = [
   'serial',
   'signing',
   'devices',
+  'bridge',
   'info',
 ]
 

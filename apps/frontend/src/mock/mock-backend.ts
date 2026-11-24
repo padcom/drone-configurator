@@ -6,7 +6,7 @@ import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
   CalibrationStart, Connection, ConnectRequest, SigningProvision, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
-  ChangeAltitudeAsk, RepositionAsk, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
+  ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
@@ -17,8 +17,10 @@ import { MockMotors, type MockMotorsControl } from './mock-motors'
 import { MockArming, type MockArmingControl } from './mock-arming'
 import { forwardStatusOf } from './mock-forward'
 import { MockMap } from './mock-map'
+import { MockRecording } from './mock-recording'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
 import { MockSigning, type MockSigningControl } from './mock-signing'
+import { MockSerialBridge, type MockSerialBridgeControl } from './mock-serial-bridge'
 import { type LinkStats, linkStatsAt } from './mock-link'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
 
@@ -126,10 +128,14 @@ export interface MockControl {
   motors?: MockMotorsControl
   /** What the Tune screen's stream has done, and what it is sent (see `MockTuningControl`). */
   tuning?: MockTuningControl
+  /** The serial bridge: its state, a program that connects, bytes, an end. */
+  serialBridge?: MockSerialBridgeControl
   /** Sets what `link.stats` says from now on (null: the mock's own healthy link again). */
   link?: (stats: LinkStats | null) => void
   /** What the vehicle's signing holds, and what a test does to it (see `MockSigningControl`). */
   signing?: MockSigningControl
+  /** The recording fails (or no longer does), or the limit removed this many old recordings in all: `recording.changed` is sent. */
+  recording?: (change: { failure?: RecordingFailure, removed?: number }) => void
 }
 
 /** How long a rebooting mock vehicle is gone (ms), unless `MockOptions.rebootMs` says. */
@@ -196,9 +202,11 @@ class MockVehicle {
   /** The logs on this computer (no vehicle needed). */
   readonly localLogs: MockLocalLogs
   readonly map: MockMap
+  readonly recording = new MockRecording()
   /** The motor test. */
   readonly motors: MockMotors
   readonly tuning: MockTuning
+  readonly serialBridge: MockSerialBridge
   /** Arming, disarming, the flight mode and the pre-arm checks. */
   readonly arming: MockArming
   /** MAVLink signing: the vehicle's key and this computer's. */
@@ -219,6 +227,7 @@ class MockVehicle {
     this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
     this.motors = new MockMotors(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
     this.tuning = new MockTuning(send, () => this.connection.state === 'connected')
+    this.serialBridge = new MockSerialBridge({ send, connected: () => this.connection.state === 'connected', armed: () => this.armedState() })
     this.arming = new MockArming({
       connected: () => this.connection.state === 'connected',
       armed: () => this.armedState(),
@@ -232,11 +241,13 @@ class MockVehicle {
       options.control.signing = this.signing.control()
       options.control.motors = this.motors.control()
       options.control.tuning = this.tuning.control()
+      options.control.serialBridge = this.serialBridge.control()
       options.control.arming = this.arming.control()
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => this.announceParam(id, value)
       options.control.connection = connection => this.push(connection)
       options.control.say = (severity, text) => this.say(severity, text)
+      options.control.recording = change => this.changeRecording(change)
       options.control.armed = armed => { this.armedOverride = armed }
       options.control.busy = busy => { this.busy = busy }
       options.control.ftp = mode => { this.ftpMode = mode }
@@ -278,6 +289,7 @@ class MockVehicle {
     this.motors.reset()
     this.tuning.reset()
     this.signing.reset()
+    this.serialBridge.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
     this.forwardSubscribers.clear()
@@ -297,6 +309,7 @@ class MockVehicle {
       this.motors.unsubscribe(e.s!)
       this.tuning.unsubscribe(e.s!)
       this.signing.unsubscribe(e.s!)
+      this.serialBridge.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
     } else if (e.k === 'request' || e.k === 'subscribe') {
@@ -361,6 +374,12 @@ class MockVehicle {
       case 'map.clear': return this.map.clear(ok)
       case 'map.tile': return this.map.tile(this.settings, ok, fail)
       case 'map.cancel': return ok(null)
+      case 'recording.state': return ok(this.recording.state(this.settings, this.connection))
+      case 'recording.dismiss': {
+        this.recording.failure = undefined
+
+        return ok(this.recording.state(this.settings, this.connection))
+      }
       case 'motors.test': return this.motors.subscribe(e)
       case 'motors.hold': return this.motors.hold(ok, fail)
       case 'tuning.stream': return this.tuning.subscribe(e)
@@ -390,6 +409,9 @@ class MockVehicle {
         return text === undefined ? fail('NOT_FOUND', 'no such file') : ok({ text })
       }
       case 'serial.ports': return ok({ ports: SERIAL_PORTS })
+      case 'serial.bridge.start': return this.serialBridge.start(e.p as SerialBridgeStart, ok, fail)
+      case 'serial.bridge.stop': return this.serialBridge.stop(ok)
+      case 'serial.bridge.status': return this.serialBridge.subscribe(e)
       case 'settings.get': return ok(this.settingsState())
       case 'settings.set': {
         this.settings = patchSettings(this.settings, e.p as SettingsPatch)
@@ -490,6 +512,19 @@ class MockVehicle {
     return this.armedOverride === undefined ? this.telemetryArmed : this.armedOverride
   }
 
+  /**
+   * Changes what the recording says, and sends it.
+   *
+   * @param change the failure (undefined: none), and how many recordings the limit removed in all
+   * @param change.failure why the recording stopped, if it did
+   * @param change.removed how many old recordings the limit removed in all
+   */
+  changeRecording(change: { failure?: RecordingFailure, removed?: number }) {
+    this.recording.failure = change.failure
+    this.recording.removed = change.removed ?? this.recording.removed
+    this.send({ k: 'event', n: 'recording.changed', p: this.recording.state(this.settings, this.connection) })
+  }
+
   connected(fail: (code: string, message: string) => void): boolean {
     if (this.connection.state !== 'connected') {
       fail('NOT_CONNECTED', 'no vehicle is connected')
@@ -521,10 +556,18 @@ class MockVehicle {
   /** Tells every watcher of the connection that it is now `connection`. */
   push(connection: Connection) {
     const was = this.connection.state
+    const recordingChanges = (connection.state === 'connected') !== (was === 'connected')
     this.connection = connection
     this.tellSigning(was)
+    if (connection.state !== 'connected') {
+      this.serialBridge.disconnected()
+    }
     for (const s of this.watchers) {
       this.send({ k: 'event', n: 'vehicle.connection', s, p: connection })
+    }
+    // (a recording starts with a connection and ends with it, as the backend's does)
+    if (recordingChanges) {
+      this.send({ k: 'event', n: 'recording.changed', p: this.recording.state(this.settings, this.connection) })
     }
     this.tellForwarding()
   }

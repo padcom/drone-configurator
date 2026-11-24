@@ -225,10 +225,10 @@ function validateLogsProgressInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-progress, or null. */
 export const validateLogsProgress = (value: unknown) => run(validateLogsProgressInto, value)
 
-export type LocalLog = { "key": string, "vehicle": string, "id": number, "size": number | bigint, "modified": number | bigint, "crc": string, "source": "dataflash" | "tlog", "summary"?: LocalLogSummary }
+export type LocalLog = { "key": string, "vehicle": string, "id": number, "size": number | bigint, "modified": number | bigint, "crc": string, "source": "dataflash" | "tlog", "started"?: number | bigint, "live"?: boolean, "summary"?: LocalLogSummary }
 
 function validateLocalLogInto(value: any, path: string): boolean {
-  return map(value, path, ["key","vehicle","id","size","modified","crc","source","summary"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["modified"] === undefined ? fail(`${path}.modified`, 'present') : nested(value["modified"], `${path}.modified`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["crc"] === undefined ? fail(`${path}.crc`, 'present') : nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["dataflash","tlog"]))) && (value["summary"] === undefined || nested(value["summary"], `${path}.summary`, (value, path) => validateLocalLogSummaryInto(value, path)))
+  return map(value, path, ["key","vehicle","id","size","modified","crc","source","started","live","summary"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["modified"] === undefined ? fail(`${path}.modified`, 'present') : nested(value["modified"], `${path}.modified`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["crc"] === undefined ? fail(`${path}.crc`, 'present') : nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["dataflash","tlog"]))) && (value["started"] === undefined || nested(value["started"], `${path}.started`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["live"] === undefined || nested(value["live"], `${path}.live`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["summary"] === undefined || nested(value["summary"], `${path}.summary`, (value, path) => validateLocalLogSummaryInto(value, path)))
 }
 
 /** The first problem with `value` as a local-log, or null. */
@@ -1062,6 +1062,33 @@ function validateSerialPortInto(value: any, path: string): boolean {
 /** The first problem with `value` as a serial-port, or null. */
 export const validateSerialPort = (value: unknown) => run(validateSerialPortInto, value)
 
+export type SerialBridgeDevice = "TELEM1" | "TELEM2" | "GPS1" | "GPS2" | "SERIAL0" | "SERIAL1" | "SERIAL2" | "SERIAL3" | "SERIAL4" | "SERIAL5" | "SERIAL6" | "SERIAL7" | "SERIAL8" | "SERIAL9"
+
+function validateSerialBridgeDeviceInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["TELEM1","TELEM2","GPS1","GPS2","SERIAL0","SERIAL1","SERIAL2","SERIAL3","SERIAL4","SERIAL5","SERIAL6","SERIAL7","SERIAL8","SERIAL9"])
+}
+
+/** The first problem with `value` as a serial-bridge-device, or null. */
+export const validateSerialBridgeDevice = (value: unknown) => run(validateSerialBridgeDeviceInto, value)
+
+export type SerialBridgeStart = { "device": SerialBridgeDevice, "baudrate"?: number, "port"?: number, "address"?: string }
+
+function validateSerialBridgeStartInto(value: any, path: string): boolean {
+  return map(value, path, ["device","baudrate","port","address"]) && (value["device"] === undefined ? fail(`${path}.device`, 'present') : nested(value["device"], `${path}.device`, (value, path) => validateSerialBridgeDeviceInto(value, path))) && (value["baudrate"] === undefined || nested(value["baudrate"], `${path}.baudrate`, (value, path) => uint(value, path, 0xffffffff))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["address"] === undefined || nested(value["address"], `${path}.address`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a serial-bridge-start, or null. */
+export const validateSerialBridgeStart = (value: unknown) => run(validateSerialBridgeStartInto, value)
+
+export type SerialBridgeState = { "state": "off" | "running" | "releasing", "device"?: SerialBridgeDevice, "baudrate"?: number, "address"?: string, "port"?: number, "client": boolean, "clientAddress"?: string, "toVehicle": number, "fromVehicle": number, "dropped": number, "refused": number, "why"?: string, "releaseFailed"?: boolean, "error"?: string }
+
+function validateSerialBridgeStateInto(value: any, path: string): boolean {
+  return map(value, path, ["state","device","baudrate","address","port","client","clientAddress","toVehicle","fromVehicle","dropped","refused","why","releaseFailed","error"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["off","running","releasing"]))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => validateSerialBridgeDeviceInto(value, path))) && (value["baudrate"] === undefined || nested(value["baudrate"], `${path}.baudrate`, (value, path) => uint(value, path, 0xffffffff))) && (value["address"] === undefined || nested(value["address"], `${path}.address`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["client"] === undefined ? fail(`${path}.client`, 'present') : nested(value["client"], `${path}.client`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["clientAddress"] === undefined || nested(value["clientAddress"], `${path}.clientAddress`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["toVehicle"] === undefined ? fail(`${path}.toVehicle`, 'present') : nested(value["toVehicle"], `${path}.toVehicle`, (value, path) => uint(value, path, 0xffffffff))) && (value["fromVehicle"] === undefined ? fail(`${path}.fromVehicle`, 'present') : nested(value["fromVehicle"], `${path}.fromVehicle`, (value, path) => uint(value, path, 0xffffffff))) && (value["dropped"] === undefined ? fail(`${path}.dropped`, 'present') : nested(value["dropped"], `${path}.dropped`, (value, path) => uint(value, path, 0xffffffff))) && (value["refused"] === undefined ? fail(`${path}.refused`, 'present') : nested(value["refused"], `${path}.refused`, (value, path) => uint(value, path, 0xffffffff))) && (value["why"] === undefined || nested(value["why"], `${path}.why`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["releaseFailed"] === undefined || nested(value["releaseFailed"], `${path}.releaseFailed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a serial-bridge-state, or null. */
+export const validateSerialBridgeState = (value: unknown) => run(validateSerialBridgeStateInto, value)
+
 export type CalibrationKind = "accel" | "level" | "compass" | "radio"
 
 function validateCalibrationKindInto(value: any, path: string): boolean {
@@ -1332,6 +1359,33 @@ function validateSigningProvisionInto(value: any, path: string): boolean {
 /** The first problem with `value` as a signing-provision, or null. */
 export const validateSigningProvision = (value: unknown) => run(validateSigningProvisionInto, value)
 
+export type RecordingState = { "enabled": boolean, "folder": string, "limitMb": number, "key"?: string, "path"?: string, "bytes": number | bigint, "failure"?: RecordingFailure, "removed": number, "removedBytes": number | bigint }
+
+function validateRecordingStateInto(value: any, path: string): boolean {
+  return map(value, path, ["enabled","folder","limitMb","key","path","bytes","failure","removed","removedBytes"]) && (value["enabled"] === undefined ? fail(`${path}.enabled`, 'present') : nested(value["enabled"], `${path}.enabled`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["folder"] === undefined ? fail(`${path}.folder`, 'present') : nested(value["folder"], `${path}.folder`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["limitMb"] === undefined ? fail(`${path}.limitMb`, 'present') : nested(value["limitMb"], `${path}.limitMb`, (value, path) => uint(value, path, 0xffffffff))) && (value["key"] === undefined || nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["path"] === undefined || nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["bytes"] === undefined ? fail(`${path}.bytes`, 'present') : nested(value["bytes"], `${path}.bytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["failure"] === undefined || nested(value["failure"], `${path}.failure`, (value, path) => validateRecordingFailureInto(value, path))) && (value["removed"] === undefined ? fail(`${path}.removed`, 'present') : nested(value["removed"], `${path}.removed`, (value, path) => uint(value, path, 0xffffffff))) && (value["removedBytes"] === undefined ? fail(`${path}.removedBytes`, 'present') : nested(value["removedBytes"], `${path}.removedBytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a recording-state, or null. */
+export const validateRecordingState = (value: unknown) => run(validateRecordingStateInto, value)
+
+export type RecordingFailure = { "code": RecordingFailureCode, "message": string }
+
+function validateRecordingFailureInto(value: any, path: string): boolean {
+  return map(value, path, ["code","message"]) && (value["code"] === undefined ? fail(`${path}.code`, 'present') : nested(value["code"], `${path}.code`, (value, path) => validateRecordingFailureCodeInto(value, path))) && (value["message"] === undefined ? fail(`${path}.message`, 'present') : nested(value["message"], `${path}.message`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a recording-failure, or null. */
+export const validateRecordingFailure = (value: unknown) => run(validateRecordingFailureInto, value)
+
+export type RecordingFailureCode = "disk-full" | "write-failed" | "no-folder" | "limit"
+
+function validateRecordingFailureCodeInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["disk-full","write-failed","no-folder","limit"])
+}
+
+/** The first problem with `value` as a recording-failure-code, or null. */
+export const validateRecordingFailureCode = (value: unknown) => run(validateRecordingFailureCodeInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -1398,6 +1452,9 @@ export interface Services {
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
+  "serial.bridge.start": { kind: 'method', request: SerialBridgeStart, response: SerialBridgeState }
+  "serial.bridge.stop": { kind: 'method', request: null, response: SerialBridgeState }
+  "serial.bridge.status": { kind: 'subscription', params: null, value: SerialBridgeState }
   "settings.get": { kind: 'method', request: null, response: SettingsState }
   "settings.set": { kind: 'method', request: SettingsPatch, response: SettingsState }
   "settings.changed": { kind: 'event', payload: SettingsState }
@@ -1407,6 +1464,9 @@ export interface Services {
   "map.sources": { kind: 'method', request: null, response: MapSources }
   "map.clear": { kind: 'method', request: null, response: MapCleared }
   "map.status": { kind: 'event', payload: MapStatus }
+  "recording.state": { kind: 'method', request: null, response: RecordingState }
+  "recording.dismiss": { kind: 'method', request: null, response: RecordingState }
+  "recording.changed": { kind: 'event', payload: RecordingState }
   "forward.status": { kind: 'subscription', params: null, value: ForwardStatus }
   "signing.status": { kind: 'subscription', params: null, value: SigningStatus }
   "signing.provision": { kind: 'method', request: SigningProvision, response: SigningStatus }
@@ -1664,6 +1724,18 @@ const services: Record<string, Partial<Record<string, Check>>> = {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateSerialPortsInto(value, path),
   },
+  "serial.bridge.start": {
+    request: (value: any, path: string) => validateSerialBridgeStartInto(value, path),
+    response: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
+  },
+  "serial.bridge.stop": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
+  },
+  "serial.bridge.status": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
+  },
   "settings.get": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateSettingsStateInto(value, path),
@@ -1696,6 +1768,17 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "map.status": {
     payload: (value: any, path: string) => validateMapStatusInto(value, path),
+  },
+  "recording.state": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateRecordingStateInto(value, path),
+  },
+  "recording.dismiss": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateRecordingStateInto(value, path),
+  },
+  "recording.changed": {
+    payload: (value: any, path: string) => validateRecordingStateInto(value, path),
   },
   "forward.status": {
     params: (value: any, path: string) => value === null || fail(path, 'null'),

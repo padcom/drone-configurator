@@ -1106,3 +1106,36 @@
   flex-wrap: wrap;
   gap: var(--space-3);
 }
+
+/* The serial bridge (SetupBridge.vue): the form, one field to a row with its label above; the facts of a bridge that runs. */
+.setup-bridge-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 360px;
+}
+
+.setup-bridge-help {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.setup-bridge-start {
+  margin-top: var(--space-2);
+}
+
+.setup-bridge-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+}
+
+.setup-bridge-facts dt {
+  color: var(--color-text-muted);
+}
+
+.setup-bridge-facts dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}

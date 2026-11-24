@@ -1,0 +1,623 @@
+// Recording every connection (#30). From the moment a link is opened until the session ends, every whole, checked MAVLink frame,
+// both ways, goes to a `.tlog` in the recordings folder: pico-mavlink's `TlogTap` sits between the connection and the router (so a
+// link that drops and comes back stays in the same recording) and its `TlogRecorder` writes in batches, at most a second or
+// 16 KiB behind. The recording is named for when it started, in local time (`YYYY-MM-DD_HH-MM-SS.tlog`); when it ends it is
+// renamed with the CRC-32 of its bytes (`YYYY-MM-DD_HH-MM-SS-CCCCCCCC.tlog`), which is what makes it verified in the library
+// (locallogs.pi lists the folder as `recorded/<name>`). One that never ended (the app stopped during it) is closed at the next
+// recording: read through for its CRC, and renamed.
+//
+// What it does is set by the settings document, read at each connection: `recording.enabled` (default on), `recording.folder`
+// (default `<data>/recordings`) and `recording.limitMb` (default 2000, 0 for none). When the recordings in the folder would hold
+// more than the limit, the oldest are removed, never the one being made, and the state says how many. A recording that cannot be
+// written (a full disk, another write error, a folder that cannot be made, or the one being made reaching the limit by itself)
+// stops, and the state says why; the link carries on, since nothing here throws into the connection.
+import { Cbor, Communicator, RequestContext } from "pico-desktop/communicator"
+import { ByteStream, Crc32, MavLinkConnection, TLOG_FLUSH_MS, TlogRecorder, TlogSink, TlogTap } from "padcom/pico-mavlink"
+import { File, mkdir, open, readDir, remove, rename, stat } from "std/fs"
+import { join } from "std/path"
+import { env } from "std/process"
+import { delay } from "std/timers"
+import { RecordingFailure, RecordingFailureCode, RecordingState, encodeRecordingState } from "./generated/app"
+import { hexValue } from "./importednames"
+import { hex8 } from "./logs"
+import { SessionPart, link } from "./session"
+import { dataDirectory, uiValue } from "./settings"
+
+/// The settings entries.
+export const ENABLED_KEY: string = "recording.enabled"
+export const FOLDER_KEY: string = "recording.folder"
+export const LIMIT_KEY: string = "recording.limitMb"
+
+/// The limit when none is set (MB of a million bytes): some 28 hours of a link at 20 kB/s.
+export const DEFAULT_LIMIT_MB: int = 2000
+
+/// The library's name for the recordings folder (keys `recorded/<name>`).
+export const RECORDED: string = "recorded"
+
+/// The folder in the data directory when none is set.
+export const DEFAULT_FOLDER: string = "recordings"
+
+/// A recording that has not been written to for this long (ms) and has no CRC in its name was cut short (the app stopped during it).
+export const LEFTOVER_MS: int = 60000
+
+/// The most files looked at in the folder.
+const MAX_LOOKED_AT: int = 100000
+
+/// How often (ms) a growing recording is announced, at most.
+const ANNOUNCE_EVERY_MS: int = 1000
+
+/// How much of a cut recording is read at a time, to close it.
+const CHUNK: int = 1048576
+
+/// The name of a recording, read: when it started, and its CRC-32 once it ended.
+export class RecordingName {
+  /// The time in the name, in local time: ms since 1970.
+  public readonly started: int
+  /// The CRC-32 in the name, or -1 while it is being made (or when it was cut short).
+  public readonly crc: int
+  /// `YYYY-MM-DD_HH-MM-SS`.
+  public readonly stem: string
+
+  constructor(started: int, crc: int, stem: string) {
+    this.started = started
+    this.crc = crc
+    this.stem = stem
+  }
+}
+
+/// The digits of `text` as a number, or -1 when it is not all digits.
+function digitsOf(text: string): int {
+  let n = 0
+  for (const ch of text.split("")) {
+    const d = "0123456789".indexOf(ch)
+    if (d < 0) {
+      return -1
+    }
+    n = n * 10 + d
+  }
+  return n
+}
+
+/// The parts of a stem (`YYYY-MM-DD_HH-MM-SS`): year, month, day, hours, minutes, seconds; an empty list when it is not one.
+function partsOfStem(stem: string): int[] {
+  if (stem.length != 19 || stem.slice(4, 5) != "-" || stem.slice(7, 8) != "-" || stem.slice(10, 11) != "_" || stem.slice(13, 14) != "-" || stem.slice(16, 17) != "-") {
+    return []
+  }
+  const out: int[] = []
+  for (const at of [0, 5, 8, 11, 14, 17]) {
+    const n = digitsOf(stem.slice(at, if (at == 0) 4 else at + 2))
+    if (n < 0) {
+      return []
+    }
+    out.push(n)
+  }
+  if (out[1] < 1 || out[1] > 12 || out[2] < 1 || out[2] > 31 || out[3] > 23 || out[4] > 59 || out[5] > 59) {
+    return []
+  }
+  return out
+}
+
+/// The name of a recording read, or null when the name is not one: `YYYY-MM-DD_HH-MM-SS.tlog` (being made) or
+/// `YYYY-MM-DD_HH-MM-SS-CCCCCCCC.tlog` (ended).
+export function recordingNameOf(name: string): RecordingName? {
+  if (!(name.length == 24 || name.length == 33) || !name.endsWith(".tlog")) {
+    return null
+  }
+  const stem = name.slice(0, 19)
+  const p = partsOfStem(stem)
+  if (p.length == 0) {
+    return null
+  }
+  let crc = -1
+  if (name.length == 33) {
+    crc = if (name.slice(19, 20) == "-") hexValue(name.slice(20, 28)) else -1
+    if (crc < 0) {
+      return null
+    }
+  }
+  const started = new Date(p[0] as f64, (p[1] - 1) as f64, p[2] as f64, p[3] as f64, p[4] as f64, p[5] as f64).getTime() as int
+  new RecordingName(started, crc, stem)
+}
+
+function pad2(n: int): string {
+  if (n < 10) `0${n}` else `${n}`
+}
+
+/// The stem of a recording that starts at `ms` (since 1970), in local time.
+export function stemOf(ms: int): string {
+  const d = new Date(ms as f64)
+  const y = d.getFullYear() as int
+  const mo = (d.getMonth() as int) + 1
+  return `${y}-${pad2(mo)}-${pad2(d.getDate() as int)}_${pad2(d.getHours() as int)}-${pad2(d.getMinutes() as int)}-${pad2(d.getSeconds() as int)}`
+}
+
+/// The file name of a recording being made, and of one that ended with `crc`.
+export function liveName(stem: string): string {
+  return `${stem}.tlog`
+}
+
+export function finishedName(stem: string, crc: int): string {
+  return `${stem}-${hex8(crc)}.tlog`
+}
+
+/// Whether an error of the disk says it is full (the platform's words: Linux and macOS "No space left on device", Windows "There is
+/// not enough space on the disk"; os error 28 is ENOSPC, 112 ERROR_DISK_FULL).
+export function isDiskFull(message: string): bool {
+  const m = message.toLowerCase()
+  return m.includes("no space") || m.includes("not enough space") || m.includes("disk full") || m.includes("disk is full") || m.includes("os error 28)") || m.includes("os error 112)")
+}
+
+/// An older recording in the folder: what the limit may remove.
+class Older {
+  public name: string
+  public readonly size: int
+  public readonly started: int
+  public readonly mtime: int
+
+  constructor(name: string, size: int, started: int, mtime: int) {
+    this.name = name
+    this.size = size
+    this.started = started
+    this.mtime = mtime
+  }
+}
+
+/// Why a recording stopped, thrown by its sink (the recorder keeps it).
+class Stopped extends Error {
+  public readonly code: RecordingFailureCode
+
+  constructor(code: RecordingFailureCode, message: string) {
+    super(message)
+    this.code = code
+  }
+}
+
+/// A recording: the sink of its recorder, which makes the file on the first write, keeps the CRC-32 of what it wrote, and makes
+/// room under the limit before each write.
+class Recording implements TlogSink {
+  public readonly folder: string
+  public readonly stem: string
+  public readonly limitBytes: int
+  /// The older recordings in the folder, the oldest first.
+  public readonly older: Older[]
+  public olderBytes: int = 0
+  public recorder: TlogRecorder? = null
+  public tap: TlogTap? = null
+  file: File? = null
+  readonly crc: Crc32 = new Crc32()
+  public bytes: int = 0
+  /// Whether a write failed: the file is then read through for its CRC when it is closed.
+  public failed: bool = false
+  /// The name it has now (live, then ended).
+  public name: string
+
+  constructor(folder: string, stem: string, limitBytes: int, older: Older[]) {
+    this.folder = folder
+    this.stem = stem
+    this.limitBytes = limitBytes
+    this.older = older
+    this.name = liveName(stem)
+    for (const o of older) {
+      olderBytes += o.size
+    }
+  }
+
+  public get path(): string {
+    join(folder, name)
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    try {
+      await put(bytes)
+    } catch (e: Stopped) {
+      failed = true
+      fail(e.code, e.message)
+      throw e
+    } catch (e: Error) {
+      failed = true
+      fail(if (isDiskFull(e.message)) RecordingFailureCode.DiskFull else RecordingFailureCode.WriteFailed, e.message)
+      throw e
+    }
+    announceSoon()
+  }
+
+  async put(bytes: Uint8Array): Promise<void> throws Error {
+    await makeRoom(bytes.length)
+    if (file == null) {
+      try {
+        await mkdir(folder, true)
+      } catch (e: Error) {
+        throw new Stopped(RecordingFailureCode.NoFolder, `can't make the folder ${folder}: ${e.message}`)
+      }
+      file = await open(path, read: false, write: true, create: true, truncate: true)
+    }
+    const full = state.fullAfterBytes
+    if (full >= 0 && this.bytes + bytes.length > full) {
+      throw new IoError(path, "No space left on device (os error 28)")
+    }
+    await file!.write(bytes)
+    crc.update(bytes)
+    this.bytes += bytes.length
+  }
+
+  /// Removes the oldest recordings until `more` bytes fit under the limit; when the one being made does not fit by itself, it stops.
+  async makeRoom(more: int): Promise<void> throws Stopped {
+    if (limitBytes <= 0) {
+      return
+    }
+    while (older.length > 0 && olderBytes + bytes + more > limitBytes) {
+      const oldest = older.shift()!
+      olderBytes -= oldest.size
+      try {
+        await remove(join(folder, oldest.name))
+        state.removed += 1
+        state.removedBytes += oldest.size
+      } catch (e: Error) {
+        // Gone already, or not ours to remove: it no longer counts.
+      }
+      announce()
+    }
+    if (bytes + more > limitBytes) {
+      throw new Stopped(RecordingFailureCode.Limit, `the recording reached the limit of ${limitBytes} bytes by itself: it stopped there`)
+    }
+  }
+
+  public async close(): Promise<void> throws Error {
+    const f = file
+    if (f == null) {
+      return
+    }
+    file = null
+    await f!.close()
+    if (this.bytes == 0 && !failed) {
+      await remove(path)
+      return
+    }
+    // A write that failed may have left part of its bytes: the CRC is that of the file as it is.
+    const sum = if (failed) await crcOfFile(path) else crc.crc
+    const ended = finishedName(stem, sum)
+    await rename(path, join(folder, ended))
+    name = ended
+  }
+}
+
+/// The CRC-32 of a file, read through.
+async function crcOfFile(path: string): Promise<int> throws Error {
+  const crc = new Crc32()
+  const f = await open(path)
+  try {
+    while (true) {
+      const piece = await f.read(CHUNK)
+      if (piece == null) {
+        break
+      }
+      crc.update(piece!)
+    }
+  } finally {
+    await f.close()
+  }
+  return crc.crc
+}
+
+/// The session's end ends the recording.
+class Part implements SessionPart {
+  public attach(_c: MavLinkConnection): void {
+  }
+
+  public detach(): void {
+    stopRecording()
+  }
+}
+
+class State {
+  public communicator: Communicator? = null
+  public current: Recording? = null
+  /// The recordings being closed.
+  public closing: int = 0
+  public failure: RecordingFailure? = null
+  public removed: int = 0
+  public removedBytes: int = 0
+  /// What the settings said at the last connection.
+  public enabled: bool = true
+  public folder: string = ""
+  public limitMb: int = DEFAULT_LIMIT_MB
+  public lastAnnounced: int = 0
+  public announceTimer: int = -1
+  /// For tests: no recording at all (the test harness starts so), how long a frame waits, and the disk that is full after so
+  /// many bytes of a recording (-1: never).
+  public off: bool = false
+  public flushMs: int = TLOG_FLUSH_MS
+  public fullAfterBytes: int = -1
+  /// For tests: the limit in bytes instead of the setting's megabytes (-1: the setting), and the age of a leftover.
+  public limitBytes: int = -1
+  public leftoverMs: int = LEFTOVER_MS
+}
+
+const state = new State()
+
+export function register(c: Communicator): void {
+  state.communicator = c
+  c.handle("recording.state", getState)
+  c.handle("recording.dismiss", dismiss)
+  link.parts.set("recording", new Part())
+  // (The end-to-end tests cannot fill a real disk: with this set, the disk is "full" once a recording holds that many bytes.)
+  const full = env.get(DISK_BYTES_VARIABLE)
+  if (full != null) {
+    state.fullAfterBytes = sizeOf(full, -1)
+  }
+}
+
+/// For the end-to-end tests: how many bytes a recording may hold before the disk is "full".
+export const DISK_BYTES_VARIABLE: string = "DRONE_CONFIGURATOR_TEST_DISK_BYTES"
+
+/// For tests: whether connections are recorded at all (the test harness starts with them not recorded, so that a test does not
+/// write into the data directory unasked).
+export function recordForTests(on: bool): void {
+  state.off = !on
+}
+
+/// For tests: a frame waits at most this long (ms) to be written.
+export function flushForTests(ms: int): void {
+  state.flushMs = ms
+}
+
+/// For tests: the disk is full once a recording holds this many bytes (-1: never).
+export function fillDiskForTests(bytes: int): void {
+  state.fullAfterBytes = bytes
+}
+
+/// For tests: the limit, in bytes (-1: the setting's).
+export function limitForTests(bytes: int): void {
+  state.limitBytes = bytes
+}
+
+/// For tests: how long a recording with no CRC in its name must not have been written to, to be closed as a leftover.
+export function leftoversForTests(ms: int): void {
+  state.leftoverMs = ms
+}
+
+/// For tests: forget the counts and the failure.
+export function resetForTests(): void {
+  state.removed = 0
+  state.removedBytes = 0
+  state.failure = null
+  state.fullAfterBytes = -1
+  state.limitBytes = -1
+}
+
+/// What the recording is doing now.
+export function recordingState(): RecordingState {
+  const s = RecordingState {
+    enabled: state.enabled,
+    folder: state.folder,
+    limitMb: state.limitMb as u32,
+    bytes: 0 as u64,
+    failure: state.failure,
+    removed: state.removed as u32,
+    removedBytes: state.removedBytes as u64,
+  }
+  const r = state.current
+  if (r != null) {
+    s.key = `${RECORDED}/${r!.name}`
+    s.path = r!.path
+    s.bytes = r!.bytes as u64
+  }
+  return s
+}
+
+/// The recording being made (its file name), or null.
+export function liveRecording(): string? {
+  const r = state.current
+  if (r == null) null else r!.name
+}
+
+function announce(): void {
+  state.lastAnnounced = Date.now() as int
+  const c = state.communicator
+  if (c != null) {
+    c!.emit("recording.changed", encodeRecordingState(recordingState()))
+  }
+}
+
+/// Announces a recording that grew: at most once every `ANNOUNCE_EVERY_MS`.
+function announceSoon(): void {
+  if (state.announceTimer >= 0) {
+    return
+  }
+  const wait = state.lastAnnounced + ANNOUNCE_EVERY_MS - (Date.now() as int)
+  if (wait <= 0) {
+    announce()
+    return
+  }
+  state.announceTimer = setTimeout(() => {
+    state.announceTimer = -1
+    announce()
+  }, wait)
+}
+
+function fail(code: RecordingFailureCode, message: string): void {
+  state.failure = RecordingFailure { code: code, message: message }
+  announce()
+}
+
+/// A flag of the settings ("true"/"false"), or `fallback`.
+function flagOf(value: string?, fallback: bool): bool {
+  if (value == "true") true else if (value == "false") false else fallback
+}
+
+/// A whole number of the settings that is not negative, or `fallback`.
+function sizeOf(value: string?, fallback: int): int {
+  if (value == null) {
+    return fallback
+  }
+  const n = digitsOf(value!.trim())
+  if (n < 0 || value!.trim().length == 0 || value!.trim().length > 9) fallback else n
+}
+
+/// The recordings folder: the setting, or `<data>/recordings`.
+export async function recordingsFolder(): Promise<string> throws Error {
+  const chosen = (await uiValue(FOLDER_KEY)) ?? ""
+  if (chosen.trim().length > 0) chosen.trim() else join(await dataDirectory(), DEFAULT_FOLDER)
+}
+
+/// Reads the settings into the state (what they say, or the defaults when they cannot be read).
+async function readSettings(): Promise<void> {
+  try {
+    state.enabled = flagOf(await uiValue(ENABLED_KEY), true)
+    state.limitMb = sizeOf(await uiValue(LIMIT_KEY), DEFAULT_LIMIT_MB)
+  } catch (e: Error) {
+    state.enabled = true
+    state.limitMb = DEFAULT_LIMIT_MB
+  }
+}
+
+/// The recordings in `folder`, the oldest first (none when there is no folder).
+async function recordingsIn(folder: string): Promise<Older[]> {
+  const out: Older[] = []
+  try {
+    let seen = 0
+    for await (const entry of readDir(folder)) {
+      seen += 1
+      if (seen > MAX_LOOKED_AT) {
+        break
+      }
+      const named = if (entry.isFile) recordingNameOf(entry.name) else null
+      if (named == null) {
+        continue
+      }
+      const info = await stat(join(folder, entry.name))
+      out.push(new Older(entry.name, info.size, named!.started, info.mtime))
+    }
+  } catch (e: Error) {
+    // No folder yet (it is made on the first write), or one that cannot be read: nothing to remove.
+  }
+  out.sort((a: Older, b: Older) => if (a.started < b.started) -1 else if (a.started > b.started) 1 else 0)
+  return out
+}
+
+/// A stem for a recording that starts now and is not taken by one in the folder (a second later, when it is).
+function freeStem(older: Older[]): string {
+  const now = Date.now() as int
+  for (let i = 0; i < 3600; i++) {
+    const stem = stemOf(now + i * 1000)
+    let taken = false
+    for (const o of older) {
+      if (o.name.startsWith(stem)) {
+        taken = true
+      }
+    }
+    if (!taken) {
+      return stem
+    }
+  }
+  stemOf(now)
+}
+
+/// The stream the connection reads and writes, recorded: called once a link is opened (connection.pi). Ends the recording that
+/// was being made, reads the settings, and starts a new recording when they ask for one; never throws (a recording that cannot
+/// start says why, and the link is the one that was given).
+export async function recorded(stream: ByteStream): Promise<ByteStream> {
+  await stopRecording()
+  while (state.closing > 0) {
+    try {
+      await delay(5)
+    } catch (e: Error) {
+      // (no signal: a delay that is not stopped)
+    }
+  }
+  if (state.off) {
+    return stream
+  }
+  await readSettings()
+  state.failure = null
+  try {
+    state.folder = await recordingsFolder()
+  } catch (e: Error) {
+    state.folder = ""
+    if (state.enabled) {
+      fail(RecordingFailureCode.NoFolder, `can't find the folder for recordings: ${e.message}`)
+    }
+    return stream
+  }
+  if (!state.enabled) {
+    announce()
+    return stream
+  }
+  const older = await recordingsIn(state.folder)
+  const limit = if (state.limitBytes >= 0) state.limitBytes else state.limitMb * 1000000
+  const r = new Recording(state.folder, freeStem(older), limit, older)
+  const recorder = new TlogRecorder(r, { flushMs: state.flushMs })
+  r.recorder = recorder
+  const tap = new TlogTap(stream, recorder)
+  r.tap = tap
+  state.current = r
+  announce()
+  closeLeftovers(r)
+  return tap
+}
+
+/// Ends the recording being made, if one is: what is waiting is written, and the file gets its CRC in its name.
+export async function stopRecording(): Promise<void> {
+  const r = state.current
+  if (r == null) {
+    return
+  }
+  state.current = null
+  state.closing += 1
+  try {
+    const recorder = r!.recorder
+    if (recorder != null) {
+      await recorder!.close()
+    }
+  } catch (e: Error) {
+    // The failure was said when the write failed; the file is closed below all the same.
+  }
+  try {
+    await r!.close()
+  } catch (e: Error) {
+    if (state.failure == null) {
+      state.failure = RecordingFailure { code: RecordingFailureCode.WriteFailed, message: `can't close the recording: ${e.message}` }
+    }
+  }
+  state.closing -= 1
+  announce()
+}
+
+/// Closes the recordings that never ended (no CRC in the name, not written to for `LEFTOVER_MS`): read through for their CRC and
+/// renamed, so that the library can verify them. Runs on its own; a file it cannot close is left as it is.
+async function closeLeftovers(r: Recording): Promise<void> {
+  const now = Date.now() as int
+  for (const o of r.older) {
+    const named = recordingNameOf(o.name)
+    if (named == null || named!.crc >= 0 || now - o.mtime < state.leftoverMs) {
+      continue
+    }
+    try {
+      const from = join(r.folder, o.name)
+      const ended = finishedName(named!.stem, await crcOfFile(from))
+      await rename(from, join(r.folder, ended))
+      o.name = ended
+    } catch (e: Error) {
+      // Left for the next time.
+    }
+  }
+}
+
+async function getState(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  // (While a recording is made, the state is what it was started with; otherwise what the settings say now.)
+  if (state.current == null) {
+    await readSettings()
+    try {
+      state.folder = await recordingsFolder()
+    } catch (e: Error) {
+      // Said when a recording starts.
+    }
+  }
+  encodeRecordingState(recordingState())
+}
+
+async function dismiss(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  state.failure = null
+  announce()
+  encodeRecordingState(recordingState())
+}

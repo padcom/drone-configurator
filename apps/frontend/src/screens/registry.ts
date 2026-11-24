@@ -75,6 +75,7 @@ const SETUP_SECTIONS: readonly Section[] = [
   { id: 'serial', path: 'serial', titleKey: 'setup.section.serial', load: () => import('./setup/SetupSerial.vue') },
   { id: 'signing', path: 'signing', titleKey: 'setup.section.signing', load: () => import('./setup/SetupSigning.vue') },
   { id: 'devices', path: 'devices', titleKey: 'setup.section.devices', load: () => import('./setup/SetupDevices.vue') },
+  { id: 'bridge', path: 'bridge', titleKey: 'setup.section.bridge', load: () => import('./setup/SetupBridge.vue') },
   { id: 'info', path: 'info', titleKey: 'setup.section.info', load: () => import('./setup/SetupInfo.vue') },
 ]
 const FLIGHT = () => import('./FlightData.vue')

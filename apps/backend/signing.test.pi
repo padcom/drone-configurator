@@ -5,14 +5,14 @@
 // the vehicle is armed or its state is unknown. And the key's bytes, in any form, are never in what the page is told (replies, errors,
 // events), in the settings document, or anywhere but the key file.
 import { describe, it, expect } from "std/test"
-import { chmod, exists, mkdir, readText, remove, writeText } from "std/fs"
+import { chmod, exists, mkdir, readBytes, readDir, readText, remove, writeText } from "std/fs"
 import { join } from "std/path"
 import { Command, pid } from "std/process"
 import { tmpDir } from "std/os"
 import { delay } from "std/timers"
 import { base64, hex } from "std/encoding"
 import { Cbor, Envelope, encodeEnvelope } from "pico-desktop/communicator"
-import { SigningKey, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { SETUP_SIGNING_ID, SigningKey, SimulatedAutopilot, TlogReader } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import {
   ConnectRequest,
@@ -26,6 +26,7 @@ import {
   encodeSettingsPatch,
   encodeSigningProvision,
 } from "./generated/app"
+import { flushForTests, recordForTests, resetForTests } from "./recording"
 import { link } from "./session"
 import { restartForTests, useDirectoryForTests } from "./settings"
 import { keySigning, signingStatus, waits } from "./signing"
@@ -394,6 +395,62 @@ function findsTheKeyAHeartbeatIsSignedWith(): void throws Error {
   expect(keySigning(null, keys) == null).toBe(true)
 }
 
+/// What the recordings of a test's connections hold: every file's bytes, and how many frames there are, signed ones, and SETUP_SIGNING.
+class Recorded {
+  public bytes: Uint8Array[] = []
+  public frames: int = 0
+  public signed: int = 0
+  public setups: int = 0
+}
+
+async function recordedIn(dir: string): Promise<Recorded> throws Error {
+  const out = new Recorded()
+  for await (const e of readDir(dir)) {
+    const bytes = await readBytes(join(dir, e.name))
+    out.bytes.push(bytes)
+    const reader = new TlogReader()
+    reader.push(bytes)
+    reader.finish()
+    while (true) {
+      const r = reader.next()
+      if (r == null) {
+        break
+      }
+      out.frames += 1
+      out.signed += if (r!.signed) 1 else 0
+      out.setups += if (r!.msgid == SETUP_SIGNING_ID) 1 else 0
+    }
+  }
+  return out
+}
+
+async function recordsTheSignedSessionWithoutTheKey(): Promise<void> throws Error {
+  const r = await rig()
+  recordForTests(true)
+  resetForTests()
+  flushForTests(50)
+  try {
+    const sim = await connect(r)
+    expect(await provision(r)).toBe("signed")
+    const key = vehicleKey(sim)
+    // Signed traffic for a while, then the session ends and its recording is closed.
+    await afterBeat()
+    await afterBeat()
+    await r.call("vehicle.disconnect")
+    await delay(500)
+    const rec = await recordedIn(join(r.root, "recordings"))
+    expect(rec.bytes.length).toBe(1)
+    expect(rec.frames > 0).toBe(true)
+    // The vehicle's frames and the app's are signed from the provisioning on: the signatures are there, the key is not.
+    expect(rec.signed > 0).toBe(true)
+    expect(rec.setups).toBe(0)
+    expect(givesAway(rec.bytes[0], key)).toBe(false)
+  } finally {
+    recordForTests(false)
+    await done(r)
+  }
+}
+
 describe("MAVLink signing (#33)", () => {
   it("keeps a key out of what is said of it, and reads back what it writes", keepsKeysOutOfWhatIsSaid)
   it("finds no key without a heartbeat", findsTheKeyAHeartbeatIsSignedWith)
@@ -407,4 +464,5 @@ describe("MAVLink signing (#33)", () => {
   it("forgets a key the vehicle did not take", forgetsAKeyTheVehicleDidNotTake)
   it("never replaces a keys file it cannot read, and sends nothing then", neverReplacesAKeysFileItCannotRead)
   it("makes the keys file the owner's only again when it reads it", makesTheFileTheOwnersOnlyAgain)
+  it("records a signed session without the key, and without SETUP_SIGNING", recordsTheSignedSessionWithoutTheKey)
 })
