@@ -50,8 +50,14 @@ export function saveSnapshot(params: Param[], vehicle: VehicleInfo | undefined, 
 
 export type { Change } from './paramDiff'
 
-/** Where the values under review come from: a snapshot (and when it was saved), or a parameter file (and its format). */
-export type ReviewSource = { kind: 'snapshot', savedAt: string } | { kind: 'file', format: ParamFileFormat }
+/** The firmware's defaults, as the vehicle gives them (#40). */
+export interface DefaultsSource {
+  /** Always `defaults`. */
+  kind: 'defaults'
+}
+
+/** Where the values under review come from: a snapshot (and when it was saved), a parameter file (its format), the defaults. */
+export type ReviewSource = { kind: 'snapshot', savedAt: string } | { kind: 'file', format: ParamFileFormat } | DefaultsSource
 
 /** What loading a snapshot or a parameter file would do. */
 export interface Review extends Diff {

@@ -1055,6 +1055,58 @@
   }
 }
 
+/* Signing (#33): the state of the link's signing, with an icon and words (the colour only adds to them), and the form below it. */
+.setup-signing .signing-state {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.setup-signing .signing-state.ok {
+  border-color: var(--color-ok);
+}
+
+.setup-signing .signing-state.warn {
+  border-color: var(--color-warn);
+}
+
+.setup-signing .signing-title {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+}
+
+.setup-signing .signing-state.ok .signing-title {
+  color: var(--color-ok);
+}
+
+.setup-signing .signing-state.warn .signing-title {
+  color: var(--color-warn);
+}
+
+.setup-signing .signing-note {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+
+.setup-signing .mono {
+  font-family: var(--font-mono);
+}
+
+.setup-signing .signing-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 560px;
+}
+
+.setup-signing .signing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
 /* The serial bridge (SetupBridge.vue): the form, one field to a row with its label above; the facts of a bridge that runs. */
 .setup-bridge-form {
   display: flex;

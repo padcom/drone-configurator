@@ -71,6 +71,13 @@
       "what": "From the key that connects to the last vehicle again (Ctrl+L) to the top bar saying connected, against ArduPilot SITL, its parameters already downloaded once (#27)",
       "measuredBy": "e2e/sitl-one-key.e2e.ts"
     },
+    "paramDownloadFtp": {
+      "unit": "ms",
+      "budget": 2000,
+      "noise": 1.5,
+      "what": "A full download of a Copter's parameters by the vehicle's parameter file (MAVLink FTP), against ArduPilot SITL over TCP: from asking the backend to the list in the page. The parameter protocol's time is measured in the same run and printed beside it (#38)",
+      "measuredBy": "e2e/sitl-param-speed.e2e.ts"
+    },
     "metadataCachedLoad": {
       "unit": "ms",
       "budget": 200,

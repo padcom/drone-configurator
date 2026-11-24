@@ -449,6 +449,50 @@ for (const width of [1000, 1280]) {
   })
 }
 
+/** The pages where a status comes and goes above controls (#562): the status's id, and the controls that must stay put. */
+const STATUS_LINES = [
+  { page: 'logs/vehicle', status: 'logs-blocked', controls: '.logs-toolbar button' },
+  { page: 'setup/accel', status: 'calibration-blocked', controls: '.setup-actions button' },
+  { page: 'setup/signing', status: 'signing-blocked', controls: '#signing-form button, #signing-form input' },
+]
+
+/** Where the controls under each status line were while the vehicle was known to be disarmed (nothing said in the line). */
+const quiet = new Map<string, string>()
+
+/**
+ * Opens a page, waits until its status line says something or nothing, and says where its controls are.
+ *
+ * @param line the page, its status and its controls
+ * @param line.page the page, as the address names it
+ * @param line.status the id of its status line
+ * @param line.controls the controls under it
+ * @param said whether the line must say something (the vehicle's state not known) or nothing
+ * @returns the top of each control, rounded, as JSON (not the left: a primary button is narrower while it is off, its weight is
+ * lighter, and the ones beside it move by a pixel or two then, whatever the status says)
+ */
+async function controlsAt(line: { page: string, status: string, controls: string }, said: boolean): Promise<string> {
+  await window().evaluate(`location.hash = '#/${line.page}'`)
+  const empty = `document.getElementById('${line.status}')?.classList.contains('empty')`
+  await window().waitFor(`location.hash === '#/${line.page}' && ${empty} === ${!said}
+    && document.querySelector('${line.controls}')?.getBoundingClientRect().height > 0`, 60_000)
+  await window().evaluate<void>(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+
+  return window().evaluate<string>(`JSON.stringify([...document.querySelectorAll('${line.controls}')]
+    .map(control => Math.round(control.getBoundingClientRect().top)))`)
+}
+
+// (before the vehicle is silenced: its state is known, it is disarmed, and the status lines say nothing)
+it('notes where the controls under a status line are while nothing is said in it', async () => {
+  await resize({ width: 1440, height: 768 })
+
+  for (const line of STATUS_LINES) {
+    // eslint-disable-next-line no-await-in-loop -- one page after the other
+    quiet.set(line.page, await controlsAt(line, false))
+  }
+
+  expect([...quiet.values()].every(at => at.length > 2)).toBe(true)
+}, 120_000)
+
 // (last in the file: the vehicle is silenced, and stays so)
 it('keeps Write and "Put back initial values" in a 1100x480 window with a reason and many changes in the aside', async () => {
   await resize({ width: 1100, height: 480 })
@@ -496,3 +540,18 @@ it('shows the reason and the changed values whole in a window of the usual heigh
   expect(seen.listShown).toBeGreaterThanOrEqual(seen.listNatural!)
   expect(seen.writeBottom).toBeLessThanOrEqual(seen.height! + 1)
 }, 60_000)
+
+// (after the vehicle is silenced: its state is not known, and each status line says so)
+it('keeps the controls under a status line where they were when it says the state is not known (#562)', async () => {
+  await resize({ width: 1440, height: 768 })
+  const moved: string[] = []
+  for (const line of STATUS_LINES) {
+    // eslint-disable-next-line no-await-in-loop -- one page after the other
+    const now = await controlsAt(line, true)
+    if (now !== quiet.get(line.page)) {
+      moved.push(`${line.page}: ${quiet.get(line.page)} -> ${now}`)
+    }
+  }
+
+  expect(moved).toEqual([])
+}, 120_000)

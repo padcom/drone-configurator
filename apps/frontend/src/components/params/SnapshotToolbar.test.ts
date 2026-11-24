@@ -25,8 +25,10 @@ async function toolbarWithSpies() {
     loadSnapshot: vi.spyOn(handle.snapshots, 'load').mockImplementation(() => undefined),
     loadMetadata: vi.spyOn(handle.metadata, 'load').mockImplementation(() => undefined),
   }
-  const wrapper = mount(SnapshotToolbar, withI18n)
+  const wrapper = mount(SnapshotToolbar, { ...withI18n, attachTo: document.body })
   await flushPromises()
+  // Save, Load and the comparisons are in the Snapshot panel: it is opened, as a user does.
+  await wrapper.get('#param-files > .trigger').trigger('click')
 
   return { wrapper, handle, ...spies }
 }

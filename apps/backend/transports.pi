@@ -112,8 +112,9 @@ export function describe(r: ConnectRequest): string {
   }
 }
 
-/// The simulated vehicle's parameters: pico-mavlink's Copter-like set, a few of them away from the firmware's default (which the
-/// parameter file gives when it is asked for the defaults), as a vehicle that was set up has them: "modified from default".
+/// The simulated vehicle's parameters: pico-mavlink's Copter-like set, a few of them away from the firmware's default (which
+/// the parameter file gives when it is asked for the defaults), as a vehicle that was set up has them: "modified from default".
+/// The frontend's mock has the same (DEFAULTS in fixtures.ts).
 export function simulatorParams(): SimParam[] {
   const out: SimParam[] = []
   for (const p of defaultSimParams()) {
@@ -132,8 +133,11 @@ function firmwareDefaultOf(id: string): TypedParamValue? {
   if (id == "BATT_CAPACITY") {
     return TypedParamValue.Int(3300, MavParamType.INT32)
   }
-  if (id == "FS_THR_ENABLE") {
-    return TypedParamValue.Int(0, MavParamType.INT8)
+  if (id == "FENCE_RADIUS") {
+    return TypedParamValue.Real(300.0, MavParamType.REAL32)
+  }
+  if (id == "WPNAV_SPEED") {
+    return TypedParamValue.Real(500.0, MavParamType.REAL32)
   }
   return null
 }
@@ -145,8 +149,9 @@ export async function open(r: ConnectRequest, onSimulator: (sim: SimulatedAutopi
     Simulator => {
       const ends = MemoryStream.pair()
       const sim = new SimulatedAutopilot(ends[1], simulatorParams())
-      sim.start(1000)
+      // Set up before it starts: its first heartbeat is already as it should be (signed, when it holds a key).
       onSimulator(sim)
+      sim.start(1000)
       const s: ByteStream = ends[0]
       s
     },

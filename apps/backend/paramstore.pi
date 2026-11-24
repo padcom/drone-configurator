@@ -1,0 +1,230 @@
+// The parameters of each vehicle as its last COMPLETE download left them, kept on disk across sessions (#38): the dashboard
+// shows them at once while the next download of that vehicle runs (`params.cached`), and the download replaces them. They are
+// never written to a vehicle from here, and never taken for what the vehicle has now.
+//
+// One file for each vehicle, `params/p<crc32 of its identity><length of it>.json` in the app's cache directory: the name is
+// made only of a hash and a number, so nothing the vehicle sends becomes part of a path, and the identity is in the file too
+// (two identities with the same name are not mixed up: the file of the other is "none"). A file is written to a temporary file
+// and renamed, so it is whole or not there. A file that cannot be read, or is not such a list, is removed.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { mkdir, readText, remove, rename, stat, writeText } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { crc32Of } from "padcom/pico-mavlink"
+import { Param, ParamKind, ParamList, ParamListSource, SavedParams, SavedParamsSource, encodeSavedParams } from "./generated/app"
+import { hex8 } from "./logs"
+import { connectedLink, link } from "./session"
+import { cacheDirectory } from "./settings"
+
+/// The version of the file that this code writes and reads.
+const STORE_VERSION: int = 1
+
+/// The most a file may be (bytes): a vehicle's list is some 100 kilobytes.
+const MAX_FILE: int = 4194304
+
+/// Whether lists are kept (the test harness starts with them not kept, so that a test does not write into the cache directory
+/// unasked).
+class Switch {
+  public off: bool = false
+}
+
+const keeping = new Switch()
+
+/// For tests: whether the lists of downloads are kept at all.
+export function keepForTests(on: bool): void {
+  keeping.off = !on
+}
+
+/// Registers `params.cached`.
+export function register(c: Communicator): void {
+  c.handle("params.cached", cachedParams)
+}
+
+/// One parameter as the file has it.
+class StoredParam {
+  public id: string = ""
+  public index: int = -1
+  public real: bool = false
+  public type: string = ""
+  public value: f64 = 0.0
+}
+
+/// The file.
+class StoredFile {
+  public version: int = 0
+  public identity: string = ""
+  public savedAt: int = 0
+  public source: string = ""
+  public count: int = -1
+  public params: StoredParam[] = []
+}
+
+/// The name of a vehicle's file: a hash of its identity and its length (never the identity itself).
+export function fileNameOf(identity: string): string {
+  const crc = crc32Of(new TextEncoder().encode(identity))
+  return `p${hex8(crc)}${identity.length}.json`
+}
+
+/// The folder of the files, under `cacheDir`.
+function folderIn(cacheDir: string): string {
+  return join(cacheDir, "params")
+}
+
+/// Whether a number is a number (not NaN, not infinite).
+function finite(x: f64): bool {
+  return (x - x) == 0.0
+}
+
+/// Whether every value of a list can be written as a JSON number (a NaN or an infinity cannot).
+function allFinite(params: Param[]): bool {
+  for (const p of params) {
+    if (!finite(p.value)) {
+      return false
+    }
+  }
+  return true
+}
+
+/// The text of a vehicle's file.
+export function textOf(identity: string, list: ParamList, savedAt: int): string {
+  const parts: string[] = []
+  for (const p of list.params) {
+    const real = p.kind == ParamKind.Real
+    parts.push(`{"id":${JSON.stringify(p.id)},"index":${p.index as int},"real":${real},"type":${JSON.stringify(p.type)},"value":${p.value}}`)
+  }
+  const source = if (list.source != null && list.source! == ParamListSource.Ftp) "ftp" else "list"
+  const head = `{"version":${STORE_VERSION},"identity":${JSON.stringify(identity)},"savedAt":${savedAt},"source":"${source}",`
+  return head + `"count":${list.count as int},"params":[\n${parts.join(",\n")}\n]}\n`
+}
+
+/// Keeps `list` as `identity`'s, in `cacheDir`, when it is worth keeping: complete, of a vehicle that has an identity, and with
+/// values a file can hold. Gives whether it was kept. A failure to write is no failure of the download: it is let go.
+export async function saveList(cacheDir: string, identity: string, list: ParamList, savedAt: int): Promise<bool> {
+  if (identity == "" || !list.complete || list.params.length == 0 || !allFinite(list.params)) {
+    return false
+  }
+  const folder = folderIn(cacheDir)
+  const path = join(folder, fileNameOf(identity))
+  const temporary = `${path}.tmp-${pid}-${savedAt}`
+  try {
+    await mkdir(folder, true)
+    await writeText(temporary, textOf(identity, list, savedAt))
+    await rename(temporary, path)
+    return true
+  } catch (e: Error) {
+    try {
+      await remove(temporary)
+    } catch (ignored: Error) {
+    }
+    return false
+  }
+}
+
+/// A parameter of the file as the contract has it, or null when it is not one.
+function paramOf(s: StoredParam, count: int): Param? {
+  if (s.id == "" || s.id.length > 16 || s.index < 0 || s.index >= count || s.type == "" || !finite(s.value)) {
+    return null
+  }
+  const kind = if (s.real) ParamKind.Real else ParamKind.Int
+  return Param { id: s.id, index: s.index as u16, kind: kind, type: s.type, value: s.value }
+}
+
+/// What a file of the right identity holds, as the contract has it; null when it is not such a list.
+function savedOf(doc: StoredFile): SavedParams? {
+  if (doc.version != STORE_VERSION || doc.count <= 0 || doc.count > 65535 || doc.params.length == 0 || doc.savedAt <= 0) {
+    return null
+  }
+  if (doc.source != "ftp" && doc.source != "list") {
+    return null
+  }
+  const params: Param[] = []
+  for (const s of doc.params) {
+    const p = paramOf(s, doc.count)
+    if (p == null) {
+      return null
+    }
+    params.push(p!)
+  }
+  const source = if (doc.source == "ftp") SavedParamsSource.Ftp else SavedParamsSource.List
+  return SavedParams { params: params, count: doc.count as u16, savedAt: doc.savedAt as u64, source: source }
+}
+
+/// What can be made of a file's text: the list, nothing (another identity's file), or a corrupt file (to be removed).
+class Read {
+  public saved: SavedParams? = null
+  public corrupt: bool = false
+}
+
+/// Reads a file's text for `identity`.
+export function readList(text: string, identity: string): Read {
+  const out = new Read()
+  let doc = new StoredFile()
+  try {
+    doc = JSON.parse<StoredFile>(text)
+  } catch (e: Error) {
+    out.corrupt = true
+    return out
+  }
+  if (doc.identity != identity) {
+    // Another vehicle whose identity has the same name: not this one's, and not broken.
+    out.corrupt = doc.identity == ""
+    return out
+  }
+  out.saved = savedOf(doc)
+  out.corrupt = out.saved == null
+  return out
+}
+
+/// `identity`'s list as it was kept in `cacheDir`, or null when there is none. A file that is too big, cannot be read, or is not
+/// such a list is removed.
+export async function loadList(cacheDir: string, identity: string): Promise<SavedParams?> {
+  if (identity == "") {
+    return null
+  }
+  const path = join(folderIn(cacheDir), fileNameOf(identity))
+  let text = ""
+  try {
+    const info = await stat(path)
+    if (info.size > MAX_FILE) {
+      await dropFile(path)
+      return null
+    }
+    text = await readText(path)
+  } catch (e: Error) {
+    return null
+  }
+  const r = readList(text, identity)
+  if (r.corrupt) {
+    await dropFile(path)
+  }
+  return r.saved
+}
+
+/// Removes a file that is of no use (a failure to is let go: the next save replaces it).
+async function dropFile(path: string): Promise<void> {
+  try {
+    await remove(path)
+  } catch (e: Error) {
+  }
+}
+
+/// Keeps a complete list as the connected vehicle's (params.pi, after each download). Never fails.
+export async function keepForVehicle(list: ParamList): Promise<void> {
+  const identity = link.identity
+  if (keeping.off || identity == "" || !list.complete) {
+    return
+  }
+  try {
+    await saveList(await cacheDirectory(), identity, list, Date.now() as int)
+  } catch (e: Error) {
+  }
+}
+
+async function cachedParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  connectedLink()
+  const saved = await loadList(await cacheDirectory(), link.identity)
+  if (saved == null) {
+    throw new CommunicatorError("NOT_CACHED", "no list of this vehicle is kept")
+  }
+  encodeSavedParams(saved!)
+}

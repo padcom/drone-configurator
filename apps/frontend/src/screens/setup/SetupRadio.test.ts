@@ -263,7 +263,7 @@ it('does not start while the vehicle is armed, and says why', async () => {
   feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
   await flushPromises()
 
-  expect(wrapper.get('#calibration-blocked').text()).toContain('armed')
+  expect(wrapper.get('#calibration-blocked .said').text()).toContain('armed')
   expect(wrapper.get('#setup-radio-start').attributes('disabled')).toBeDefined()
 })
 

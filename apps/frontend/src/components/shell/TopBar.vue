@@ -72,7 +72,11 @@
             @select="modes.pick"
           />
           <!-- LINK is the link's quality, from the backend's own measure (link.stats), and the button to its details. -->
-          <LinkIndicator v-else-if="cell.id === 'link'" />
+          <!-- ... and whether the link is signed (#33), the way to the Signing page. -->
+          <span v-else-if="cell.id === 'link'" class="link-cell">
+            <LinkIndicator />
+            <SigningIndicator />
+          </span>
           <template v-else-if="cell.missing">
             <span aria-hidden="true">{{ cell.value }}</span>
             <span class="visually-hidden">{{ t('truth.notReported') }}</span>
@@ -97,6 +101,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
 import LinkIndicator from './LinkIndicator.vue'
+import SigningIndicator from './SigningIndicator.vue'
 import SerialBridgeBadge from './SerialBridgeBadge.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'

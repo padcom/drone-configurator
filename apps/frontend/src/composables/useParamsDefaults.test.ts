@@ -25,7 +25,7 @@ it('takes the defaults of a download by file transfer, and tells the modified pa
 
   expect(parameters.defaults.value?.get('BATT_CAPACITY')).toBe(3300)
   expect(parameters.defaults.value?.get('RTL_ALT')).toBe(1500)
-  expect([...parameters.modified.value].toSorted()).toEqual(['BATT_CAPACITY', 'FS_THR_ENABLE'])
+  expect([...parameters.modified.value].toSorted()).toEqual(['BATT_CAPACITY', 'FENCE_RADIUS', 'WPNAV_SPEED'])
 })
 
 it('keeps them through the resume after a link came back, and forgets them with the session', async () => {

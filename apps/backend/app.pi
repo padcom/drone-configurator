@@ -26,12 +26,14 @@ import { register as registerMessages } from "./messages"
 import { register as registerMissions } from "./missions"
 import { register as registerMotors } from "./motors"
 import { register as registerParams } from "./params"
+import { register as registerParamStore } from "./paramstore"
 import { register as registerReboot } from "./reboot"
 import { register as registerRecording } from "./recording"
 import { register as registerSerial } from "./serial"
 import { register as registerSerialBridge } from "./serialbridge"
 import { link } from "./session"
 import { register as registerSettings } from "./settings"
+import { register as registerSigning } from "./signing"
 import { register as registerTelemetry } from "./telemetry"
 import { register as registerTuningStream } from "./tuningstream"
 import { register as registerVehicleInfo } from "./vehicleinfo"
@@ -71,6 +73,7 @@ export function createBackend(transport: Transport): Communicator {
   registerDiscovery(c)
   registerForward(c)
   registerParams(c)
+  registerParamStore(c)
   registerReboot(c)
   registerArming(c)
   registerMissions(c)
@@ -97,6 +100,7 @@ export function createBackend(transport: Transport): Communicator {
   registerSerial(c)
   registerSerialBridge(c)
   registerSettings(c)
+  registerSigning(c)
   registerRecording(c)
   return c
 }

@@ -2,7 +2,7 @@
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
 import { Cbor } from "pico-desktop/communicator"
-import { MavParamType, TypedParamValue } from "padcom/pico-mavlink"
+import { MavParamType, SimParam, TypedParamValue } from "padcom/pico-mavlink"
 import { setSimulatorFtpForTests, setSimulatorVersionForTests, simulatorForTests } from "./app"
 import { progressCounts } from "./params"
 import {
@@ -15,6 +15,7 @@ import {
   ParamWriteKind,
   ParamsProgressSource,
   decodeParam,
+  decodeParamDefaults,
   decodeParamList,
   decodeParamsProgress,
   encodeConnectRequest,
@@ -79,7 +80,7 @@ async function givesTheFirmwareDefaults(): Promise<void> throws Error {
   const e = await fe.call("params.list", encodeParamListRequest(ParamListRequest {}))
   const list = decodeParamList(e.p ?? Cbor.Null, "$")
   const differing = list.params.filter((p) => p.default != null).map((p) => `${p.id}=${p.default!}`)
-  expect(`${list.defaults ?? false} ${differing.join(",")}`).toBe("true BATT_CAPACITY=3300,FS_THR_ENABLE=0")
+  expect(`${list.defaults ?? false} ${differing.join(",")}`).toBe("true BATT_CAPACITY=3300,FENCE_RADIUS=300,WPNAV_SPEED=500")
   // By the list they are not known: the list does not say it has them, and no parameter has one.
   const l = await fe.call("params.list", encodeParamListRequest(ParamListRequest { method: ParamListRequestMethod.List }))
   const byList = decodeParamList(l.p ?? Cbor.Null, "$")
@@ -166,6 +167,49 @@ async function usesNoFileTransferWithoutTheCapability(): Promise<void> throws Er
   expect(`${list.source == ParamListSource.List} ${list.fallback ?? "none"} ${list.complete}`).toBe("true unsupported true")
   expect(sim.ftpLog.length).toBe(0)
   await fe.call("vehicle.disconnect")
+}
+
+/// Gives a parameter of the simulated vehicle a firmware default that differs from its value.
+function withDefault(id: string, value: TypedParamValue): void {
+  const sim = simulatorForTests()!
+  for (let i = 0; i < sim.params.length; i++) {
+    if (sim.params[i].id == id) {
+      sim.params[i] = SimParam { id: id, value: sim.params[i].value, firmwareDefault: value }
+    }
+  }
+}
+
+async function readsTheDefaults(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  withDefault("BATT_CAPACITY", TypedParamValue.Int(3300, MavParamType.INT32))
+  withDefault("BATT_LOW_VOLT", TypedParamValue.Real(10.8, MavParamType.REAL32))
+  const e = await fe.call("params.defaults")
+  expect(e.err?.code ?? "no error").toBe("no error")
+  const r = decodeParamDefaults(e.p ?? Cbor.Null, "$")
+  // Every parameter has its default: the ones the file carries one for, and the others at their value.
+  expect(r.defaults.length).toBe(12)
+  const text = r.defaults.filter((d) => d.id == "BATT_CAPACITY" || d.id == "RTL_ALT").map((d) => `${d.id}=${d.value}`).join(" ")
+  expect(text).toBe("BATT_CAPACITY=3300 RTL_ALT=1500")
+  // A REAL32 is the float the vehicle holds, as in the list.
+  const volt = r.defaults.filter((d) => d.id == "BATT_LOW_VOLT")[0].value
+  expect(volt == ((10.8 as f32) as f64)).toBe(true)
+  // Nothing is announced, and nothing is written.
+  expect(fe.heard.filter((h) => h.n == "params.changed").length).toBe(0)
+  await fe.call("vehicle.disconnect")
+}
+
+async function refusesTheDefaultsWithoutFileTransfer(): Promise<void> throws Error {
+  const fe = await start()
+  setSimulatorFtpForTests(false)
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  setSimulatorFtpForTests(true)
+  const e = await fe.call("params.defaults")
+  expect(e.err?.code ?? "no error").toBe("UNSUPPORTED")
+  expect(simulatorForTests()!.ftpLog.length).toBe(0)
+  await fe.call("vehicle.disconnect")
+  const none = await fe.call("params.defaults")
+  expect(none.err?.code ?? "no error").toBe("NOT_CONNECTED")
 }
 
 function progressStaysInRange(): void {
@@ -289,6 +333,8 @@ describe("the params service", () => {
   it("refuses a second download while one runs, and the session ending stops the first", refusesASecondDownloadAndEndsWithTheSession)
   it("takes no request as auto", takesNoRequestAsAuto)
   it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
+  it("reads the firmware default of every parameter by file transfer", readsTheDefaults)
+  it("refuses the defaults of a vehicle without file transfer, and without a vehicle", refusesTheDefaultsWithoutFileTransfer)
   it("cancels a write in flight when the user disconnects", disconnectCancels)
   it("passes on a parameter the vehicle announces", announcesChanges)
 })

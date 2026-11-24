@@ -178,7 +178,7 @@ it('turns off each parameter that is read at start-up while the vehicle is armed
   expect(rig.wrapper.get('[data-tune="INS_HNTCH_ENABLE"] input').attributes('disabled')).toBeDefined()
   expect(rig.wrapper.get('[data-tune="INS_HNTCH_MODE"] input').attributes('disabled')).toBeDefined()
   expect(rig.wrapper.get('[data-tune="INS_HNTCH_HMNCS"] .tune-note').text()).toContain('not written while the vehicle is armed')
-  expect(rig.wrapper.get('#tune-filters-armed').text()).toContain('Armed')
+  expect(rig.wrapper.get('#tune-filters-armed .said').text()).toContain('Armed')
 
   // what takes effect in flight stays on
   for (const id of ['INS_HNTCH_FREQ', 'INS_HNTCH_BW', 'INS_HNTCH_ATT', 'INS_GYRO_FILTER']) {

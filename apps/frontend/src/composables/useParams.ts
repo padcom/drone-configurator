@@ -4,7 +4,7 @@
 // (docs/frontend-state.md).
 import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { type BackendClient, describeError, toBackendError } from '@/backend/client'
-import type { Param, ParamList, ParamListRequest, ParamsProgress } from '@/generated/app'
+import type { Param, ParamList, ParamListRequest, ParamsProgress, SavedParams } from '@/generated/app'
 import { type DownloadToast, startDownloadToast } from '@/lib/params/downloadToast'
 import { type Toasts, useToasts } from './toasts'
 import { type Defaults, defaultsOf, modifiedIds } from '@/lib/params/defaults'
@@ -27,6 +27,26 @@ export interface DownloadInfo {
   elapsedMs?: number
   /** How many parameters a resume (after the link came back to the same vehicle) reused, not asking for them again. */
   reused?: number
+}
+
+/** The list that is shown while a download runs: this vehicle's as its last complete download left it (#38). */
+export interface CachedInfo {
+  /** When that download ended (ms since 1970). */
+  savedAt: number
+  /** How many parameters it has. */
+  count: number
+}
+
+/** How a download is asked for. */
+export interface RefreshOptions {
+  /** Keep the initial values if there are any (the automatic download after a link came back to the same vehicle). */
+  keepInitial?: boolean
+  /**
+   * Show the vehicle's list as its last complete download left it (kept by the backend across sessions) while this download
+   * runs, when the backend has one: the download that connects a vehicle. It is replaced when the download ends, and taken
+   * away when it fails or is cancelled.
+   */
+  fromCache?: boolean
 }
 
 /** What the parameters need from the rest of the interface. */
@@ -85,6 +105,8 @@ export interface ParamsModel {
    * failed download leaves it empty, unlike `downloadInfo`, which keeps the last list's). What is said to the ear follows this.
    */
   readonly downloadEnded: ShallowRef<DownloadInfo | null>
+  /** Set while the list shown is the one kept from this vehicle's last complete download (a download runs to replace it). */
+  readonly fromCache: ShallowRef<CachedInfo | null>
   /** Stops the download that runs (the list stays as it was, with its initial values); nothing happens when none runs. */
   cancel: () => Promise<void>
   /**
@@ -92,9 +114,10 @@ export interface ParamsModel {
    * follows a link that came back to the same vehicle (`keepInitial`): that updates the values and keeps what "changed" is
    * measured against, so that a dropped link does not erase every marker, and asks the backend to resume (it reuses what it
    * heard of this vehicle and asks the vehicle only for what it lacks). While a write holds the lock it waits for it to be
-   * over: a download in the middle of a write would put half-written values in the initial ones.
+   * over: a download in the middle of a write would put half-written values in the initial ones. With `fromCache`, the list
+   * the backend kept of this vehicle is shown while it runs.
    */
-  refresh: (options?: { keepInitial?: boolean }) => Promise<void>
+  refresh: (options?: RefreshOptions) => Promise<void>
   /** Forgets the initial values (the session ended, or another vehicle was connected). */
   clearInitial: () => void
   /** Forgets a download that waits for a write (the session ended: no download on an app that is disconnected). */
@@ -144,6 +167,9 @@ class Parameters implements ParamsModel {
   readonly progress = shallowRef<ParamsProgress | null>(null)
   readonly downloadInfo = shallowRef<DownloadInfo | null>(null)
   readonly downloadEnded = shallowRef<DownloadInfo | null>(null)
+  readonly fromCache = shallowRef<CachedInfo | null>(null)
+  /** How many downloads were started: tells the one that runs from one that has ended. */
+  private downloads = 0
   /** Whether the user has asked for the download that runs to stop (so that the ABORTED that follows is not a failure). */
   private cancelling = false
 
@@ -158,13 +184,13 @@ class Parameters implements ParamsModel {
       const { deferred } = this
       if (!busy && deferred) {
         this.deferred = null
-        void this.download(deferred.keepInitial)
+        void this.download(deferred)
       }
     })
   }
 
   /** A download that waits for the write that is under way (the automatic one after a link came back). */
-  private deferred: { keepInitial: boolean } | null = null
+  private deferred: Required<RefreshOptions> | null = null
 
   /**
    * The values of a download that completed are the initial ones, unless the automatic download after a link came back to the
@@ -208,14 +234,12 @@ class Parameters implements ParamsModel {
   /**
    * Downloads the list and takes it in.
    *
-   * @param keepInitial whether the initial values are kept if there are any
+   * @param options how it is asked for
    */
-  private async download(keepInitial: boolean): Promise<void> {
+  private async download(options: Required<RefreshOptions>): Promise<void> {
+    const { keepInitial } = options
     const before = this.list.value === 'loading' ? 'none' : this.list.value
-    this.list.value = 'loading'
-    this.progress.value = null
-    this.downloadEnded.value = null
-    this.cancelling = false
+    this.begin(options.fromCache)
     const toast = startDownloadToast(this.deps.toasts ?? useToasts(), () => void this.cancel())
     const stop = this.deps.client.onEvent('params.progress', progress => {
       this.progress.value = progress
@@ -235,6 +259,56 @@ class Parameters implements ParamsModel {
   }
 
   /**
+   * A download starts: it is loading, with nothing said of how it went yet, and the kept list is asked for when it is wanted.
+   *
+   * @param fromCache whether to show the list the backend kept of the vehicle meanwhile
+   */
+  private begin(fromCache: boolean): void {
+    this.list.value = 'loading'
+    this.progress.value = null
+    this.downloadEnded.value = null
+    this.cancelling = false
+    this.downloads += 1
+
+    if (fromCache) {
+      void this.showCached(this.downloads)
+    }
+  }
+
+  /**
+   * Shows the list the backend kept of this vehicle, if it has one and download `which` still runs (a list that came first is
+   * not replaced by an older one). It is no failure when there is none.
+   *
+   * @param which the download it is shown for
+   */
+  private async showCached(which: number): Promise<void> {
+    const saved = await this.deps.client.call('params.cached', null).catch(() => null)
+    if (saved !== null && this.downloads === which && this.list.value === 'loading') {
+      this.showSaved(saved)
+    }
+  }
+
+  /**
+   * Shows a kept list: its values are not the vehicle's now, so they are not the initial ones.
+   *
+   * @param saved what the backend kept
+   */
+  private showSaved(saved: SavedParams): void {
+    this.params.value = sortedByName(saved.params.map(canonParam))
+    this.missing.value = []
+    this.fromCache.value = { savedAt: Number(saved.savedAt), count: saved.params.length }
+  }
+
+  /** Takes away a kept list that is shown: a download that did not replace it leaves nothing that could be taken as now. */
+  private dropCached(): void {
+    if (this.fromCache.value !== null) {
+      this.params.value = []
+      this.missing.value = []
+      this.fromCache.value = null
+    }
+  }
+
+  /**
    * Takes in a downloaded list. The values are the numbers the vehicle holds (a float comes over the wire widened to a double),
    * and the list is in the order of the names, made once here: the list, the groups, the favourites and the search follow it.
    *
@@ -243,6 +317,7 @@ class Parameters implements ParamsModel {
    */
   private take(downloaded: ParamList, keepInitial: boolean): void {
     const params = sortedByName(downloaded.params.map(canonParam))
+    this.fromCache.value = null
     this.takeInitial(params, downloaded.complete, keepInitial)
     this.takeDefaults(params, downloaded.defaults, keepInitial)
     this.params.value = params
@@ -261,6 +336,8 @@ class Parameters implements ParamsModel {
    * @param toast the toast of the download
    */
   private ended(error: unknown, before: ListState, toast: DownloadToast): void {
+    this.dropCached()
+
     if (this.cancelling && toBackendError(error).code === 'ABORTED') {
       this.list.value = before
       toast.cancelled()
@@ -280,12 +357,12 @@ class Parameters implements ParamsModel {
     await this.deps.client.call('params.cancel', null).catch(() => undefined)
   }
 
-  async refresh(options: { keepInitial?: boolean } = {}): Promise<void> {
-    const keepInitial = options.keepInitial === true
+  async refresh(options: RefreshOptions = {}): Promise<void> {
+    const asked = { keepInitial: options.keepInitial === true, fromCache: options.fromCache === true }
     if (this.lock.busy.value) {
-      this.defer(keepInitial)
+      this.defer(asked)
     } else {
-      await this.download(keepInitial)
+      await this.download(asked)
     }
   }
 
@@ -293,10 +370,11 @@ class Parameters implements ParamsModel {
    * Not in the middle of a write (the values would be half and half): later, when it is over. Of two that wait, the one that
    * does not keep the initial values (another vehicle) wins.
    *
-   * @param keepInitial whether the download that is asked for keeps the initial values
+   * @param asked how the download that is asked for is asked for (a kept list is shown if either asks for it)
    */
-  private defer(keepInitial: boolean): void {
-    this.deferred = { keepInitial: keepInitial && (this.deferred?.keepInitial ?? true) }
+  private defer(asked: Required<RefreshOptions>): void {
+    const waiting = this.deferred ?? { keepInitial: true, fromCache: false }
+    this.deferred = { keepInitial: asked.keepInitial && waiting.keepInitial, fromCache: asked.fromCache || waiting.fromCache }
   }
 
   cancelDeferred(): void {

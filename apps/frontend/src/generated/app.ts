@@ -108,6 +108,33 @@ function validateParamListInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param-list, or null. */
 export const validateParamList = (value: unknown) => run(validateParamListInto, value)
 
+export type SavedParams = { "params": (Param)[], "count": number, "savedAt": number | bigint, "source": "ftp" | "list" }
+
+function validateSavedParamsInto(value: any, path: string): boolean {
+  return map(value, path, ["params","count","savedAt","source"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["savedAt"] === undefined ? fail(`${path}.savedAt`, 'present') : nested(value["savedAt"], `${path}.savedAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","list"])))
+}
+
+/** The first problem with `value` as a saved-params, or null. */
+export const validateSavedParams = (value: unknown) => run(validateSavedParamsInto, value)
+
+export type ParamDefault = { "id": string, "value": number }
+
+function validateParamDefaultInto(value: any, path: string): boolean {
+  return map(value, path, ["id","value"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["value"] === undefined ? fail(`${path}.value`, 'present') : nested(value["value"], `${path}.value`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a param-default, or null. */
+export const validateParamDefault = (value: unknown) => run(validateParamDefaultInto, value)
+
+export type ParamDefaults = { "defaults": (ParamDefault)[], "elapsedMs": number }
+
+function validateParamDefaultsInto(value: any, path: string): boolean {
+  return map(value, path, ["defaults","elapsedMs"]) && (value["defaults"] === undefined ? fail(`${path}.defaults`, 'present') : nested(value["defaults"], `${path}.defaults`, (value, path) => list(value, path, (value, path) => validateParamDefaultInto(value, path)))) && (value["elapsedMs"] === undefined ? fail(`${path}.elapsedMs`, 'present') : nested(value["elapsedMs"], `${path}.elapsedMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a param-defaults, or null. */
+export const validateParamDefaults = (value: unknown) => run(validateParamDefaultsInto, value)
+
 export type ParamsProgress = { "received": number, "total": number, "source": "ftp" | "list" }
 
 function validateParamsProgressInto(value: any, path: string): boolean {
@@ -1395,6 +1422,24 @@ function validateLinkStatsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a link-stats, or null. */
 export const validateLinkStats = (value: unknown) => run(validateLinkStatsInto, value)
 
+export type SigningStatus = { "state": "off" | "signed" | "no-answer" | "unknown-key", "fingerprint"?: string, "setAt"?: number | bigint }
+
+function validateSigningStatusInto(value: any, path: string): boolean {
+  return map(value, path, ["state","fingerprint","setAt"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["off","signed","no-answer","unknown-key"]))) && (value["fingerprint"] === undefined || nested(value["fingerprint"], `${path}.fingerprint`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["setAt"] === undefined || nested(value["setAt"], `${path}.setAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a signing-status, or null. */
+export const validateSigningStatus = (value: unknown) => run(validateSigningStatusInto, value)
+
+export type SigningProvision = { "passphrase"?: string }
+
+function validateSigningProvisionInto(value: any, path: string): boolean {
+  return map(value, path, ["passphrase"]) && (value["passphrase"] === undefined || nested(value["passphrase"], `${path}.passphrase`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a signing-provision, or null. */
+export const validateSigningProvision = (value: unknown) => run(validateSigningProvisionInto, value)
+
 export type RecordingState = { "enabled": boolean, "folder": string, "limitMb": number, "key"?: string, "path"?: string, "bytes": number | bigint, "failure"?: RecordingFailure, "removed": number, "removedBytes": number | bigint }
 
 function validateRecordingStateInto(value: any, path: string): boolean {
@@ -1430,7 +1475,9 @@ export interface Services {
   "params.list": { kind: 'method', request: ParamListRequest, response: ParamList }
   "params.cancel": { kind: 'method', request: null, response: null }
   "params.progress": { kind: 'event', payload: ParamsProgress }
+  "params.cached": { kind: 'method', request: null, response: SavedParams }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
+  "params.defaults": { kind: 'method', request: null, response: ParamDefaults }
   "logs.vehicle.list": { kind: 'method', request: null, response: VehicleLogs }
   "logs.download": { kind: 'method', request: LogsDownload, response: LogsDownloaded }
   "logs.cancel": { kind: 'method', request: null, response: null }
@@ -1508,6 +1555,9 @@ export interface Services {
   "recording.dismiss": { kind: 'method', request: null, response: RecordingState }
   "recording.changed": { kind: 'event', payload: RecordingState }
   "forward.status": { kind: 'subscription', params: null, value: ForwardStatus }
+  "signing.status": { kind: 'subscription', params: null, value: SigningStatus }
+  "signing.provision": { kind: 'method', request: SigningProvision, response: SigningStatus }
+  "signing.disable": { kind: 'method', request: null, response: SigningStatus }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -1534,9 +1584,17 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "params.progress": {
     payload: (value: any, path: string) => validateParamsProgressInto(value, path),
   },
+  "params.cached": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSavedParamsInto(value, path),
+  },
   "params.write": {
     request: (value: any, path: string) => validateParamWriteInto(value, path),
     response: (value: any, path: string) => validateParamWriteResultInto(value, path),
+  },
+  "params.defaults": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateParamDefaultsInto(value, path),
   },
   "logs.vehicle.list": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
@@ -1835,6 +1893,18 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "forward.status": {
     params: (value: any, path: string) => value === null || fail(path, 'null'),
     value: (value: any, path: string) => validateForwardStatusInto(value, path),
+  },
+  "signing.status": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateSigningStatusInto(value, path),
+  },
+  "signing.provision": {
+    request: (value: any, path: string) => validateSigningProvisionInto(value, path),
+    response: (value: any, path: string) => validateSigningStatusInto(value, path),
+  },
+  "signing.disable": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSigningStatusInto(value, path),
   },
 }
 

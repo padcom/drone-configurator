@@ -11,7 +11,10 @@
       :level="4"
     />
     <template v-else>
-      <Banner v-if="logging.armed.value" id="setup-armed" tone="warn">{{ t('logs.setup.armed') }}</Banner>
+      <!-- Its line is always kept, so the controls below stay put when a heartbeat is late (#562); #setup-status says it. -->
+      <Banner id="setup-armed" tone="warn" :empty="!statusText" :room="[t('logs.setup.armed')]" role="presentation">
+        {{ statusText }}
+      </Banner>
       <Banner v-if="!logging.editable.value" id="setup-not-editable" tone="warn">{{ t('logs.setup.notEditable') }}</Banner>
       <Banner id="setup-fills" tone="warn">{{ t('logs.setup.fills') }}</Banner>
 

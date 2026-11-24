@@ -1,8 +1,9 @@
 // End to end, in the real window with the real backend and its simulated vehicle (#36): the parameter table's search by the
 // everyday words (in any order, a typo a close match), the keys of the search box, a search over every parameter whatever the
 // group, "Modified from default" (the firmware's defaults come with the download by file transfer: the simulated vehicle has
-// BATT_CAPACITY and FS_THR_ENABLE away from theirs), the grouping by the metadata, the link to the guided page, the header that
-// stays, and the starred and recently used parameters, which are still there after the window is closed and opened again.
+// BATT_CAPACITY, FENCE_RADIUS and WPNAV_SPEED away from theirs), the grouping by the metadata, the link to the guided page, the
+// header that stays, and the starred and recently used parameters, which are still there after the window is closed and opened
+// again.
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -152,7 +153,7 @@ describe('"Modified from default"', () => {
     await showFilters(window())
     await window().click('#modified-only')
 
-    await waitRows(['BATT_CAPACITY', 'FS_THR_ENABLE'])
+    await waitRows(['BATT_CAPACITY', 'FENCE_RADIUS', 'WPNAV_SPEED'])
     await searchFor('batt', ['BATT_CAPACITY'])
   })
 

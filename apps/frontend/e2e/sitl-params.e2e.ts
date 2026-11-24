@@ -13,7 +13,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll } from 'vitest'
-import { chooseConnection, clickConnect, showScreen } from './click'
+import { chooseConnection, clickConnect, showScreen, showSnapshotTools } from './click'
 import { type E2eApp, launchApp, presetSettings } from './launch'
 import { paramTableTests } from './param-table-checks'
 import { type Sitl, startSitl } from './sitl'
@@ -197,6 +197,7 @@ function serve(request: IncomingMessage, response: ServerResponse): void {
  * @returns the names
  */
 async function vehicleNames(): Promise<string[]> {
+  await showSnapshotTools(window())
   await window().click('#save')
   const deadline = Date.now() + 10_000
   let saved: string | undefined

@@ -178,6 +178,73 @@
   text-transform: uppercase;
 }
 
+/* The LINK cell holds the quality and, beside it, whether the link is signed: an icon and a word, a link to the Signing page. */
+.top-bar .link-cell {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.top-bar .link-signing {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: 0 var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.top-bar .link-signing.ok {
+  color: var(--color-ok);
+}
+
+.top-bar .link-signing.warn {
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.top-bar .link-signing:hover {
+  background: var(--color-accent-soft);
+}
+
+.top-bar .link-signing:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Below 1000 px the bar may wrap, and anything that widens a cell can push a row down and the screen with it: there the sign of the
+ * signing takes no room at all. It is the icon alone, in the corner of the LINK cell (in its padding, beside the label), and its
+ * word is still read out.
+ */
+@media (width < 1000px) {
+  .top-bar .cell.link {
+    position: relative;
+  }
+
+  .top-bar .link-signing {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    padding: 0;
+  }
+
+  .top-bar .link-signing-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
 .top-bar .link-details {
   display: grid;
   grid-template-columns: auto 1fr;

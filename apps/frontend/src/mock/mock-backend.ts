@@ -5,11 +5,12 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
+  CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, SigningProvision, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SavedParams, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import {
   COPTER_MODES,
+  DEFAULTS,
   DISCOVERED,
   PARAMS,
   SCRIPTED_MESSAGES,
@@ -29,6 +30,7 @@ import { forwardStatusOf } from './mock-forward'
 import { MockMap } from './mock-map'
 import { MockRecording } from './mock-recording'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
+import { MockSigning, type MockSigningControl } from './mock-signing'
 import { MockSerialBridge, type MockSerialBridgeControl } from './mock-serial-bridge'
 import { type LinkStats, linkStatsAt } from './mock-link'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
@@ -148,6 +150,8 @@ export interface MockControl {
   serialBridge?: MockSerialBridgeControl
   /** Sets what `link.stats` says from now on (null: the mock's own healthy link again). */
   link?: (stats: LinkStats | null) => void
+  /** What the vehicle's signing holds, and what a test does to it (see `MockSigningControl`). */
+  signing?: MockSigningControl
   /** The recording fails (or no longer does), or the limit removed this many old recordings in all: `recording.changed` is sent. */
   recording?: (change: { failure?: RecordingFailure, removed?: number }) => void
 }
@@ -201,6 +205,8 @@ class MockVehicle {
   busy = false
   /** How the vehicle's file transfer behaves (the download falls back to the list when it is not `ok`). */
   ftpMode: 'ok' | 'unsupported' | 'timeout' = 'ok'
+  /** The list of the last complete download, as the backend keeps it on disk for the vehicle (`params.cached`); null: none. */
+  savedParams: SavedParams | null = null
   /** The download that takes its time (`MockOptions.progress`): its timer, and how to fail it. */
   pendingList: { timer: ReturnType<typeof setInterval>, fail: (code: string, message: string) => void } | undefined
   rebootAnswer: RebootResult['result'] = 'accepted'
@@ -223,6 +229,8 @@ class MockVehicle {
   readonly serialBridge: MockSerialBridge
   /** Arming, disarming, the flight mode and the pre-arm checks. */
   readonly arming: MockArming
+  /** MAVLink signing: the vehicle's key and this computer's. */
+  readonly signing: MockSigning
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -248,7 +256,9 @@ class MockVehicle {
       say: (severity, text) => this.say(severity, text),
       heard: () => this.messages,
     })
+    this.signing = new MockSigning(send, { connected: () => this.connection.state === 'connected', armed: () => this.armedState() })
     if (options.control) {
+      options.control.signing = this.signing.control()
       options.control.motors = this.motors.control()
       options.control.tuning = this.tuning.control()
       options.control.serialBridge = this.serialBridge.control()
@@ -299,6 +309,7 @@ class MockVehicle {
     this.calibration.reset()
     this.motors.reset()
     this.tuning.reset()
+    this.signing.reset()
     this.serialBridge.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
@@ -318,6 +329,7 @@ class MockVehicle {
       this.forwardSubscribers.delete(e.s!)
       this.motors.unsubscribe(e.s!)
       this.tuning.unsubscribe(e.s!)
+      this.signing.unsubscribe(e.s!)
       this.serialBridge.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
@@ -369,7 +381,9 @@ class MockVehicle {
         return this.send({ k: 'event', n: 'vehicle.connection', s: e.id!, p: this.connection })
       case 'params.list': return this.connected(fail) && this.listOrResume((e.p as ParamListRequest | null) ?? {}, ok, fail)
       case 'params.cancel': return this.cancelList(ok)
+      case 'params.cached': return this.connected(fail) && this.cached(ok, fail)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
+      case 'params.defaults': return this.connected(fail) && ok({ defaults: this.defaults(), elapsedMs: 30 })
       case 'vehicle.reboot': return this.reboot(ok, fail)
       case 'vehicle.arm': return this.arming.arm(ok, fail)
       case 'vehicle.disarm': return this.arming.disarm(ok, fail)
@@ -423,6 +437,9 @@ class MockVehicle {
       case 'telemetry.stream': return this.telemetry(e)
       case 'link.stats': return this.linkStats(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
+      case 'signing.status': return this.signing.subscribe(e.id!)
+      case 'signing.provision': return this.signing.provision(e.p as SigningProvision | null, ok, fail)
+      case 'signing.disable': return this.signing.disable(ok, fail)
       case 'forward.status':
         this.forwardSubscribers.add(e.id!)
         this.send({ k: 'response', id: e.id!, s: e.id! })
@@ -510,21 +527,35 @@ class MockVehicle {
       ...fallback ? { fallback } : {},
       elapsedMs: steps > 0 ? steps * intervalMs : byFtp ? 800 : 6200,
     }
-    if (steps <= 0) {
-      return ok(result)
+    const done = (): void => {
+      this.savedParams = { params: result.params.map(p => ({ ...p })), count: result.count, savedAt: Date.now(), source }
+      ok(result)
     }
-    let done = 0
+    if (steps <= 0) {
+      return done()
+    }
+    let sent = 0
     const total = this.params.length
     const timer = setInterval(() => {
-      done += 1
-      this.send({ k: 'event', n: 'params.progress', p: { received: Math.round(total * done / steps), total, source } })
-      if (done >= steps) {
+      sent += 1
+      this.send({ k: 'event', n: 'params.progress', p: { received: Math.round(total * sent / steps), total, source } })
+      if (sent >= steps) {
         clearInterval(timer)
         this.pendingList = undefined
-        ok(result)
+        done()
       }
     }, intervalMs)
     this.pendingList = { timer, fail }
+  }
+
+  /**
+   * The list of the last complete download (`params.cached`), or `NOT_CACHED`.
+   *
+   * @param ok sends the result
+   * @param fail sends an error
+   */
+  cached(ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void) {
+    return this.savedParams ? ok(this.savedParams) : fail('NOT_CACHED', 'no list of this vehicle is kept')
   }
 
   /**
@@ -594,8 +625,10 @@ class MockVehicle {
 
   /** Tells every watcher of the connection that it is now `connection`. */
   push(connection: Connection) {
-    const recordingChanges = (connection.state === 'connected') !== (this.connection.state === 'connected')
+    const was = this.connection.state
+    const recordingChanges = (connection.state === 'connected') !== (was === 'connected')
     this.connection = connection
+    this.tellSigning(was)
     if (connection.state !== 'connected') {
       this.serialBridge.disconnected()
     }
@@ -607,6 +640,20 @@ class MockVehicle {
       this.send({ k: 'event', n: 'recording.changed', p: this.recording.state(this.settings, this.connection) })
     }
     this.tellForwarding()
+  }
+
+  /**
+   * Tells the signing that a vehicle connected (it signs when its key is kept) or went.
+   *
+   * @param was the connection's state before
+   */
+  tellSigning(was: Connection['state']) {
+    const now = this.connection.state
+    if (now === 'connected' && was !== 'connected') {
+      this.signing.connected()
+    } else if (now !== 'connected' && now !== 'reconnecting') {
+      this.signing.disconnected()
+    }
   }
 
   /** Tells the subscribers of `forward.status` what the settings and the connection come to. */
@@ -644,6 +691,15 @@ class MockVehicle {
     param.value = this.options.rounding?.includes(w.id) ? Math.round(w.value) : w.value
 
     return ok({ param: { ...param }, verified: param.value === w.value })
+  }
+
+  /**
+   * The firmware's default of every parameter (`params.defaults`): the fixture's where it has one, else the value.
+   *
+   * @returns the defaults
+   */
+  defaults(): { id: string, value: number }[] {
+    return this.params.map(({ id, value }) => ({ id, value: DEFAULTS[id] ?? value }))
   }
 
   /**
