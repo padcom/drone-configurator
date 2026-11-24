@@ -239,3 +239,27 @@ it('lets nothing go to the review while the vehicle may be armed', async () => {
 
   expect(show).not.toHaveBeenCalled()
 })
+
+it('loads ArduPilot\'s renames with a preset, and reviews it with them', async () => {
+  const ready = vi.fn(() => Promise.resolve())
+  const now = vi.fn(() => undefined)
+  const show = vi.fn()
+  const answers: Record<string, unknown> = { 'presets.list': LIST, 'presets.fetch': fileOf('RTL_ALT,1\n') }
+  const presets = useFramePresets({
+    client: { call: (method: string) => answerOf(answers[method]) } as unknown as BackendClient,
+    params: shallowRef(PARAMS),
+    connection: shallowRef<Connection>({ state: 'connected', vehicle: { ...VEHICLE } }),
+    metadata: () => new Map(),
+    snapshots: { show },
+    mayBeArmed: () => false,
+    renames: { ready, now },
+  })
+  await presets.show()
+  await presets.select('A.param')
+
+  presets.review()
+
+  expect(ready).toHaveBeenCalledOnce()
+  expect(now).toHaveBeenCalled()
+  expect(show).toHaveBeenCalledOnce()
+})

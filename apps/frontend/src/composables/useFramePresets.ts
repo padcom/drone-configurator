@@ -191,9 +191,7 @@ class FramePresets implements FramePresetsModel {
     this.fetching.value = true
 
     try {
-      const file = await this.deps.client.call('presets.fetch', { ref, path })
-      // The renames are there by the time the preset is reviewed (they never fail).
-      await this.deps.renames?.ready()
+      const [file] = await Promise.all([this.deps.client.call('presets.fetch', { ref, path }), this.renamesReady()])
       if (this.selected.value === path) {
         this.preset.value = { path, ref, text: file.text }
       }
@@ -204,6 +202,15 @@ class FramePresets implements FramePresetsModel {
     } finally {
       this.fetching.value = false
     }
+  }
+
+  /**
+   * Loads ArduPilot's renames, so that they are there by the time the preset is reviewed (it never fails).
+   *
+   * @returns when they are
+   */
+  private async renamesReady(): Promise<void> {
+    await this.deps.renames?.ready()
   }
 
   canReview(): boolean {
