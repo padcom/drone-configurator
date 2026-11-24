@@ -37,6 +37,7 @@
     "planfiles.test.pi": 20,
     "planverify.test.pi": 20,
     "reboot.test.pi": 48,
+    "recording.test.pi": 45,
     "reconnect.test.pi": 43,
     "serial.test.pi": 20,
     "settings.test.pi": 20,
@@ -93,6 +94,7 @@
     "plan.e2e.ts": 8,
     "radio.e2e.ts": 20,
     "reboot.e2e.ts": 5,
+    "recording.e2e.ts": 30,
     "setup-initial.e2e.ts": 9,
     "setup.e2e.ts": 9,
     "shell.e2e.ts": 2,
@@ -117,6 +119,7 @@
     "sitl-landed.e2e.ts": 76,
     "sitl-logs.e2e.ts": 141,
     "sitl-plan.e2e.ts": 32,
+    "sitl-recording.e2e.ts": 90,
     "sitl-reconnect.e2e.ts": 22,
     "sitl-vehicles.e2e.ts": 60,
     "sitl.e2e.ts": 20

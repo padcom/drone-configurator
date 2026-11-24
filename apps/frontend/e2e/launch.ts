@@ -5,6 +5,8 @@
 // kept); the folder goes when the file's process does.
 // The map's tiles are OFF in that folder unless the test's own settings say otherwise: the app starts on the Flight data screen,
 // whose map would ask a tile server for its tiles, and no test ever calls a real one (flight-map.e2e.ts has a server of its own).
+// The recording of every connection (#30) is OFF too unless the test's settings say otherwise (`presetSettings`): a recording
+// is a log in Flights, and the specs that look at Flights count on the logs they made themselves.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -26,13 +28,38 @@ interface Entry {
   value: string
 }
 
-/** Makes sure the settings say the map's tiles are off, unless the test's own settings say whether they are. */
-function keepTilesOff(): void {
-  const found = existsSync(SETTINGS) ? JSON.parse(readFileSync(SETTINGS, 'utf8')) as { version: number, ui: Entry[] } : null
-  const document = found ?? { version: 1, ui: [] }
-  if (!document.ui.some(entry => entry.key === 'map.enabled')) {
-    mkdirSync(dirname(SETTINGS), { recursive: true })
-    writeFileSync(SETTINGS, `${JSON.stringify({ ...document, ui: [...document.ui, { key: 'map.enabled', value: 'false' }] })}\n`)
+/** What the settings of a test hold when the test says nothing of them. */
+const QUIET: readonly Entry[] = [{ key: 'map.enabled', value: 'false' }, { key: 'recording.enabled', value: 'false' }]
+
+/**
+ * The settings document in the folder (an empty one when there is none yet).
+ *
+ * @returns the document
+ */
+function settingsDocument(): { version: number, ui: Entry[] } {
+  const empty = { version: 1, ui: [] }
+
+  return existsSync(SETTINGS) ? JSON.parse(readFileSync(SETTINGS, 'utf8')) as { version: number, ui: Entry[] } : empty
+}
+
+/**
+ * Puts entries into the settings the next launch starts with (an entry with the same key is replaced).
+ *
+ * @param entries the entries
+ */
+export function presetSettings(entries: readonly Entry[]): void {
+  const document = settingsDocument()
+  const kept = document.ui.filter(entry => !entries.some(one => one.key === entry.key))
+  mkdirSync(dirname(SETTINGS), { recursive: true })
+  writeFileSync(SETTINGS, `${JSON.stringify({ ...document, ui: [...kept, ...entries] })}\n`)
+}
+
+/** Makes sure the settings say the map's tiles and the recording are off, unless the test's own settings say whether they are. */
+function keepQuiet(): void {
+  const document = settingsDocument()
+  const missing = QUIET.filter(entry => !document.ui.some(one => one.key === entry.key))
+  if (missing.length > 0) {
+    presetSettings(missing)
   }
 }
 
@@ -43,7 +70,7 @@ function keepTilesOff(): void {
  * @returns the app
  */
 export function launchApp(options?: LaunchOptions): Promise<E2eApp> {
-  keepTilesOff()
+  keepQuiet()
 
   return launch(options)
 }
