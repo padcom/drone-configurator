@@ -9,6 +9,8 @@
 // and failsafes set, and a compass that was never calibrated) and stays disarmed too, so that they can be written. Its
 // calibrations (the accelerometer's six positions, the level, the compass of two compasses) are quick, and it says "AHRS: EKF3
 // active" a second and a half after the link is made, as a vehicle that is up does (the app waits for it before it calibrates).
+// With VEHICLE_50HZ=1 it sends its position, its radio's channels and its outputs 50 times a second, as a vehicle asked for fast
+// telemetry does, and stays disarmed (idle on the ground): the app must coalesce that for its page (#26).
 import { Conn, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
 import {
@@ -34,7 +36,7 @@ let muted = false
 class EndWatchingStream implements ByteStream {
   readonly inner: ByteStream
   readonly onEnd: () => void
-  gone: bool = false
+  public gone: bool = false
 
   constructor(inner: ByteStream, onEnd: () => void) {
     this.inner = inner
@@ -109,6 +111,10 @@ function serve(conn: Conn): void {
   }
   if (env.get("VEHICLE_LOGS") == "1") {
     withLogs(sim!)
+  }
+  if (env.get("VEHICLE_50HZ") == "1") {
+    stayDisarmed(sim!)
+    sendsAt50Hz(sim!, stream)
   }
   if (setup) {
     stayDisarmed(sim!)
@@ -214,6 +220,22 @@ function movesTheSticks(sim: SimulatedAutopilot): void {
     sim.rc[1] = sweep[(step + 2) % 4]
     sim.rc[3] = if (step % 7 == 3) 9000 else 1500
   }, 100)
+}
+
+/// GLOBAL_POSITION_INT, RC_CHANNELS and SERVO_OUTPUT_RAW 50 times a second, on top of what the vehicle sends at its tick, until the
+/// app has gone. A timer of 20 ms runs late and would give fewer: every 10 ms it sends the ones that are due by the clock.
+function sendsAt50Hz(sim: SimulatedAutopilot, stream: EndWatchingStream): void {
+  const started = Date.now() as int
+  let sent = 0
+  setInterval(() => {
+    const due = ((Date.now() as int) - started) / 20
+    while (sent < due && !stream.gone && !muted) {
+      sim.sendPosition()
+      sim.sendRc()
+      sim.sendServo()
+      sent += 1
+    }
+  }, 10)
 }
 
 /// A vehicle that never arms: its tick is set back before it counts 3 (a Setup write is refused while armed).

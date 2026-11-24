@@ -34,6 +34,28 @@
     }
   },
   "topBar": {
+    "link": {
+      "open": "Enlace {value}, {level}: mostrar los detalles",
+      "title": "Calidad del enlace",
+      "level": {
+        "ok": "bueno",
+        "warn": "débil",
+        "error": "malo"
+      },
+      "quality": "Calidad",
+      "loss": "Pérdida de paquetes",
+      "lossValue": "{percent}% ({lost} de {sent} paquetes)",
+      "latency": "Latencia",
+      "noLatency": "Sin respuesta al ping",
+      "received": "Recibido",
+      "sent": "Enviado",
+      "rate": "{packets} paquetes/s · {bytes}",
+      "silent": "Último paquete",
+      "silentValue": "hace {seconds} s",
+      "total": "Desde la conexión",
+      "totalValue": "{lost} de {sent} paquetes perdidos",
+      "window": "Medido durante los últimos {seconds} s."
+    },
     "rebooting": "Reiniciando…",
     "state": {
       "arm": "Armar el vehículo (el vehículo está desarmado)",
@@ -547,6 +569,9 @@
       "verifiedRule": "Éxito solo cuando el vehículo confirma el valor."
     },
     "feedback": {
+      "popover": "Detalles",
+      "popoverTitle": "Calidad del enlace",
+      "popoverBody": "Llegó el 98% de los paquetes, 68 ms de ida y vuelta.",
       "menu": "Mapa",
       "tip": "Escrito en el vehículo y releído",
       "tipButton": "Escribir",
@@ -1984,7 +2009,6 @@
       "noOutputsHelp": "Aparecen cuando el vehículo las informa.",
       "output": "Salida {n}",
       "pulse": "{us} µs",
-      "range": "Fuera de rango: lo escrito no se guarda.",
       "outputsOld": "El vehículo ha dejado de informar de sus salidas.",
       "outputsOldHelp": "No se muestran los últimos pulsos: parecerían actuales. Reaparecen cuando el vehículo los comunique.",
       "protocolUnknown": "Este vehículo no informa de su protocolo de ESC.",

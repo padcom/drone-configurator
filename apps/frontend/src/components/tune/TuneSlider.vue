@@ -1,5 +1,5 @@
 <template>
-  <div class="tune-row" :data-tune="ids[0]">
+  <div class="tune-row" :data-tune="ids[0]" :data-status="status">
     <div class="tune-head">
       <label :for="`${uid}-range`" class="tune-label">{{ label }}</label>
       <code class="tune-names">{{ ids.join(' + ') }}</code>
@@ -14,14 +14,14 @@
         :step="param.step"
         :value="clamped"
         :disabled="off"
-        :aria-describedby="`${uid}-note`"
+        :aria-describedby="`${uid}-note ${uid}-status`"
         @input="onRange"
       >
       <TextInput
         class="tune-value"
         :model-value="text"
         :aria-label="t('tune.value', { name: label })"
-        :aria-describedby="`${uid}-note`"
+        :aria-describedby="`${uid}-note ${uid}-status`"
         :invalid="note.problem"
         :disabled="off"
         mono
@@ -30,6 +30,15 @@
       />
       <span v-if="param.units" class="muted">{{ param.units }}</span>
     </div>
+    <FieldStatusLine
+      :name="label"
+      :facts="facts"
+      :show="shown"
+      :rejection="panel.rejection(saying)"
+      :status-id="`${uid}-status`"
+      @keep="ids.forEach(id => panel.keep(id))"
+      @take="ids.forEach(id => panel.take(id))"
+    />
     <p class="muted tune-was">{{ was }}</p>
     <!-- Always in the row, empty when there is nothing to say: a status is announced when its text changes, not on insertion. -->
     <p :id="`${uid}-note`" class="tune-note" :class="{ problem: note.problem }" role="status">{{ note.text }}</p>
@@ -41,14 +50,20 @@
 // to ArduPilot's range and a field that takes an exact value, "was X" from the initial values of the session, and what is wrong
 // with the value, in words: a value outside the range (a warning, the page still writes it) or beyond the hard limit of the table
 // (negative, above its most: it is refused here and in the backend, and the panel does not write while one is chosen). Nothing is
-// drawn from the value: there is no preview of what the vehicle will do.
+// drawn from the value: there is no preview of what the vehicle will do. Under it, what a bound field says of its parameter
+// (components/fields/FieldStatusLine.vue): the vehicle's value, a draft, a write under way, verified or rejected, and a conflict
+// (the vehicle changed it under the draft) with the choice to keep the draft or take the vehicle's value; for a linked pair, of
+// the one that most needs saying (lib/tune/rowStatus.ts).
 import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import FieldStatusLine from '@/components/fields/FieldStatusLine.vue'
 import TextInput from '@/components/ui/TextInput.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import type { ParamPanel } from '@/composables/useParamPanel'
+import { statusOf } from '@/lib/params/fieldState'
 import { checkMeta } from '@/lib/params/metadata'
 import { showNumber } from '@/lib/params/paramValue'
+import { sayingId } from '@/lib/tune/rowStatus'
 import { type TuneParam, refusalOf, tableMeta } from '@/lib/tune/table'
 
 const props = defineProps<{
@@ -76,6 +91,23 @@ const locked = computed(() => props.panel.armed.value && !props.param.armedOk)
 const off = computed(() => (
   props.panel.blocked.value !== null || locked.value || props.ids.some(id => props.panel.missing.value.includes(id))
 ))
+
+/** The parameter whose status the row says, and what its field knows. */
+const saying = computed(() => sayingId(props.ids, props.panel.facts))
+const facts = computed(() => props.panel.facts(saying.value))
+const status = computed(() => statusOf(facts.value))
+
+/**
+ * A value as the row shows it, with the unit.
+ *
+ * @param shownValue the value
+ * @returns the text
+ */
+function shown(shownValue: number): string {
+  const number = showNumber(shownValue)
+
+  return props.param.units === undefined ? number : `${number} ${props.param.units}`
+}
 
 /** A parameter that is read only when the vehicle starts says so, unless there is something else to say. */
 const restartNote = computed(() => (props.param.armedOk ? '' : t('tune.filters.afterRestart')))

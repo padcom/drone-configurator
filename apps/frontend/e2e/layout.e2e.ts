@@ -430,6 +430,25 @@ async function stageTen(): Promise<number> {
   return rows.length
 }
 
+for (const width of [1000, 1280]) {
+  it(`keeps the top bar one row at ${width} px however long the connection line is: the rail does not move (#343)`, async () => {
+    await resize({ width, height: 768 })
+    const where = `JSON.stringify([document.querySelector('#top-bar').offsetHeight,
+      ...[...document.querySelectorAll('nav.rail a')].map(link => Math.round(link.getBoundingClientRect().top))])`
+    const before = await window().evaluate<string>(where)
+    // (what a reconnect says, and more: the page sets it again with the next update, which this does not wait for)
+    await window().evaluate(`(() => {
+      const line = 'connected · system 1/1 · QUADROTOR · ARDUPILOTMEGA'
+      document.querySelector('#top-bar .vehicle .title').textContent = line.repeat(2)
+      document.querySelector('#top-bar .vehicle .sub').textContent = 'reconnected to the same vehicle '.repeat(4)
+      return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+    })()`)
+
+    expect(JSON.parse(await window().evaluate<string>(where))[0]).toBe(64)
+    expect(await window().evaluate<string>(where)).toBe(before)
+  })
+}
+
 // (last in the file: the vehicle is silenced, and stays so)
 it('keeps Write and "Put back initial values" in a 1100x480 window with a reason and many changes in the aside', async () => {
   await resize({ width: 1100, height: 480 })

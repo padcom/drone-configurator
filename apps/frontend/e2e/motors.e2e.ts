@@ -86,16 +86,28 @@ it('names the ESC protocol the vehicle has', async () => {
   expect(await window().evaluate<string>(`document.querySelector('.setup-esc input').value`)).toBe('Normal')
 })
 
+/**
+ * Types into a spin threshold and leaves the field: a number field takes what was typed when it is left.
+ *
+ * @param id the parameter
+ * @param text what is typed
+ */
+async function typeSpin(id: string, text: string): Promise<void> {
+  await window().fill(`[data-spin="${id}"] input`, text)
+  await window().evaluate(`document.querySelector('[data-spin="${id}"] input').dispatchEvent(new Event('blur'))`)
+}
+
 it('chooses a spin threshold, and holds the write when they are out of order', async () => {
-  await window().fill('[data-spin="MOT_SPIN_MAX"] input', '0.9')
+  await typeSpin('MOT_SPIN_MAX', '0.9')
   await window().waitFor(`document.querySelector('.setup-writes')?.textContent === 'MOT_SPIN_MAX'`, 10_000)
+  expect(await window().evaluate<string>(`document.querySelector('[data-param="MOT_SPIN_MAX"]').dataset.status`)).toBe('draft')
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-escs-write').disabled`)).toBe(false)
 
   // arm at 0.2 (the top of its range) is above min (0.15): out of order, nothing can be written until it is put right
-  await window().fill('[data-spin="MOT_SPIN_ARM"] input', '0.2')
+  await typeSpin('MOT_SPIN_ARM', '0.2')
   await window().waitFor(`document.querySelector('#setup-spin-order') !== null`, 10_000)
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-escs-write').disabled`)).toBe(true)
-  await window().fill('[data-spin="MOT_SPIN_ARM"] input', '0.1')
+  await typeSpin('MOT_SPIN_ARM', '0.1')
   await window().waitFor(`document.querySelector('#setup-spin-order') === null`, 10_000)
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-escs-write').disabled`)).toBe(false)
   expect(vehicle?.writes).toBe(0)

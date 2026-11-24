@@ -105,7 +105,7 @@ export function cellsFor(now: Telemetry | null, translate: Translate, format: Fo
     cell('state', withAge(translate(now.armed ? 'telemetry.armed' : 'telemetry.disarmed'), now, translate), now.armed),
     cell('battery', batteryValue(now, translate, format)),
     cell('gps', gpsValue(now, translate)),
-    // Nothing measures the quality of the link yet: a dash, not a made-up percentage.
+    // The link's quality is not telemetry: the bar draws it from `link.stats` (LinkIndicator.vue), a dash until it comes.
     cell('link', missing),
   ]
 }

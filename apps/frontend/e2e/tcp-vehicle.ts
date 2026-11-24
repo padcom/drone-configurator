@@ -14,14 +14,15 @@ const binary = fileURLToPath(new URL('../../../.pico-desktop/e2e/tcp-vehicle', i
  * @param withLogs whether it holds three flight logs and never arms
  * @param withSetup whether it has the Setup pages' parameters and never arms
  * @param prearm a pre-arm check that fails: an arm is refused with "PreArm: " and this text ('' for none)
+ * @param at50Hz whether it sends its position, radio and outputs 50 times a second, and never arms
  * @returns the environment
  */
-function environment(withLogs: boolean, withSetup: boolean, prearm: string): NodeJS.ProcessEnv {
-  const logs = withLogs ? { VEHICLE_LOGS: '1' } : {}
-  const setup = withSetup ? { VEHICLE_SETUP: '1' } : {}
+function environment(withLogs: boolean, withSetup: boolean, prearm: string, at50Hz: boolean): NodeJS.ProcessEnv {
+  const flags = Object.entries({ VEHICLE_LOGS: withLogs, VEHICLE_SETUP: withSetup, VEHICLE_50HZ: at50Hz })
+  const on = Object.fromEntries(flags.filter(([, set]) => set).map(([name]) => [name, '1']))
   const failing = prearm === '' ? {} : { VEHICLE_PREARM: prearm }
 
-  return { ...process.env, ...logs, ...setup, ...failing }
+  return { ...process.env, ...on, ...failing }
 }
 
 /** The simulated vehicle, as a child process listening on a TCP port. */
@@ -50,9 +51,28 @@ export class TcpVehicle {
    * @param prearm a pre-arm check that fails: an arm is refused with "PreArm: " and this text ('' for none)
    * @returns the running vehicle, with its port known
    */
-  static async start(withLogs = false, withSetup = false, prearm = ''): Promise<TcpVehicle> {
+  static start(withLogs = false, withSetup = false, prearm = ''): Promise<TcpVehicle> {
+    return TcpVehicle.#launch(environment(withLogs, withSetup, prearm, false))
+  }
+
+  /**
+   * Builds and starts one that sends its position, its radio's channels and its outputs 50 times a second and never arms (#26:
+   * the app coalesces that for its page).
+   *
+   * @returns the running vehicle, with its port known
+   */
+  static startAt50Hz(): Promise<TcpVehicle> {
+    return TcpVehicle.#launch(environment(false, false, '', true))
+  }
+
+  /**
+   * Builds and starts it.
+   *
+   * @param env its environment
+   * @returns the running vehicle, with its port known
+   */
+  static async #launch(env: NodeJS.ProcessEnv): Promise<TcpVehicle> {
     await promisify(execFile)('pico', ['build', source, '-o', binary])
-    const env = environment(withLogs, withSetup, prearm)
     const vehicle = new TcpVehicle(spawn(binary, [], { stdio: ['pipe', 'pipe', 'inherit'], env }))
     await vehicle.#listen()
 

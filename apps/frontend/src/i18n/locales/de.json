@@ -34,6 +34,28 @@
     }
   },
   "topBar": {
+    "link": {
+      "open": "Verbindung {value}, {level}: Details anzeigen",
+      "title": "Verbindungsqualität",
+      "level": {
+        "ok": "gut",
+        "warn": "schwach",
+        "error": "schlecht"
+      },
+      "quality": "Qualität",
+      "loss": "Paketverlust",
+      "lossValue": "{percent}% ({lost} von {sent} Paketen)",
+      "latency": "Latenz",
+      "noLatency": "Keine Antwort auf den Ping",
+      "received": "Empfangen",
+      "sent": "Gesendet",
+      "rate": "{packets} Pakete/s · {bytes}",
+      "silent": "Letztes Paket",
+      "silentValue": "vor {seconds} s",
+      "total": "Seit dem Verbinden",
+      "totalValue": "{lost} von {sent} Paketen verloren",
+      "window": "Gemessen über die letzten {seconds} s."
+    },
     "rebooting": "Neustart…",
     "state": {
       "arm": "Fahrzeug scharf schalten (das Fahrzeug ist entschärft)",
@@ -547,6 +569,9 @@
       "verifiedRule": "Erfolg erst, wenn das Fahrzeug den Wert bestätigt."
     },
     "feedback": {
+      "popover": "Details",
+      "popoverTitle": "Verbindungsqualität",
+      "popoverBody": "98% der Pakete kamen an, 68 ms Umlaufzeit.",
       "menu": "Karte",
       "tip": "Ans Fahrzeug geschrieben und zurückgelesen",
       "tipButton": "Schreiben",
@@ -1984,7 +2009,6 @@
       "noOutputsHelp": "Sie erscheinen, sobald das Fahrzeug sie meldet.",
       "output": "Ausgang {n}",
       "pulse": "{us} µs",
-      "range": "Außerhalb des Bereichs: das Eingegebene wird nicht geschrieben.",
       "outputsOld": "Das Fahrzeug meldet seine Ausgänge nicht mehr.",
       "outputsOldHelp": "Die letzten Impulse werden nicht gezeigt, sie sähen aktuell aus. Sie erscheinen wieder, wenn das Fahrzeug sie meldet.",
       "protocolUnknown": "Dieses Fahrzeug meldet sein ESC-Protokoll nicht.",

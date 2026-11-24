@@ -6317,3 +6317,58 @@ export function encodeMapCleared(v: MapCleared): Cbor {
   m.set("bytes", Cbor.Uint(v.bytes as u64))
   return Cbor.Dict(m)
 }
+
+export struct LinkStats {
+  windowMs: u32
+  received: u32
+  lost: u32
+  rxRate: f64
+  txRate: f64
+  rxBytes: f64
+  txBytes: f64
+  latencyMs?: f64
+  silentMs: u32
+  totalReceived: u32
+  totalLost: u32
+}
+
+export function decodeLinkStats(v: Cbor, path: string): LinkStats throws InvalidPayload {
+  const m = members(v, path, ["windowMs", "received", "lost", "rxRate", "txRate", "rxBytes", "txBytes", "latencyMs", "silentMs", "totalReceived", "totalLost"])
+  const cbor7 = m.get("latencyMs")
+  let opt7: f64? = null
+  if (cbor7 != null) {
+    opt7 = float(cbor7, `${path}.latencyMs`)
+  }
+  return LinkStats {
+    windowMs: (uint(required(m, "windowMs", path), `${path}.windowMs`, 4294967295) as u32),
+    received: (uint(required(m, "received", path), `${path}.received`, 4294967295) as u32),
+    lost: (uint(required(m, "lost", path), `${path}.lost`, 4294967295) as u32),
+    rxRate: float(required(m, "rxRate", path), `${path}.rxRate`),
+    txRate: float(required(m, "txRate", path), `${path}.txRate`),
+    rxBytes: float(required(m, "rxBytes", path), `${path}.rxBytes`),
+    txBytes: float(required(m, "txBytes", path), `${path}.txBytes`),
+    latencyMs: opt7,
+    silentMs: (uint(required(m, "silentMs", path), `${path}.silentMs`, 4294967295) as u32),
+    totalReceived: (uint(required(m, "totalReceived", path), `${path}.totalReceived`, 4294967295) as u32),
+    totalLost: (uint(required(m, "totalLost", path), `${path}.totalLost`, 4294967295) as u32),
+  }
+}
+
+export function encodeLinkStats(v: LinkStats): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("windowMs", Cbor.Uint(v.windowMs as u64))
+  m.set("received", Cbor.Uint(v.received as u64))
+  m.set("lost", Cbor.Uint(v.lost as u64))
+  m.set("rxRate", Cbor.Float(v.rxRate))
+  m.set("txRate", Cbor.Float(v.txRate))
+  m.set("rxBytes", Cbor.Float(v.rxBytes))
+  m.set("txBytes", Cbor.Float(v.txBytes))
+  const opt7 = v.latencyMs
+  if (opt7 != null) {
+    m.set("latencyMs", Cbor.Float(opt7))
+  }
+  m.set("silentMs", Cbor.Uint(v.silentMs as u64))
+  m.set("totalReceived", Cbor.Uint(v.totalReceived as u64))
+  m.set("totalLost", Cbor.Uint(v.totalLost as u64))
+  return Cbor.Dict(m)
+}

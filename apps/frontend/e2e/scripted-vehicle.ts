@@ -8,7 +8,7 @@ import { type Server, type Socket, createServer } from 'node:net'
 import {
   type Frame, FrameReader, type Heartbeat, MAV_AUTOPILOT_ARDUPILOTMEGA, MSG_COMMAND_ACK, MSG_COMMAND_INT, MSG_COMMAND_LONG,
   MSG_EKF_STATUS_REPORT, MSG_GLOBAL_POSITION_INT, MSG_GPS_RAW_INT, MSG_HEARTBEAT, MSG_PARAM_REQUEST_LIST, MSG_PARAM_REQUEST_READ,
-  MSG_PARAM_VALUE, encodeFrame,
+  MSG_PARAM_VALUE, MSG_TIMESYNC, encodeFrame,
 } from './mavlink-wire'
 
 /** HOME_POSITION: its number and its CRC_EXTRA (the common dialect's). */
@@ -75,6 +75,8 @@ export class ScriptedVehicle {
   #lacking = 0
   readonly #received: Received[] = []
   #sequence = 0
+  /** Every how many frames one is lost on its way (0: none is). */
+  #loseEvery = 0
   readonly #server: Server
   readonly #sockets = new Set<Socket>()
   readonly #timers: ReturnType<typeof setInterval>[] = []
@@ -186,6 +188,16 @@ export class ScriptedVehicle {
     this.#silent = silent
   }
 
+  /**
+   * Makes the link lossy: every n-th frame the vehicle sends is lost on its way (its sequence number is used, the frame never
+   * arrives), as a radio link loses packets. 0 loses none.
+   *
+   * @param every every how many frames one is lost
+   */
+  lose(every: number): void {
+    this.#loseEvery = every
+  }
+
   /** Cuts the link: every connection is closed (the app finds the vehicle again at the same address). */
   cut(): void {
     this.#sockets.forEach(socket => socket.destroy())
@@ -225,8 +237,31 @@ export class ScriptedVehicle {
       [MSG_PARAM_REQUEST_READ]: (asked, to) => this.#sendParam(asked, to),
       [MSG_COMMAND_LONG]: (command, to) => this.#obey(command, to),
       [MSG_COMMAND_INT]: (command, to) => this.#obeyInt(command, to),
+      [MSG_TIMESYNC]: (sync, to) => this.#answerTimeSync(sync, to),
     }
     listens[frame.messageId]?.(frame, socket)
+  }
+
+  /**
+   * Answers a TIMESYNC request (`tc1` 0) as the MAVLink specification says: `tc1` the vehicle's time, `ts1` mirrored, the target
+   * the one who asked. An answer is never lost (the loss is counted from what the vehicle sends on its own).
+   *
+   * @param frame the TIMESYNC
+   * @param socket where it came from
+   */
+  #answerTimeSync(frame: Frame, socket: Socket): void {
+    const asked = new Uint8Array(18)
+    asked.set(frame.payload.subarray(0, 18))
+    const view = new DataView(asked.buffer)
+    if (view.getBigInt64(0, true) !== 0n) {
+      return
+    }
+    const payload = new Uint8Array(18)
+    const out = new DataView(payload.buffer)
+    out.setBigInt64(0, BigInt(Math.round(performance.now() * 1e6)), true)
+    out.setBigInt64(8, view.getBigInt64(8, true), true)
+    payload.set([frame.systemId, frame.componentId], 16)
+    socket.write(this.#frame(MSG_TIMESYNC, payload))
   }
 
   /**
@@ -348,6 +383,9 @@ export class ScriptedVehicle {
    * @param frame the bytes
    */
   #send(frame: Uint8Array): void {
+    if (this.#loseEvery > 0 && this.#sequence % this.#loseEvery === 0) {
+      return
+    }
     this.#sockets.forEach(socket => socket.write(frame))
   }
 

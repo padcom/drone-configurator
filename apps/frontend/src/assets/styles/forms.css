@@ -268,7 +268,14 @@
   justify-items: start;
 }
 
-.param-field .status {
+/* What a field says of its parameter (components/fields/FieldStatusLine.vue), under a ParamField or a Tune slider. */
+.field-status {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.field-status .status {
   display: flex;
   gap: var(--space-2);
   align-items: center;
@@ -277,16 +284,27 @@
   color: var(--color-text-muted);
 }
 
-.param-field .status.verified {
+.field-status.compact,
+.field-status.compact .status {
+  min-width: 0;
+}
+
+.field-status.compact .status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-status .status.verified {
   color: var(--color-ok);
 }
 
-.param-field .status.rejected,
-.param-field .status.conflict {
+.field-status .status.rejected,
+.field-status .status.conflict {
   color: var(--color-warn);
 }
 
-.param-field .conflict-box {
+.field-status .conflict-box {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3);
@@ -295,11 +313,11 @@
   border-radius: var(--radius-md);
 }
 
-.param-field .conflict-box p {
+.field-status .conflict-box p {
   margin: 0;
 }
 
-.param-field .conflict-box .actions {
+.field-status .conflict-box .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);

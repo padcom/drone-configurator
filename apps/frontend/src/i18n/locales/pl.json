@@ -34,6 +34,28 @@
     }
   },
   "topBar": {
+    "link": {
+      "open": "Łącze {value}, {level}: pokaż szczegóły",
+      "title": "Jakość łącza",
+      "level": {
+        "ok": "dobre",
+        "warn": "słabe",
+        "error": "złe"
+      },
+      "quality": "Jakość",
+      "loss": "Utrata pakietów",
+      "lossValue": "{percent}% ({lost} z {sent} pakietów)",
+      "latency": "Opóźnienie",
+      "noLatency": "Brak odpowiedzi na ping",
+      "received": "Odebrane",
+      "sent": "Wysłane",
+      "rate": "{packets} pakietów/s · {bytes}",
+      "silent": "Ostatni pakiet",
+      "silentValue": "{seconds} s temu",
+      "total": "Od połączenia",
+      "totalValue": "utracono {lost} z {sent} pakietów",
+      "window": "Zmierzone w ostatnich {seconds} s."
+    },
     "rebooting": "Restart…",
     "state": {
       "arm": "Uzbrój pojazd (pojazd jest rozbrojony)",
@@ -547,6 +569,9 @@
       "verifiedRule": "Sukces dopiero po potwierdzeniu wartości przez pojazd."
     },
     "feedback": {
+      "popover": "Szczegóły",
+      "popoverTitle": "Jakość łącza",
+      "popoverBody": "Dotarło 98% pakietów, 68 ms w obie strony.",
       "menu": "Mapa",
       "tip": "Zapisano w pojeździe i odczytano z powrotem",
       "tipButton": "Zapisz",
@@ -1984,7 +2009,6 @@
       "noOutputsHelp": "Pojawią się, gdy pojazd je zgłosi.",
       "output": "Wyjście {n}",
       "pulse": "{us} µs",
-      "range": "Poza zakresem: to, co wpisano, nie jest zapisywane.",
       "outputsOld": "Pojazd przestał zgłaszać swoje wyjścia.",
       "outputsOldHelp": "Ostatnie impulsy nie są pokazane: wyglądałyby na aktualne. Pojawią się znowu, gdy pojazd je zgłosi.",
       "protocolUnknown": "Ten pojazd nie zgłasza swojego protokołu ESC.",

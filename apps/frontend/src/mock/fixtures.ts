@@ -167,9 +167,42 @@ export const COPTER_MODES = [
   [21, 'SMART_RTL'],
 ].map(([number, name]) => ({ number: number as number, name: name as string }))
 
+/** The groups of a Telemetry: everything but the flat fields of the heartbeat, the battery and the attitude. */
+type Groups = Omit<
+  Telemetry,
+  'armed' | 'mode' | 'heartbeatAgeMs' | 'systemStatus' | 'batteryVoltage' | 'batteryRemaining' | 'roll' | 'pitch' | 'yaw'
+>
+
+/**
+ * What a flying vehicle reports of its way, its surroundings and its health `n` ticks after connecting: the way to the next
+ * waypoint (shorter each tick), a light wind that veers, a healthy estimator and a little vibration.
+ *
+ * @param n how many ticks (seconds) after connecting
+ * @param ageMs how old every group is
+ * @returns the navigation, wind, EKF and vibration groups
+ */
+function environmentAt(n: number, ageMs: number): Pick<Groups, 'nav' | 'wind' | 'ekf' | 'vibration'> {
+  return {
+    nav: { waypointDistance: Math.max(0, 120 - n * 2), targetBearing: 90, altitudeError: 0.4, crosstrackError: 0.2, ageMs },
+    wind: { direction: (200 + n) % 360, speed: 3.4, speedZ: 0, ageMs },
+    // EKF_STATUS_REPORT flags 831: attitude, velocities, horizontal and vertical position, and the predicted horizontal ones.
+    ekf: {
+      flags: 831,
+      velocityVariance: 0.12,
+      positionHorizVariance: 0.08,
+      positionVertVariance: 0.1,
+      compassVariance: 0.05,
+      terrainAltVariance: 0,
+      ageMs,
+    },
+    vibration: { x: 8.2 + (n % 3) * 0.3, y: 7.9, z: 11.4, clipping: [0, 0, 0], ageMs },
+  }
+}
+
 /**
  * The groups the simulated vehicle reports `n` ticks after connecting: the same battery and attitude as the flat
- * fields, a position that drifts north, a 3D GPS fix and a speed. Every group is 200 ms old.
+ * fields, a position that drifts north, a 3D GPS fix and a speed, and the way, wind, estimator and vibration of
+ * `environmentAt`. Every group is 200 ms old.
  *
  * @param n how many ticks (seconds) after connecting
  * @param flat the flat fields the battery and attitude groups repeat
@@ -178,15 +211,16 @@ export const COPTER_MODES = [
  * @param flat.roll degrees
  * @param flat.pitch degrees
  * @param flat.yaw degrees
- * @returns the groups
+ * @returns the groups (no pre-arm group: the mock's arming adds it)
  */
 function groupsAt(
   n: number,
   flat: { batteryVoltage: number, batteryRemaining: number, roll: number, pitch: number, yaw: number },
-): Pick<Telemetry, 'position' | 'home' | 'gps' | 'speed' | 'battery' | 'attitude' | 'rc' | 'servo'> {
+): Omit<Groups, 'prearm'> {
   const ageMs = 200
 
   return {
+    ...environmentAt(n, ageMs),
     // The four motors of a quad: at rest, and a little above once the vehicle is armed.
     servo: { ports: [{ port: 0, outputs: n >= 3 ? [1100, 1100, 1100, 1100] : [1000, 1000, 1000, 1000] }], ageMs },
     // Eight channels: the sticks sway a little round the middle, the throttle low, the switches at rest (low).

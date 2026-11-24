@@ -34,6 +34,28 @@
     }
   },
   "topBar": {
+    "link": {
+      "open": "Link {value}, {level}: show the details",
+      "title": "Link quality",
+      "level": {
+        "ok": "good",
+        "warn": "weak",
+        "error": "poor"
+      },
+      "quality": "Quality",
+      "loss": "Packet loss",
+      "lossValue": "{percent}% ({lost} of {sent} packets)",
+      "latency": "Latency",
+      "noLatency": "No answer to the ping",
+      "received": "Received",
+      "sent": "Sent",
+      "rate": "{packets} packets/s · {bytes}",
+      "silent": "Last packet",
+      "silentValue": "{seconds} s ago",
+      "total": "Since connecting",
+      "totalValue": "{lost} of {sent} packets lost",
+      "window": "Measured over the last {seconds} s."
+    },
     "rebooting": "Rebooting…",
     "state": {
       "arm": "Arm the vehicle (the vehicle is disarmed)",
@@ -547,6 +569,9 @@
       "verifiedRule": "Success only after the vehicle confirms the value."
     },
     "feedback": {
+      "popover": "Details",
+      "popoverTitle": "Link quality",
+      "popoverBody": "98% of the packets arrived, 68 ms round trip.",
       "menu": "Map",
       "tip": "Written to the vehicle and read back",
       "tipButton": "Write",
@@ -1984,7 +2009,6 @@
       "noOutputsHelp": "They appear when the vehicle reports them.",
       "output": "Output {n}",
       "pulse": "{us} µs",
-      "range": "Out of range: what is typed is not written.",
       "outputsOld": "The vehicle has stopped reporting its outputs.",
       "outputsOldHelp": "The last pulses are not shown: they would look current. They appear again when the vehicle reports them.",
       "protocolUnknown": "This vehicle does not report its ESC protocol.",

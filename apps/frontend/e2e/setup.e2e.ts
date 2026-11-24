@@ -155,6 +155,20 @@ it('proposes a new voltage multiplier from a meter reading, and writes nothing u
   expect(await window().text('#setup-battery-write')).toBe('No changes')
 })
 
+it('says the battery capacity is modified, then verified once it is written and read back', async () => {
+  const capacity = '[data-param="BATT_CAPACITY"]'
+  await window().waitFor(`document.querySelector('${capacity} input') !== null`, 30_000)
+  await window().fill(`${capacity} input`, '6000')
+  // (the field takes what was typed when it is left)
+  await window().evaluate(`document.querySelector('${capacity} input').dispatchEvent(new Event('blur'))`)
+  await window().waitFor(`document.querySelector('${capacity}')?.dataset.status === 'draft'`, 10_000)
+  await window().click('#setup-battery-write')
+  await confirmWrite(window())
+  await window().waitFor(`document.querySelector('${capacity}')?.dataset.status === 'verified'`, 30_000)
+
+  expect(await window().text(`${capacity} .status`)).toBe('Verified: the vehicle reads 6000 mAh back.')
+})
+
 it('lists the serial ports the vehicle has, and how many are in use', async () => {
   await openPage('serial')
   await window().waitFor(`document.querySelectorAll('.setup-port').length === 3`, 30_000)

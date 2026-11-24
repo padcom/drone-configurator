@@ -90,6 +90,8 @@ const props = defineProps<{
   describedby?: string
   /** The field cannot be used now (a fieldset round it being disabled is seen too): the list is closed and does not open. */
   disabled?: boolean
+  /** Only the options can be chosen: a typed number is taken only when it is one of them (a closed list, as of channels). */
+  closed?: boolean
 }>()
 
 const model = defineModel<number>({ required: true })
@@ -117,7 +119,19 @@ const describedBy = computed(() => {
 const text = computed(() => query.value ?? name.value ?? String(model.value))
 const badge = computed(() => query.value !== null ? '' : name.value === undefined ? t('enum.noName') : String(model.value))
 const shown = computed(() => matching(props.options, query.value ?? ''))
-const custom = computed(() => query.value !== null && offersNumber(props.options, query.value))
+const custom = computed(() => !props.closed && query.value !== null && offersNumber(props.options, query.value))
+
+/**
+ * A typed number the field takes: any number, or in a closed list only one of the options.
+ *
+ * @param typedText what was typed
+ * @returns the number, or undefined
+ */
+function takenNumber(typedText: string | null): number | undefined {
+  const typed = typedNumber(typedText)
+
+  return props.closed && !props.options.some(option => option.value === typed) ? undefined : typed
+}
 const none = computed(() => query.value !== null && shown.value.length === 0 && !isNumber(query.value))
 
 /** Closes the list and forgets what was typed. */
@@ -160,7 +174,7 @@ function onInput(event: Event): void {
 
 /** The field lost the focus: a typed number is used, anything else is let go. */
 function onBlur(): void {
-  const typed = typedNumber(query.value)
+  const typed = takenNumber(query.value)
   if (typed === undefined) {
     close()
   } else {
@@ -250,7 +264,7 @@ function ends(event: KeyboardEvent): void {
  */
 function enter(event: KeyboardEvent): void {
   event.preventDefault()
-  const value = chosen(shown.value, active.value, query.value)
+  const value = chosen(shown.value, active.value, takenNumber(query.value) === undefined ? null : query.value)
   if (value !== undefined) {
     pick(value)
   }

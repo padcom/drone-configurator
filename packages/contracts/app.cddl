@@ -244,6 +244,10 @@ services = {
   "tuning.stream": ["subscription", tuning-params, tuning-batch],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
+  ; The quality of the link to the vehicle (#29), once a second while one is connected (nothing while it is not). Loss is counted from
+  ; the MAVLink sequence numbers of what is received, per sender (system and component); latency is the round trip of a TIMESYNC the
+  ; backend sends every second (MAVLink's time synchronisation, which ArduPilot answers). See `link-stats`.
+  "link.stats": ["subscription", null, link-stats],
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
   ; The text of the JSON file at a path the user named (the metadata file kept in the settings), without a dialog. Refused, with
@@ -1367,3 +1371,23 @@ map-state = "online" / "offline" / "disabled" / "backing-off"
 map-status = { state: map-state, ? reason: tstr, ? retryAfterMs: uint .size 4 }
 
 map-cleared = { files: uint .size 4, bytes: uint .size 8 }
+
+; The quality of the link to the vehicle over the last few seconds (`windowMs`, up to 5000 ms: less just after connecting).
+; `received` packets arrived in the window, and the gaps in their sequence numbers say `lost` more were sent and never arrived
+; (counted per sender; a sequence number seen twice in a row is a duplicate, not a loss). `rxRate` and `txRate` are packets a
+; second received and sent, `rxBytes` and `txBytes` bytes a second. `latencyMs` is the mean round trip of the TIMESYNC answers
+; in the window, absent when none was answered (a vehicle that does not answer, or a link that lost them). `silentMs` is how
+; long ago the last packet arrived. `totalReceived` and `totalLost` count since the vehicle connected.
+link-stats = {
+  windowMs: uint .size 4,
+  received: uint .size 4,
+  lost: uint .size 4,
+  rxRate: float,
+  txRate: float,
+  rxBytes: float,
+  txBytes: float,
+  ? latencyMs: float,
+  silentMs: uint .size 4,
+  totalReceived: uint .size 4,
+  totalLost: uint .size 4,
+}

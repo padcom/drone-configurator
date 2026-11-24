@@ -155,6 +155,56 @@
   font: inherit;
 }
 
+/* LINK: the quality is the button to its details, in the cell's own type; a weak or poor link says so with an icon and a word. */
+.top-bar .cell .kit-popover > .trigger {
+  min-height: 0;
+  padding: 0 var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+}
+
+.top-bar .link-quality.warn > .trigger {
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.top-bar .link-quality.error > .trigger {
+  color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+.top-bar .link-level {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+}
+
+.top-bar .link-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.top-bar .link-detail {
+  display: contents;
+}
+
+.top-bar .link-detail dt {
+  color: var(--color-text-muted);
+}
+
+.top-bar .link-detail dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value-sm);
+}
+
+.top-bar .link-window {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .top-bar .cell.armed {
   color: var(--color-on-warn);
   background: var(--color-warn);
@@ -171,4 +221,41 @@
   align-items: center;
   justify-content: flex-end;
   padding: var(--space-2) var(--space-4);
+}
+
+/*
+ * From 1000 px wide the bar is ONE row, always 64 px: the rail and the screen below it never move when what the bar says
+ * changes (a longer connection line, "reconnected to the same vehicle", an action that comes and goes). A bar that wrapped
+ * moved everything under the pointer by a row, and a click meant for one rail item landed on the next (#343). The vehicle's
+ * lines give way first, with an ellipsis (the whole text is still read out, and the Connect dialog shows it).
+ */
+@media (width >= 1000px) {
+  .top-bar {
+    flex-wrap: nowrap;
+    height: var(--topbar-height);
+  }
+
+  .top-bar .vehicle {
+    flex: 0 1 auto;
+    min-width: 230px;
+  }
+
+  .top-bar .lines {
+    min-width: 0;
+  }
+
+  .top-bar .title,
+  .top-bar .sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .top-bar .cells {
+    flex-wrap: nowrap;
+  }
+
+  .top-bar .actions {
+    min-width: 0;
+  }
 }

@@ -8,29 +8,32 @@
       <!-- The dropdowns and, beside them, the drawing; the one note under both. -->
       <div class="setup-frame-row">
         <div class="setup-fields">
-          <label>{{ t('setup.frame.class') }}</label>
-          <EnumField
-            :model-value="panel.value('FRAME_CLASS') ?? 0"
+          <label :for="`${uid}-class`">{{ t('setup.frame.class') }}</label>
+          <PanelField
+            :input-id="`${uid}-class`"
+            :panel="panel"
+            id="FRAME_CLASS"
+            kind="enum"
             :options="classes"
             :label="t('setup.frame.class')"
-            :disabled="locked('FRAME_CLASS')"
-            @update:model-value="panel.set('FRAME_CLASS', $event)"
           />
-          <label>{{ t('setup.frame.type') }}</label>
-          <EnumField
-            :model-value="panel.value('FRAME_TYPE') ?? 0"
+          <label :for="`${uid}-type`">{{ t('setup.frame.type') }}</label>
+          <PanelField
+            :input-id="`${uid}-type`"
+            :panel="panel"
+            id="FRAME_TYPE"
+            kind="enum"
             :options="types"
             :label="t('setup.frame.type')"
-            :disabled="locked('FRAME_TYPE')"
-            @update:model-value="panel.set('FRAME_TYPE', $event)"
           />
-          <label>{{ t('setup.frame.orientation') }}</label>
-          <EnumField
-            :model-value="panel.value('AHRS_ORIENTATION') ?? 0"
+          <label :for="`${uid}-orientation`">{{ t('setup.frame.orientation') }}</label>
+          <PanelField
+            :input-id="`${uid}-orientation`"
+            :panel="panel"
+            id="AHRS_ORIENTATION"
+            kind="enum"
             :options="orientations"
             :label="t('setup.frame.orientation')"
-            :disabled="locked('AHRS_ORIENTATION')"
-            @update:model-value="panel.set('AHRS_ORIENTATION', $event)"
           />
         </div>
         <FrameDiagram :frame-class="panel.value('FRAME_CLASS') ?? 0" :frame-type="panel.value('FRAME_TYPE') ?? 0" />
@@ -53,7 +56,7 @@ import FrameDiagram from '@/components/setup/FrameDiagram.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import RebootBanner from '@/components/setup/RebootBanner.vue'
 import Banner from '@/components/ui/Banner.vue'
-import EnumField from '@/components/fields/EnumField.vue'
+import PanelField from '@/components/fields/PanelField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import { FRAME_CLASSES, FRAME_PARAMS, FRAME_TYPES, ORIENTATIONS, layoutOf, optionsOf } from '@/lib/setup/frame'
@@ -71,14 +74,4 @@ const note = computed(() => {
 
   return [t('setup.frame.takesEffect'), drawn ? t('setup.frame.drawingKey') : ''].filter(Boolean).join(' ')
 })
-
-/**
- * Whether a field cannot be used now: nothing can be written, or the vehicle does not have the parameter.
- *
- * @param id the parameter
- * @returns true if it is off
- */
-function locked(id: string): boolean {
-  return panel.blocked.value !== null || panel.missing.value.includes(id)
-}
 </script>
