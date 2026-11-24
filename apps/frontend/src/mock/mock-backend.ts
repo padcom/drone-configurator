@@ -5,7 +5,7 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  CalibrationStart, Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
+  CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
@@ -54,6 +54,11 @@ export interface MockOptions {
   opens?: { path: string, text: string }[]
   /** The files `files.read` can read: path to text. Any other path is answered with NOT_FOUND, as the backend does. */
   files?: Record<string, string>
+  /**
+   * What `metadata.fetch` gives, one answer at each call (an error code fails it; the last one stays). Without it the backend is
+   * offline with nothing kept: UNAVAILABLE, as the real one says.
+   */
+  metadata?: (MetadataFile | string)[]
   /** The vehicle's parameters, when not the usual few (`SETUP_PARAMS` is a Copter that was set up). */
   params?: Param[]
   /** How the vehicle calibrates (its steps are 25 ms apart by default). */
@@ -101,6 +106,8 @@ export interface MockControl {
   writesSent?: () => string[]
   /** The paths `files.read` was asked for, in order. */
   filesRead?: () => string[]
+  /** What `metadata.fetch` was asked, in order. */
+  metadataAsked?: () => MetadataAsk[]
   restart?: () => void
   /** The vehicle announces a parameter changed elsewhere (as by another ground station). */
   announce?: (id: string, value: number) => void
@@ -248,6 +255,7 @@ class MockVehicle {
       options.control.rebootsSent = () => this.rebootsSent
       options.control.writesSent = () => [...this.writesSent]
       options.control.filesRead = () => [...this.filesRead]
+      options.control.metadataAsked = () => [...this.metadataAsked]
       options.control.link = stats => { this.linkOverride = stats }
     }
   }
@@ -306,6 +314,34 @@ class MockVehicle {
     } else if (e.k === 'request' || e.k === 'subscribe') {
       this.answer(e)
     }
+  }
+
+  /** What `metadata.fetch` was asked, in order. */
+  readonly metadataAsked: MetadataAsk[] = []
+
+  /**
+   * Answers `metadata.fetch` with the next of the answers a test gave (the last one stays), or UNAVAILABLE without any.
+   *
+   * @param ask what was asked
+   * @param ok answers
+   * @param fail refuses
+   */
+  private metadataFetch(ask: MetadataAsk, ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void): void {
+    this.metadataAsked.push(ask)
+    const answers = this.options.metadata ?? []
+    const next = answers.length > 1 ? answers.shift() : answers[0]
+    if (next === undefined || typeof next === 'string') {
+      fail(next ?? 'UNAVAILABLE', 'no parameter definitions: the server cannot be reached, and nothing is kept')
+
+      return
+    }
+    if (!next.fromCache) {
+      // A download from the server says how far it is, as the backend does after each part.
+      const total = next.text.length
+      this.send({ k: 'event', n: 'metadata.progress', p: { received: Math.floor(total / 2), total } })
+      this.send({ k: 'event', n: 'metadata.progress', p: { received: total, total } })
+    }
+    ok(next)
   }
 
   answer(e: Envelope) {
@@ -396,6 +432,7 @@ class MockVehicle {
 
         return text === undefined ? fail('NOT_FOUND', 'no such file') : ok({ text })
       }
+      case 'metadata.fetch': return this.metadataFetch(e.p as MetadataAsk, ok, fail)
       case 'serial.ports': return ok({ ports: SERIAL_PORTS })
       case 'serial.bridge.start': return this.serialBridge.start(e.p as SerialBridgeStart, ok, fail)
       case 'serial.bridge.stop': return this.serialBridge.stop(ok)

@@ -3,7 +3,8 @@
   "default": {
     "backend": 30,
     "e2e": 15,
-    "sitl": 60
+    "sitl": 60,
+    "weekly": 150
   },
   "backend": {
     "arming.test.pi": 100,
@@ -31,6 +32,7 @@
     "logs.test.pi": 126,
     "mapsource.test.pi": 20,
     "maptiles.test.pi": 30,
+    "metadata.test.pi": 45,
     "messages.test.pi": 28,
     "missions.test.pi": 62,
     "motors.test.pi": 45,
@@ -88,6 +90,7 @@
     "map-settings.e2e.ts": 1,
     "messages-list.e2e.ts": 14,
     "metadata-autoload.e2e.ts": 6,
+    "metadata-download.e2e.ts": 70,
     "motors.e2e.ts": 15,
     "palette.e2e.ts": 2,
     "param-description.e2e.ts": 1,
@@ -114,6 +117,7 @@
     "view.e2e.ts": 2
   },
   "sitl": {
+    "sitl-metadata.e2e.ts": 40,
     "sitl-arming.e2e.ts": 70,
     "sitl-calibration.e2e.ts": 207,
     "sitl-flight-map.e2e.ts": 76,
@@ -129,5 +133,8 @@
     "sitl-serial-bridge.e2e.ts": 40,
     "sitl-vehicles.e2e.ts": 60,
     "sitl.e2e.ts": 20
+  },
+  "weekly": {
+    "weekly-metadata-server.e2e.ts": 150
   }
 }

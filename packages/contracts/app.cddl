@@ -255,6 +255,23 @@ services = {
   ; end in `.json`, is over 16 MiB, or cannot be read: "INVALID_PATH", "NOT_FOUND", "NOT_A_FILE", "NOT_JSON", "TOO_LARGE",
   ; "UNREADABLE".
   "files.read": ["method", file-read, file-contents],
+  ; ArduPilot's parameter metadata (#35), DOWNLOADED, never bundled (it is GPL): the backend fetches the definitions for a kind of
+  ; vehicle and firmware version from ArduPilot's server (autotest.ardupilot.org/Parameters/), keeps them on disk per vehicle and
+  ; version, and gives the page the file's text, which the page reads (`format`: "xml" for a released version's file, "json" for
+  ; the latest). Without `vehicle` it is the connected vehicle's kind and version (AUTOPILOT_VERSION, asked for). The exact version is
+  ; preferred: a version the server has no file for (a beta, a version newer than the server's list, a vehicle that did not say)
+  ; gives the latest file, with `exact` false. A released version's file never changes, so it is kept for good; the latest is asked
+  ; for again after 7 days, and a stale one is given (`stale`) when the server cannot be reached. `refresh` asks the server even when
+  ; the cache has the file. A cache entry that is cut short or is not a definition file is fetched again. Fails with `BAD_REQUEST` (a
+  ; version that is not three numbers), `NOT_CONNECTED` (no `vehicle`, and none is connected), `UNSUPPORTED_VEHICLE` (the connected
+  ; vehicle is not an ArduPilot of a kind the server has files for), `TOO_LARGE` (over 16 MiB) and `UNAVAILABLE` (the server cannot
+  ; be reached or has no file, and nothing is kept).
+  ; A file is fetched in parts of 128 KiB (HTTP ranges, held together by the file's ETag; a server that sends the whole file at once
+  ; is taken as it is): a part may take 30 s, so a slow link that makes progress gets the file (a link that cannot move 128 KiB
+  ; in 30 s, under about 35 kbit/s, is "cannot be reached"), and the whole download may take 20 minutes. The page waits for the
+  ; answer longer than that. `metadata.progress` says how far a download from the server is, after each part.
+  "metadata.fetch": ["method", metadata-ask, metadata-file],
+  "metadata.progress": ["event", metadata-progress],
   "serial.ports": ["method", null, serial-ports],
   ; THE SERIAL BRIDGE (#198): a serial port of the vehicle (its GPS, a telemetry radio, SERIALn) reached by a program on this
   ; computer through a local TCP port, over MAVLink's SERIAL_CONTROL (pico-mavlink's SerialControlStream). `serial.bridge.start`
@@ -1413,6 +1430,27 @@ motor-test-state = {
 
 ; A tile: the zoom, the column and the row of the web-mercator grid (0 to 2^z - 1). `source` is `osm` or `custom`; absent, the one
 ; the settings choose.
+; What `metadata.fetch` is asked: a kind of vehicle and its version ("4.7.1"), or nothing for the connected vehicle.
+metadata-ask = { ? vehicle: metadata-vehicle, ? version: tstr, ? refresh: bool }
+metadata-vehicle = "copter" / "plane" / "rover" / "sub" / "tracker" / "blimp"
+
+; How far a download of a definition file from the server is: `received` of `total` bytes.
+metadata-progress = { received: uint .size 4, total: uint .size 4 }
+
+; A definition file: its `text` in its `format`, for `vehicle` at `version` (absent when the vehicle did not say a released one).
+; `exact` is whether the file is that version's (false: the latest). `fromCache`: from the disk, not the server just now; `stale`: the
+; latest file, past its 7 days, given because the server cannot be reached; `fetchedAt` when the server gave it (ms since 1970).
+metadata-file = {
+  vehicle: metadata-vehicle,
+  ? version: tstr,
+  exact: bool,
+  format: "json" / "xml",
+  text: tstr,
+  fromCache: bool,
+  stale: bool,
+  fetchedAt: uint .size 8,
+}
+
 map-tile-ask = { ? source: tstr, z: uint .size 1, x: uint .size 4, y: uint .size 4 }
 
 ; A tile: `contentType` image/png, image/jpeg or image/webp, the image in `bytes`. `fromCache`: it came from the disk, not the

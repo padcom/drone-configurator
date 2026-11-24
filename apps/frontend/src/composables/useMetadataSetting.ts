@@ -1,9 +1,16 @@
-// The settings "Metadata file" and "Load the parameter metadata when the application starts": the Settings screen is the only
-// place that changes them (loading a file by hand keeps its path too). With the switch off nothing is loaded at start, and the
-// path is kept.
+// The settings "Metadata file", "Load the parameter metadata when the application starts" and "Download the parameter metadata
+// for the connected vehicle": the Settings screen is the only place that changes them (loading a file by hand keeps its path
+// too). With the load at start off nothing is loaded at start, and the path is kept. The line under them says where the metadata
+// in use came from, and its button downloads the connected vehicle's again from ArduPilot's server.
 import { type ComputedRef, computed } from 'vue'
-import { METADATA_AUTOLOAD_KEY, METADATA_PATH_KEY, autoloadOn } from '@/lib/params/metadataSettings'
+import { say } from '@/i18n/say'
+import { useFormat } from '@/i18n/useFormat'
+import { metadataStatus } from '@/lib/params/metadataStatus'
+import {
+  METADATA_AUTOLOAD_KEY, METADATA_DOWNLOAD_KEY, METADATA_PATH_KEY, autoloadOn, downloadOn,
+} from '@/lib/params/metadataSettings'
 import { useConfigurator } from './useConfigurator'
+import { refreshMetadata } from './useMetadataDownload'
 
 /** The settings, as refs and actions. */
 export interface MetadataSetting {
@@ -17,6 +24,16 @@ export interface MetadataSetting {
   chooseAutoload: (on: boolean) => Promise<void>
   /** Lets the user pick the file in the host's dialog: it is loaded, and its path kept (the result is told by the toast). */
   pick: () => Promise<void>
+  /** Whether the connected vehicle's metadata is downloaded when it is connected. */
+  download: ComputedRef<boolean>
+  /** Keeps the choice of downloading. */
+  chooseDownload: (on: boolean) => Promise<void>
+  /** Where the metadata in use came from, as a line. */
+  status: ComputedRef<string>
+  /** Whether the connected vehicle's metadata can be downloaded again now (a vehicle is connected, and no download runs). */
+  canRefresh: ComputedRef<boolean>
+  /** Downloads the connected vehicle's metadata again from the server. */
+  refresh: () => Promise<void>
 }
 
 /**
@@ -25,7 +42,15 @@ export interface MetadataSetting {
  * @returns what they hold, and how to change them
  */
 export function useMetadataSetting(): MetadataSetting {
-  const { settings, metadata } = useConfigurator()
+  const { settings, metadata, vehicle } = useConfigurator()
+  const f = useFormat()
+  const state = () => ({
+    source: metadata.source.value,
+    downloaded: metadata.downloaded.value,
+    downloadError: metadata.downloadError.value,
+    downloading: metadata.downloading.value,
+    progress: metadata.progress.value,
+  })
 
   return {
     path: computed(() => settings.uiValue(METADATA_PATH_KEY) ?? ''),
@@ -33,5 +58,10 @@ export function useMetadataSetting(): MetadataSetting {
     choosePath: text => settings.setUi(METADATA_PATH_KEY, text.trim()),
     chooseAutoload: on => settings.setUi(METADATA_AUTOLOAD_KEY, on ? 'on' : 'off'),
     pick: () => metadata.openFile(),
+    download: computed(() => downloadOn(settings.uiValue(METADATA_DOWNLOAD_KEY))),
+    chooseDownload: on => settings.setUi(METADATA_DOWNLOAD_KEY, on ? 'on' : 'off'),
+    status: computed(() => metadataStatus(state(), say, f)),
+    canRefresh: computed(() => vehicle.connection.value.state === 'connected' && !metadata.downloading.value),
+    refresh: () => refreshMetadata(metadata),
   }
 }
