@@ -5,7 +5,7 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
+  CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, SigningProvision, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, DEFAULTS, DISCOVERED, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
@@ -19,6 +19,7 @@ import { forwardStatusOf } from './mock-forward'
 import { MockMap } from './mock-map'
 import { MockRecording } from './mock-recording'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
+import { MockSigning, type MockSigningControl } from './mock-signing'
 import { MockSerialBridge, type MockSerialBridgeControl } from './mock-serial-bridge'
 import { type LinkStats, linkStatsAt } from './mock-link'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
@@ -138,6 +139,8 @@ export interface MockControl {
   serialBridge?: MockSerialBridgeControl
   /** Sets what `link.stats` says from now on (null: the mock's own healthy link again). */
   link?: (stats: LinkStats | null) => void
+  /** What the vehicle's signing holds, and what a test does to it (see `MockSigningControl`). */
+  signing?: MockSigningControl
   /** The recording fails (or no longer does), or the limit removed this many old recordings in all: `recording.changed` is sent. */
   recording?: (change: { failure?: RecordingFailure, removed?: number }) => void
 }
@@ -213,6 +216,8 @@ class MockVehicle {
   readonly serialBridge: MockSerialBridge
   /** Arming, disarming, the flight mode and the pre-arm checks. */
   readonly arming: MockArming
+  /** MAVLink signing: the vehicle's key and this computer's. */
+  readonly signing: MockSigning
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -238,7 +243,9 @@ class MockVehicle {
       say: (severity, text) => this.say(severity, text),
       heard: () => this.messages,
     })
+    this.signing = new MockSigning(send, { connected: () => this.connection.state === 'connected', armed: () => this.armedState() })
     if (options.control) {
+      options.control.signing = this.signing.control()
       options.control.motors = this.motors.control()
       options.control.tuning = this.tuning.control()
       options.control.serialBridge = this.serialBridge.control()
@@ -289,6 +296,7 @@ class MockVehicle {
     this.calibration.reset()
     this.motors.reset()
     this.tuning.reset()
+    this.signing.reset()
     this.serialBridge.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
@@ -308,6 +316,7 @@ class MockVehicle {
       this.forwardSubscribers.delete(e.s!)
       this.motors.unsubscribe(e.s!)
       this.tuning.unsubscribe(e.s!)
+      this.signing.unsubscribe(e.s!)
       this.serialBridge.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
@@ -414,6 +423,9 @@ class MockVehicle {
       case 'telemetry.stream': return this.telemetry(e)
       case 'link.stats': return this.linkStats(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
+      case 'signing.status': return this.signing.subscribe(e.id!)
+      case 'signing.provision': return this.signing.provision(e.p as SigningProvision | null, ok, fail)
+      case 'signing.disable': return this.signing.disable(ok, fail)
       case 'forward.status':
         this.forwardSubscribers.add(e.id!)
         this.send({ k: 'response', id: e.id!, s: e.id! })
@@ -583,8 +595,10 @@ class MockVehicle {
 
   /** Tells every watcher of the connection that it is now `connection`. */
   push(connection: Connection) {
-    const recordingChanges = (connection.state === 'connected') !== (this.connection.state === 'connected')
+    const was = this.connection.state
+    const recordingChanges = (connection.state === 'connected') !== (was === 'connected')
     this.connection = connection
+    this.tellSigning(was)
     if (connection.state !== 'connected') {
       this.serialBridge.disconnected()
     }
@@ -596,6 +610,20 @@ class MockVehicle {
       this.send({ k: 'event', n: 'recording.changed', p: this.recording.state(this.settings, this.connection) })
     }
     this.tellForwarding()
+  }
+
+  /**
+   * Tells the signing that a vehicle connected (it signs when its key is kept) or went.
+   *
+   * @param was the connection's state before
+   */
+  tellSigning(was: Connection['state']) {
+    const now = this.connection.state
+    if (now === 'connected' && was !== 'connected') {
+      this.signing.connected()
+    } else if (now !== 'connected' && now !== 'reconnecting') {
+      this.signing.disconnected()
+    }
   }
 
   /** Tells the subscribers of `forward.status` what the settings and the connection come to. */

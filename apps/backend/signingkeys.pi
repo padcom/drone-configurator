@@ -1,0 +1,259 @@
+// The MAVLink signing keys this computer holds, one per vehicle (#33). They are kept by the backend in a file of their own,
+// `signing-keys.json` in the app's data directory beside the settings, and never in the settings document (which the page reads):
+// a key never goes to the page once it is made. The file is the owner's only: it is made empty, its permissions are set to 0600
+// (`chmod` of std/fs), and only then is the key written; it is then renamed over the old file, so a write that is cut short leaves the
+// old keys whole. Its permissions are set again each time it is read (a copy restored from a backup may have lost them). On Windows
+// std/fs's `chmod` only sets the read-only attribute: there the file is as private as the user's data directory is.
+//
+// A file that cannot be read, or is not a keys document, is NEVER replaced: the keys in it may be the only way to a vehicle. The store
+// is then unusable (`problem`), nothing is provisioned (`NOT_SAVED`) and the file is left for a person to look at.
+//
+// What is said of the store (its errors, its `toString`) never holds a key: a key is a `SigningKey` (redacted when shown), turned into
+// its bytes only to be written to the file or used, and a fingerprint (the first 8 hex digits of its SHA-256) names it.
+import { chmod, exists, readText, remove, rename, writeText } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { digest } from "std/crypto"
+import { hex } from "std/encoding"
+import { SigningKey } from "padcom/pico-mavlink"
+import { dataDirectory } from "./settings"
+
+/// The file, in the data directory.
+export const KEYS_FILE: string = "signing-keys.json"
+
+/// The version of the file that this code writes.
+const KEYS_VERSION: int = 1
+
+/// The permissions of the file: read and write for its owner, nothing for anyone else.
+export const KEYS_MODE: int = 0o600
+
+/// A key held for a vehicle.
+export class KeptKey {
+  /// The vehicle, as the session identifies it (`identityOf`).
+  public readonly vehicle: string
+  public readonly key: SigningKey
+  /// When it was set (ms since 1970).
+  public readonly setAt: int
+
+  constructor(vehicle: string, key: SigningKey, setAt: int) {
+    this.vehicle = vehicle
+    this.key = key
+    this.setAt = setAt
+  }
+
+  /// The key's fingerprint.
+  public get fingerprint(): string {
+    return fingerprintOf(key)
+  }
+
+  public toString(): string {
+    return `KeptKey(${vehicle}, ${fingerprint})`
+  }
+}
+
+/// The name of a key that gives nothing of it away: the first 8 hex digits of its SHA-256.
+export function fingerprintOf(key: SigningKey): string {
+  return hex.encode(digest("SHA-256", key.reveal())).slice(0, 8)
+}
+
+/// A key as the file has it.
+struct KeyEntry {
+  vehicle: string
+  key: string
+  setAt: int
+}
+
+/// The file.
+struct KeysDoc {
+  version: int
+  vehicles: KeyEntry[]
+}
+
+/// Why the keys cannot be read or kept (never with a key in it).
+export class KeysError extends Error {
+  public code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.code = code
+  }
+}
+
+/// The text of the file for `keys`. Written by hand, a key to a line (only the vehicle goes through `JSON.stringify`; the key and the
+/// time are hex digits and a number).
+export function keysText(keys: KeptKey[]): string {
+  const parts: string[] = [`{\n  "version": ${KEYS_VERSION},\n  "vehicles": [`]
+  let first = true
+  for (const k of keys) {
+    parts.push(if (first) "\n    " else ",\n    ")
+    parts.push(`{ "vehicle": ${JSON.stringify(k.vehicle)}, "key": "${hex.encode(k.key.reveal())}", "setAt": ${k.setAt} }`)
+    first = false
+  }
+  parts.push(if (first) "]\n}\n" else "\n  ]\n}\n")
+  parts.join("")
+}
+
+/// The keys of the text of a file; a `KeysError` (`UNREADABLE`) whose message says what is wrong without quoting the file.
+export function parseKeys(text: string): KeptKey[] throws KeysError {
+  let doc: KeysDoc? = null
+  try {
+    doc = JSON.parse<KeysDoc>(text)
+  } catch (e: Error) {
+    throw new KeysError("UNREADABLE", `${KEYS_FILE} is not a signing keys file`)
+  }
+  if (doc!.version != KEYS_VERSION) {
+    throw new KeysError("UNREADABLE", `${KEYS_FILE} is version ${doc!.version}, this app reads version ${KEYS_VERSION}`)
+  }
+  const out: KeptKey[] = []
+  for (const e of doc!.vehicles) {
+    out.push(new KeptKey(e.vehicle, keyOf(e.key), e.setAt))
+  }
+  return out
+}
+
+/// A key from its 64 hex digits (the message of a failure names neither the key nor a digit of it).
+function keyOf(text: string): SigningKey throws KeysError {
+  try {
+    return new SigningKey(hex.decode(text))
+  } catch (e: Error) {
+    throw new KeysError("UNREADABLE", `${KEYS_FILE} has a key that is not 32 bytes of hex`)
+  }
+}
+
+/// The keys, as held in memory and in the file.
+class KeyStore {
+  public loaded: bool = false
+  public keys: KeptKey[] = []
+  /// Why the file cannot be used (it is then never written), or null.
+  public problem: string? = null
+  /// The directory of the file; null until it is known.
+  public dir: string? = null
+}
+
+const store = new KeyStore()
+
+/// For tests: forget what is held in memory, as a restarted backend does; the file stays (the directory is the settings', which
+/// `useDirectoryForTests` of settings.pi sets).
+export function forgetKeysForTests(): void {
+  store.loaded = false
+  store.keys = []
+  store.problem = null
+  store.dir = null
+}
+
+/// Whether the file has been read (`loadKeys`): the keys are then in memory, and `heldKeys` has them.
+export function keysReady(): bool {
+  return store.loaded
+}
+
+/// The keys in memory (none before `loadKeys`).
+export function heldKeys(): KeptKey[] {
+  return store.keys
+}
+
+/// The newest key held for `vehicle` in memory, if there is one.
+export function heldKeyFor(vehicle: string): KeptKey? {
+  let best: KeptKey? = null
+  for (const k of store.keys) {
+    if (k.vehicle == vehicle && (best == null || k.setAt >= best!.setAt)) {
+      best = k
+    }
+  }
+  return best
+}
+
+/// Reads the file into memory, if it has not been (a missing file is no keys). Two that read at once both read it.
+export async function loadKeys(): Promise<void> {
+  if (!store.loaded) {
+    await read()
+  }
+}
+
+/// Reads the file (a missing file is no keys).
+async function read(): Promise<void> {
+  try {
+    const dir = await dataDirectory()
+    store.dir = dir
+    const path = join(dir, KEYS_FILE)
+    if (await exists(path)) {
+      try {
+        await chmod(path, KEYS_MODE)
+      } catch (e: Error) {
+        // (a file system without permissions: it is read all the same)
+      }
+      store.keys = parseKeys(await readText(path))
+      store.problem = null
+    }
+  } catch (e: KeysError) {
+    store.problem = e.message
+  } catch (e: Error) {
+    store.problem = `${KEYS_FILE} cannot be read: ${e.message}`
+  }
+  store.loaded = true
+}
+
+/// Every key held.
+export async function keptKeys(): Promise<KeptKey[]> {
+  await loadKeys()
+  return store.keys
+}
+
+/// Changes the keys held with `change` (given them, it gives the new list) and writes the file. A `KeysError` (`NOT_SAVED`) when it
+/// cannot be written, or the file was not read: memory is then left as it was.
+export async function changeKeys(change: (keys: KeptKey[]) => KeptKey[]): Promise<void> throws KeysError {
+  await loadKeys()
+  const problem = store.problem
+  if (problem != null) {
+    throw new KeysError("NOT_SAVED", `${problem!}; it is left as it is`)
+  }
+  const next = change(store.keys)
+  await write(next)
+  store.keys = next
+}
+
+/// Adds a key (the vehicle's older ones stay until `keepOnly` or `forget` settles which one it holds).
+export async function addKey(key: KeptKey): Promise<void> throws KeysError {
+  await changeKeys((keys: KeptKey[]) => {
+    const next = keys.slice(0, keys.length)
+    next.push(key)
+    return next
+  })
+}
+
+/// Keeps `key` as the vehicle's only key: the others held for it go.
+export async function keepOnly(key: KeptKey): Promise<void> throws KeysError {
+  await changeKeys((keys: KeptKey[]) => keys.filter((k: KeptKey) => k.vehicle != key.vehicle || k == key))
+}
+
+/// Forgets one key (a provisioning the vehicle is known not to have taken).
+export async function forget(key: KeptKey): Promise<void> throws KeysError {
+  await changeKeys((keys: KeptKey[]) => keys.filter((k: KeptKey) => k != key))
+}
+
+/// Forgets every key of a vehicle (its signing is off).
+export async function forgetVehicle(vehicle: string): Promise<void> throws KeysError {
+  await changeKeys((keys: KeptKey[]) => keys.filter((k: KeptKey) => k.vehicle != vehicle))
+}
+
+/// Writes the file: an empty file first, made the owner's only, then the keys, then renamed over the old file.
+async function write(keys: KeptKey[]): Promise<void> throws KeysError {
+  const dir = store.dir
+  if (dir == null) {
+    throw new KeysError("NOT_SAVED", "there is no data directory to keep the keys in")
+  }
+  const path = join(dir!, KEYS_FILE)
+  const temporary = `${path}.tmp-${pid}`
+  try {
+    await writeText(temporary, "")
+    await chmod(temporary, KEYS_MODE)
+    await writeText(temporary, keysText(keys))
+    await rename(temporary, path)
+  } catch (e: Error) {
+    try {
+      await remove(temporary)
+    } catch (r: Error) {
+      // Nothing was written, or it is gone already.
+    }
+    throw new KeysError("NOT_SAVED", `the signing keys could not be saved: ${e.message}`)
+  }
+}

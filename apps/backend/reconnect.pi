@@ -21,6 +21,7 @@ import { GuardedStream } from "./guarded"
 import { paramCache } from "./paramcache"
 import { boardOf, capabilitiesOf, encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
 import { describe, open } from "./transports"
+import { keysRead, readKeys, settle, signForVehicle } from "./signing"
 
 /// The waits are in slices, so that a disconnect is noticed at once.
 const SLICE_MS: int = 100
@@ -110,7 +111,7 @@ async function reopen(generation: int): Promise<string?> {
   // opener only, and a socket nobody listens to is a leak.
   dropStream()
   try {
-    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim }))
+    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => link.adoptSimulator(sim)))
     if (link.generation != generation) {
       stream.close()
       return null
@@ -147,6 +148,11 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
   if (conn == null) {
     return
   }
+  // The link signs again when the vehicle's heartbeats are signed with a key that is held (its signing may have been reset meanwhile).
+  if (!keysRead()) {
+    await readKeys()
+  }
+  signForVehicle(conn!)
   const version = await new AutopilotVersionRead(conn!, { system: found.sysid, component: found.compid }, { timeoutMs: 1000, retries: 2 }).run()
   if (link.generation != generation) {
     return
@@ -172,6 +178,7 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
   if (identity == link.identity || (mayChange && board != "" && board == link.board)) {
     // What it says it is now (a changed frame is another type) is shown, and the session goes on.
     link.identity = identity
+    settle()
     link.update(Connection { state: ConnectionState.Connected, vehicle: infoOf(found), resumed: true })
     return
   }
@@ -186,6 +193,7 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
   link.identity = identity
   link.board = board
   link.attach(conn!)
+  settle()
   link.update(Connection {
     state: ConnectionState.Connected,
     vehicle: infoOf(found),
@@ -197,6 +205,12 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
 /// The link is lost: tries to bring it back until it is, or the session ends.
 async function bringBack(generation: int, why: string): Promise<void> throws Error {
   link.abortOperations()
+  // Unsigned while the vehicle is looked for: a vehicle whose signing was reset (or that came back with an older timestamp) must be
+  // heard. The link signs again when it is taken up.
+  const conn = link.conn
+  if (conn != null) {
+    conn!.useSigning(null)
+  }
   let reason = why
   let attempt = 0
   while (link.generation == generation) {
