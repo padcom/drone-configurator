@@ -362,17 +362,19 @@ async function muteOnInput(): Promise<void> throws Error {
 async function connectTo(port: int): Promise<void> throws Error {
   let announced = false
   while (true) {
-    let stream: EndWatchingStream? = null
+    let conn: Conn? = null
     try {
-      stream = serve(new TcpStream(await connect(port)))
+      conn = await connect(port)
     } catch (e: Error) {
       await delay(100)
       continue
     }
+    // (announced before the vehicle is served: what serving prints, `signing off` say, comes after it)
     if (!announced) {
       announced = true
       await stdout.writeText(`connected to ${port}\n`)
     }
+    const stream: EndWatchingStream? = serve(new TcpStream(conn!))
     while (!stream!.gone) {
       await delay(100)
     }
