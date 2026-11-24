@@ -7,7 +7,12 @@ import { createHash } from 'node:crypto'
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
-/** The made-up presets, by path: one that changes BATT_CAPACITY (and has a name no vehicle has), and two of other kinds. */
+/**
+ * The made-up presets, by path: one that changes BATT_CAPACITY (and has a name no vehicle has), and two of other kinds.
+ *
+ * @param capacity the battery capacity the first sets
+ * @returns the presets
+ */
 export function madeUpPresets(capacity: number): Record<string, string> {
   return {
     'E2E-Quad-Long-Range.param': `# Made up by the end-to-end tests\r\nBATT_CAPACITY,${capacity}\r\nNOT_ON_VEHICLE,1\r\n`,
@@ -16,8 +21,16 @@ export function madeUpPresets(capacity: number): Record<string, string> {
   }
 }
 
-/** The git hash of a file's text, as GitHub's tree gives it. */
+/**
+ * The git hash of a file's text, as GitHub's tree gives it.
+ *
+ * @param text the text
+ * @returns the hash
+ */
 const blobHash = (text: string) => createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0${text}`).digest('hex')
+
+/** What it answers while it is down, and while it refuses as GitHub does over the limit. */
+const REFUSALS = { down: [503, 'busy'], limited: [403, '{"message": "API rate limit exceeded"}'] } as const
 
 /** What the stand-in does, and what it saw. */
 export class PresetsStandIn {
@@ -92,10 +105,9 @@ export class PresetsStandIn {
     if (/^\/api\/git\/trees\/[\w.-]+:Tools\/Frame_params\?recursive=1$/u.test(path)) {
       return [200, this.#tree()]
     }
-    const file = /^\/raw\/[\w.-]+\/Tools\/Frame_params\/(?<path>.+)$/u.exec(path)?.groups?.path
-    const text = file === undefined ? undefined : this.presets[decodeURIComponent(file)]
+    const text = this.presets[decodeURIComponent(path.replace(/^\/raw\/[\w.-]+\/Tools\/Frame_params\//u, ''))]
 
-    return text === undefined ? [404, '404: Not Found'] : [200, text]
+    return text === undefined || !path.startsWith('/raw/') ? [404, '404: Not Found'] : [200, text]
   }
 
   /**
@@ -107,14 +119,13 @@ export class PresetsStandIn {
   #answer(request: IncomingMessage, response: ServerResponse): void {
     const path = request.url ?? ''
     this.hits.push(path)
-    if (this.mode !== 'up') {
-      const limited = this.mode === 'limited'
-      response.writeHead(limited ? 403 : 503, limited ? { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1900000000' } : {})
-      response.end(limited ? '{"message": "API rate limit exceeded"}' : 'busy')
+    const [status, body] = this.mode === 'up' ? this.#content(path) : REFUSALS[this.mode]
+    if (this.mode === 'limited') {
+      response.writeHead(status, { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1900000000' })
+      response.end(body)
 
       return
     }
-    const [status, body] = this.#content(path)
     response.writeHead(status, { 'content-type': 'text/plain' })
     response.end(body)
   }
