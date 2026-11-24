@@ -40,11 +40,11 @@ let muted = false
 
 /// The signing key the last vehicle held when its connection ended: the next one starts with it, as a vehicle keeps its key in its
 /// storage (each connection is a new simulated vehicle). It is never printed: what is printed is whether there is one.
-class Held {
+class KeptKey {
   public key: SigningKey? = null
 }
 
-const held = new Held()
+const keptKey = new KeptKey()
 
 /// Keeps the key `sim` holds for the next connection.
 function keepKey(sim: SimulatedAutopilot?): void {
@@ -52,7 +52,7 @@ function keepKey(sim: SimulatedAutopilot?): void {
     return
   }
   const policy = sim!.conn.signing
-  held.key = if (policy == null) null else policy!.signingKey
+  keptKey.key = if (policy == null) null else policy!.signingKey
 }
 
 /// A stream that says when its far end has gone, and writes nothing after that (a write to a connection the peer has closed is a panic
@@ -120,7 +120,7 @@ function serve(conn: Conn): void {
   const setup = env.get("VEHICLE_SETUP") == "1"
   sim = new SimulatedAutopilot(stream, if (setup) setupParams() else defaultSimParams())
   // MAVLink signing (#33): the key of the last connection, and `signing on` or `signing off` to say which (never the key).
-  const key = held.key
+  const key = keptKey.key
   if (key != null) {
     sim!.signing.setKey(key!, signingTimestamp(Date.now() as int))
   }
@@ -130,7 +130,6 @@ function serve(conn: Conn): void {
     if (m instanceof SerialControl) {
       heldSerial(m)
     }
-    if (m instanceof ParamSet) {
     if (r.packet.header.msgid == SETUP_SIGNING_ID) {
       stdout.writeText("setup-signing\n")
     } else if (m instanceof ParamSet) {
