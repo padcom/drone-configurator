@@ -162,9 +162,8 @@ async function showsAGoodLink(): Promise<void> {
   const latency = `document.querySelector('${CELL} .link-detail.latency dd')?.textContent ?? ''`
   await window().waitFor(`/^\\d+\\s?ms$/u.test(${latency})`, SHOWS_MS)
   expect(await window().text(`${CELL} .link-detail.loss dd`)).toMatch(/^0\.0%/u)
-  const card = await window().evaluate<string>(`${CARD}.textContent`)
-
-  expect(card).toMatch(/100%\s*\d+\s?ms · 0\.0% lost/u)
+  // (the card needs the telemetry too, which can come after the link's first stats)
+  await window().waitFor(`/100%\\s*\\d+\\s?ms · 0\\.0% lost/u.test(${CARD}.textContent)`, SHOWS_MS)
   expect(await window().evaluate<boolean>(`${CARD}.querySelector('.status') === null`)).toBe(true)
 }
 
