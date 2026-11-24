@@ -201,6 +201,17 @@ export class SimTruth {
     return truthAt(this.samples, at, 100)
   }
 
+  /**
+   * The samples between two moments.
+   *
+   * @param from the first moment (ms since 1970)
+   * @param to the last
+   * @returns the samples, oldest first
+   */
+  between(from: number, to: number): TruthSample[] {
+    return this.samples.slice(lastBefore(this.samples, from) + 1, lastBefore(this.samples, to) + 1)
+  }
+
   /** Closes the connection. */
   stop(): void {
     this.socket.destroy()
