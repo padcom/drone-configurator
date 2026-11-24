@@ -4,7 +4,8 @@ import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type BackendState, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
 import type {
-  ArmingResult, ChangeAltitudeAsk, Connection, ConnectRequest, RebootResult, RepositionAsk, SerialPort, SetSpeedAsk, Telemetry,
+  ArmingResult, ChangeAltitudeAsk, Connection, ConnectRequest, DiscoveredServices, RebootResult, RepositionAsk, SerialPort,
+  SetSpeedAsk, Telemetry,
 } from '@/generated/app'
 
 /** What the vehicle link needs from the rest of the interface. */
@@ -66,6 +67,8 @@ export interface Vehicle {
   setHomeHere: () => Promise<ArmingResult>
   /** Lists the serial ports (for the serial transport's device choice). */
   listPorts: () => Promise<void>
+  /** Looks for MAVLink services on the local network (#197); a backend that fails says why in `error`, with nothing found. */
+  discover: () => Promise<DiscoveredServices>
   /** Starts listening to the backend: the connection and the telemetry. */
   watch: () => Promise<void>
   /** The link to the backend changed state: if it went away, the vehicle session went with it. */
@@ -259,6 +262,14 @@ class VehicleLink implements Vehicle {
       this.ports.value = (await this.deps.client.call('serial.ports', null)).ports
     } catch (error) {
       this.deps.fail(say('notice.serialPorts', { error: describeError(error) }))
+    }
+  }
+
+  async discover(): Promise<DiscoveredServices> {
+    try {
+      return await this.deps.client.call('discovery.browse', null)
+    } catch (error) {
+      return { services: [], error: describeError(error) }
     }
   }
 

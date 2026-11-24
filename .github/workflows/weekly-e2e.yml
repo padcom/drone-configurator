@@ -1,0 +1,57 @@
+name: Weekly e2e
+
+# Every Monday (and by hand): the window specs that depend on a third party's server, named `weekly-*.e2e.ts`
+# (.github/ci-select.mjs `WEEKLY_SPEC`). They are in no pull request's or push's CI: a slow or absent server must not block a change.
+# Today that is weekly-metadata-server.e2e.ts, which downloads each vehicle type's parameter metadata from ArduPilot's real server
+# (#35); every pull request has sitl-metadata.e2e.ts instead, against a local stand-in for it. They run with the pinned SITL
+# (.github/ardupilot-ref, its cached build) through sitl-e2e.yml. A failure opens (or adds to) an issue; a pass closes it.
+on:
+  schedule:
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  weekly:
+    name: weekly specs
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/sitl-e2e.yml
+    with:
+      kind: weekly
+
+  report:
+    name: report
+    needs: [weekly]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Say how the weekly specs went
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ needs.weekly.result }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="The weekly e2e specs fail"
+          open=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ "$RESULT" = success ]; then
+            echo "The weekly specs pass." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "They pass now: $RUN"
+            fi
+          else
+            echo "The weekly specs ended with **$RESULT**: $RUN" >> "$GITHUB_STEP_SUMMARY"
+            body="The weekly run of the specs that depend on a third party's server (weekly-*.e2e.ts) ended with $RESULT: $RUN. Look at whether the server or the app changed."
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "Still failing: $RUN"
+            else
+              gh issue create --title "$title" --body "$body"
+            fi
+          fi

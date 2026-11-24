@@ -20,14 +20,21 @@ export function hasHost(): boolean {
   return window.picoDesktop !== undefined
 }
 
+/** What a file input takes for a parameter snapshot or file: a snapshot, and ArduPilot's plain-text parameter files. */
+export const PARAMS_ACCEPT = '.json,.param,.parm,.params,.txt,application/json,text/plain'
+
+/** What a file input takes for JSON. */
+const JSON_ACCEPT = '.json,application/json'
+
 /**
  * Offers `text` as a file download (the browser's save handling).
  *
  * @param text the file's content
- * @param name the file's name
+ * @param name the file's name: a `.json` one is JSON, anything else plain text
  */
 export function download(text: string, name: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+  const type = name.endsWith('.json') ? 'application/json' : 'text/plain'
+  const url = URL.createObjectURL(new Blob([text], { type }))
   const link = document.createElement('a')
   link.href = url
   link.download = name
@@ -56,12 +63,13 @@ export function saveText(snapshots: Pick<SnapshotsModel, 'saveFile'>, text: stri
  * @param what `params` or `backup`
  * @param vehicle the vehicle the link found, if any
  * @param now the time
+ * @param extension the file's extension, with its point
  * @returns a name such as `params-quadrotor-1-2026-11-09T123000.json`
  */
-export function snapshotFileName(what: string, vehicle: VehicleInfo | undefined, now = new Date()): string {
+export function snapshotFileName(what: string, vehicle: VehicleInfo | undefined, now = new Date(), extension = '.json'): string {
   const who = vehicle ? `${vehicle.type.toLowerCase()}-${vehicle.sysid}` : 'vehicle'
 
-  return `${what}-${who}-${now.toISOString().slice(0, 19).replaceAll(':', '')}.json`
+  return `${what}-${who}-${now.toISOString().slice(0, 19).replaceAll(':', '')}${extension}`
 }
 
 /**
@@ -85,8 +93,14 @@ export function chosenText(input: HTMLInputElement): Promise<string | null> {
  * @param open asks the backend to open a file with the host's dialog
  * @param onText takes the text of the file chosen in the browser
  * @param input the screen's file input, if it has one
+ * @param accept what the input made for the moment takes (JSON unless said)
  */
-export function openFile(open: () => Promise<void>, onText: (text: string) => void, input?: HTMLInputElement | null): void {
+export function openFile(
+  open: () => Promise<void>,
+  onText: (text: string) => void,
+  input?: HTMLInputElement | null,
+  accept = JSON_ACCEPT,
+): void {
   if (hasHost()) {
     void open()
   } else if (input) {
@@ -96,7 +110,7 @@ export function openFile(open: () => Promise<void>, onText: (text: string) => vo
     // chosen or the dialog is cancelled.
     const made = document.createElement('input')
     made.type = 'file'
-    made.accept = '.json,application/json'
+    made.accept = accept
     made.hidden = true
     made.addEventListener('cancel', () => made.remove())
     made.addEventListener('change', async () => {

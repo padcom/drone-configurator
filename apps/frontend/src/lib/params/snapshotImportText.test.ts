@@ -1,11 +1,11 @@
 import { expect, it } from 'vitest'
-import { type Progress, canApply, panelShown, resultOf, statusOf, stoppedEarly } from './snapshotImport'
+import { type Progress, canApply, panelShown, resultOf, sourceWords, statusOf, stoppedEarly } from './snapshotImport'
 import { translate } from '@/testing/testing'
 import { VEHICLE } from '@/mock/fixtures'
 
 const connected = { state: 'connected' as const, vehicle: { ...VEHICLE } }
 
-const change = { id: 'A', from: 1, to: 2, problem: null }
+const change = { id: 'A', from: 1, to: 2, problem: null, warning: null }
 
 /**
  * The result of the row of `change`, with some changes applied.
@@ -57,8 +57,7 @@ it('says applying stopped early only when the last change did not verify and not
 })
 
 it('shows the panel for a snapshot under review or a failed load', () => {
-  const snapshot = { format: 'x', version: 1, savedAt: '', params: [] }
-  const review = { snapshot, changes: [], unchanged: 0, vehicleWarning: null }
+  const review = { source: { kind: 'snapshot', savedAt: '' }, changes: [], unchanged: 0, vehicleWarning: null, notes: [] }
 
   expect(panelShown(null, null)).toBe(false)
   expect(panelShown(review as never, null)).toBe(true)
@@ -70,4 +69,28 @@ it('enables the write only with something ticked, idle, and connected', () => {
   expect(canApply({ picked: [], applying: false, connection: connected })).toBe(false)
   expect(canApply({ picked: ['A'], applying: true, connection: connected })).toBe(false)
   expect(canApply({ picked: ['A'], applying: false, connection: { state: 'lost' } })).toBe(false)
+})
+
+it('does not enable the write while the vehicle is armed or may be, and says so', () => {
+  expect(canApply({ picked: ['A'], applying: false, connection: connected, armed: true })).toBe(false)
+  expect(canApply({ picked: ['A'], applying: false, connection: connected, armed: false })).toBe(true)
+  expect(statusOf({ picked: ['A'], applied: [], applying: false, armed: true }, translate))
+    .toEqual({ tone: 'warn', text: 'Nothing is written while the vehicle is armed, or may be. Disarm it first.' })
+})
+
+it('shows what the metadata finds unusual about a value that can be written, and nothing over a problem', () => {
+  const unusual = { ...change, warning: 'Outside the usual range 0–10' }
+
+  expect(resultOf(unusual, { applied: [], stopped: false, picked: false }, translate))
+    .toEqual({ tone: 'warn', text: 'Outside the usual range 0–10. Check it before you write it.' })
+  expect(resultOf({ ...unusual, problem: 'read-only' }, { applied: [], stopped: false, picked: false }, translate))
+    .toEqual({ tone: 'warn', text: 'read-only' })
+})
+
+it('heads a snapshot with when it was saved, and a parameter file with its format', () => {
+  expect(sourceWords({ kind: 'snapshot', savedAt: '2026-11-07' }, translate))
+    .toEqual({ heading: 'Snapshot from 2026-11-07', column: 'In the snapshot' })
+  expect(sourceWords({ kind: 'file', format: 'qgc' }, translate))
+    .toEqual({ heading: 'Parameter file: QGroundControl .params', column: 'In the file' })
+  expect(sourceWords({ kind: 'file', format: 'param' }, translate).heading).toBe('Parameter file: ArduPilot .param (NAME,VALUE)')
 })

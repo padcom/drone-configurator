@@ -30,10 +30,47 @@
       "udp": "Prüfe, ob das Fahrzeug oder der Simulator an diesen Host und Port sendet, und verbinde dann erneut.",
       "tcp": "Prüfe, ob das Fahrzeug auf dieser Adresse lauscht und ob nichts anderes sie belegt, und verbinde dann erneut.",
       "serial": "Prüfe das Kabel, ob kein anderes Programm den Port geöffnet hat, und die Baudrate, und verbinde dann erneut.",
-      "simulator": "Schließe den Dialog und versuche es noch einmal; wenn es weiter fehlschlägt, starte die Anwendung neu."
+      "simulator": "Schließe den Dialog und versuche es noch einmal; wenn es weiter fehlschlägt, starte die Anwendung neu.",
+      "udp-client": "Prüfen Sie, ob das Fahrzeug auf diesem Host und Port lauscht und keine Firewall seine Antworten blockiert, dann verbinden Sie erneut.",
+      "tcp-server": "Prüfen Sie, ob sich das Fahrzeug oder die Weiterleitung mit diesem Port verbindet und nichts anderes ihn nutzt, dann verbinden Sie erneut."
+    },
+    "role": {
+      "label": "Wer die Verbindung beginnt",
+      "udp": "Auf das Fahrzeug warten",
+      "udp-client": "An das Fahrzeug senden",
+      "tcp": "Mit dem Fahrzeug verbinden",
+      "tcp-server": "Das Fahrzeug verbinden lassen",
+      "note": {
+        "udp": "Das Fahrzeug oder der Simulator sendet an diesen Computer.",
+        "udp-client": "Dieser Computer sendet zuerst an das Fahrzeug und nimmt seine Antworten an: für ein Fahrzeug, einen Begleitrechner oder einen Router, der lauscht.",
+        "tcp": "Dieser Computer verbindet sich mit dem Fahrzeug, das auf dem Port lauscht.",
+        "tcp-server": "Dieser Computer lauscht auf dem Port, und das Fahrzeug oder eine Weiterleitung verbindet sich damit. Er wartet bis zu 30 Sekunden."
+      }
+    },
+    "everywhere": "Auf allen Netzwerkschnittstellen lauschen",
+    "loopback": "Nur Programme auf diesem Computer erreichen Port {port}.",
+    "exposed": "Andere Computer in Ihrem Netzwerk erreichen Port {port}. Wählen Sie das nur in einem Netzwerk, dem Sie vertrauen.",
+    "found": {
+      "label": "Fahrzeuge im Netzwerk",
+      "again": "Erneut suchen",
+      "looking": "Suche im Netzwerk…",
+      "none": "Im Netzwerk hat sich kein MAVLink-Dienst gemeldet. Prüfen Sie, ob das Fahrzeug in diesem Netzwerk ist, oder verbinden Sie sich über die Adresse.",
+      "failed": "Im Netzwerk konnte nicht gesucht werden: {error}. Prüfen Sie die Netzwerkverbindung, oder verbinden Sie sich über die Adresse.",
+      "count": "{count} Dienst gefunden. | {count} Dienste gefunden.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
+    "signing": {
+      "open": "Signierung: {state}. Seite der Signierung öffnen",
+      "signed": "Signiert",
+      "off": "Unsigniert",
+      "notSigned": "Nicht signiert"
+    },
     "link": {
       "open": "Verbindung {value}, {level}: Details anzeigen",
       "title": "Verbindungsqualität",
@@ -55,6 +92,10 @@
       "total": "Seit dem Verbinden",
       "totalValue": "{lost} von {sent} Paketen verloren",
       "window": "Gemessen über die letzten {seconds} s."
+    },
+    "bridge": {
+      "locked": "{port} gesperrt",
+      "open": "Eine serielle Brücke hält diesen Port des Fahrzeugs: anzeigen und beenden"
     },
     "rebooting": "Neustart…",
     "state": {
@@ -935,7 +976,30 @@
       "pathHelp": "Wo die Datei mit den Parameter-Metadaten liegt. Eine Datei, die Sie von Hand laden, wird hier gemerkt und beim Start wieder geladen, wenn der Schalter unten an ist.",
       "choose": "Datei wählen…",
       "autoload": "Parameter-Metadaten beim Start der Anwendung laden",
-      "autoloadHelp": "Ist er aus, wird beim Start nichts geladen; der Pfad oben bleibt erhalten."
+      "autoloadHelp": "Ist er aus, wird beim Start nichts geladen; der Pfad oben bleibt erhalten.",
+      "download": "Parameter-Metadaten für das verbundene Fahrzeug herunterladen",
+      "downloadHelp": "Vom Server von ArduPilot, passend zu Fahrzeugtyp und Firmware-Version, und auf diesem Computer für das nächste Mal gespeichert. Eine Datei, die Sie laden, wird stattdessen verwendet.",
+      "refresh": "Erneut herunterladen",
+      "status": {
+        "downloading": "Parameter-Metadaten werden heruntergeladen…",
+        "downloadingPart": "Parameter-Metadaten werden heruntergeladen: {received} von {total} MB…",
+        "file": "Eine von Ihnen geladene Datei wird verwendet. Solange das so ist, wird nichts heruntergeladen.",
+        "none": "Noch nichts heruntergeladen. Das geschieht, sobald ein Fahrzeug verbunden ist.",
+        "failed": "Nicht heruntergeladen: {error}. Parameter werden ohne Beschreibungen angezeigt.",
+        "exact": "Metadaten für {vehicle} {version} von ArduPilot, heruntergeladen am {date}.",
+        "latest": "Neueste Metadaten für {vehicle} von ArduPilot, heruntergeladen am {date}: Das Fahrzeug hat keine veröffentlichte Firmware-Version gemeldet.",
+        "latestFor": "Neueste Metadaten für {vehicle} von ArduPilot, heruntergeladen am {date}: ArduPilot hat keine für {version}.",
+        "fromCache": "In {seconds} s von diesem Computer geladen.",
+        "stale": "Der Server von ArduPilot war nicht erreichbar, daher sind sie womöglich veraltet."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Schließen",
     "title": "Einstellungen",
@@ -1049,7 +1113,8 @@
       "simulator": "Simulator",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Seriell"
+      "serial": "Seriell",
+      "found": "Gefunden"
     },
     "host": "Host",
     "port": "Port",
@@ -1176,7 +1241,8 @@
         "ftp": "Parameter: {count} · per Dateiübertragung in {seconds} s",
         "list": "Parameter: {count} · per Liste in {seconds} s",
         "listBecause": "Parameter: {count} · per Liste in {seconds} s (Dateiübertragung wird nicht genutzt: {reason})",
-        "resumed": "Parameter: {count} · nach der Wiederverbindung fortgesetzt: {reused} behalten, {read} neu gelesen in {seconds} s"
+        "resumed": "Parameter: {count} · nach der Wiederverbindung fortgesetzt: {reused} behalten, {read} neu gelesen in {seconds} s",
+        "cached": "Parameter: {count} · aus dem letzten Download dieses Fahrzeugs, {time}. Die aktuellen Werte werden geladen…"
       },
       "fallback": {
         "unsupported": "das Fahrzeug bietet sie nicht an",
@@ -1250,15 +1316,65 @@
     "load": "Snapshot laden",
     "loadMetadata": "Metadaten laden"
   },
+  "paramFile": {
+    "format": {
+      "param": "ArduPilot .param (NAME,WERT)",
+      "parm": "MAVProxy .parm (NAME WERT)",
+      "qgc": "QGroundControl .params"
+    }
+  },
+  "compare": {
+    "file": "Mit Datei vergleichen",
+    "defaults": "Mit Standardwerten vergleichen",
+    "region": "Vergleich",
+    "title": "Vergleichen",
+    "heading": "Verglichen mit: {source}",
+    "loading": "Die Standardwerte der Firmware werden vom Fahrzeug gelesen…",
+    "defaultsUnsupported": "Dieses Fahrzeug kann seine Standardwerte nicht senden: Es hat kein MAVLink-FTP. Vergleiche stattdessen mit einer Parameterdatei.",
+    "defaultsFailed": "Die Standardwerte konnten nicht gelesen werden: {error}",
+    "close": "Schließen",
+    "onlyDifferences": "Nur Unterschiede",
+    "group": "Gruppe",
+    "allGroups": "Alle Gruppen",
+    "search": "Suche",
+    "table": "Verglichene Parameter",
+    "help": "Die Pfeiltasten wechseln zwischen den Zellen. Die Leertaste hakt eine Zeile ab, um ihren Wert zu übernehmen.",
+    "copy": "{id} übernehmen",
+    "column": {
+      "copy": "Übernehmen",
+      "status": "Vergleich"
+    },
+    "status": {
+      "same": "Gleich",
+      "differs": "Anders",
+      "vehicleOnly": "Nur am Fahrzeug"
+    },
+    "summary": "Anders: {differ}; nur am Fahrzeug: {vehicleOnly}; nicht am Fahrzeug: {otherOnly}; gleich: {same}.",
+    "picked": "Zu übernehmen: {count}. Nichts wird geschrieben, bevor du prüfst und bestätigst.",
+    "pickSome": "Hake die Werte an, die du übernehmen willst.",
+    "review": "Angehakte prüfen: {count}"
+  },
   "import": {
+    "fromDefaults": "Standardwerte der Firmware",
     "from": "Snapshot vom {savedAt}",
+    "fromFile": "Parameterdatei: {format}",
+    "notes": "Zur Datei",
+    "unusual": "{warning}. Prüfe den Wert, bevor du ihn schreibst.",
+    "armed": "Nichts wird geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Zuerst entschärfen.",
+    "note": {
+      "duplicate": "{id} steht in den Zeilen {lines}: der Wert aus Zeile {last} gilt.",
+      "malformed": "Zeile {line} ist kein Parameter und wird ausgelassen: {text}",
+      "moreMalformed": "{count} weitere Zeile ist kein Parameter. | {count} weitere Zeilen sind keine Parameter."
+    },
     "itWas": "Es war {warning}.",
     "summary": "Abweichend: {differ}; schon gleich: {same}. Hake die zu schreibenden an.",
     "noValue": "—",
     "column": {
+      "defaults": "Standard",
       "apply": "Anwenden",
       "vehicle": "Am Fahrzeug",
       "snapshot": "Im Snapshot",
+      "file": "In der Datei",
       "result": "Ergebnis"
     },
     "verified": "✓ Geschrieben und zurückgelesen: {detail}",
@@ -1368,17 +1484,20 @@
   },
   "reason": {
     "notJson": "kein JSON",
-    "xml": "eine XML-Datei: gelesen wird nur JSON (ArduPilots apm.pdef.json oder unser eigenes Format)",
+    "xml": "eine XML-Datei, die nicht ArduPilots apm.pdef.xml ist",
     "notMetadata": "keine Parameter-Metadaten-Datei: erwartet wird ArduPilots apm.pdef.json oder unser eigenes Format",
     "metadataVersion": "Metadatenversion {version} (diese App liest Version 1)",
     "noParameters": "sie beschreibt keine Parameter",
     "noParams": "sie hat keine Parameter",
     "snapshotVersion": "Snapshot-Version {version} (diese App liest Version {supported})",
     "malformed": "ihre Parameter sind fehlerhaft aufgebaut",
+    "noParamLines": "keine Parameterzeilen darin (NAME,WERT oder NAME WERT, einer pro Zeile)",
     "notSnapshot": "kein Drone-Configurator-Parameter-Snapshot"
   },
   "problem": {
     "notOnVehicle": "nicht an diesem Fahrzeug",
+    "readOnly": "schreibgeschützt: das Fahrzeug setzt ihn selbst",
+    "otherComponent": "in der Datei für Komponente {file}; der Autopilot ist Komponente {vehicle}",
     "otherType": "{snapshot} im Snapshot, {vehicle} am Fahrzeug",
     "otherVehicle": "gespeichert von einem {was} ({wasAutopilot}); dies ist ein {now} ({nowAutopilot})",
     "notConfirmed": "das Fahrzeug meldet {reported}, nicht {written}"
@@ -1387,6 +1506,9 @@
     "metadataLoad": "Die Metadaten können nicht geladen werden: {reason}.",
     "metadataLoadFrom": "Die Metadaten aus {path} können nicht geladen werden: {reason}.",
     "metadataReadFrom": "Die Metadaten aus {path} können nicht geladen werden: {error}",
+    "metadataLatest": "Das Fahrzeug hat keine veröffentlichte Firmware-Version gemeldet, daher werden die neuesten Metadaten für {vehicle} von ArduPilot verwendet. Einige Parameter können abweichen.",
+    "metadataLatestFor": "ArduPilot hat keine Metadaten für {vehicle} {version}, daher werden die neuesten verwendet. Einige Parameter können abweichen.",
+    "metadataRefresh": "Die Metadaten können nicht erneut heruntergeladen werden: {error}. Die verwendeten Metadaten bleiben erhalten.",
     "metadataPathNotKept": "Der Pfad von {path} wurde nicht gemerkt: beim Start der Anwendung wird nur eine .json-Datei geladen.",
     "open": "Konnte nicht geöffnet werden: {error}",
     "settingsUnavailable": "Die Einstellungen sind nicht verfügbar: {error}",
@@ -1447,6 +1569,15 @@
     }
   },
   "palette": {
+    "compare": {
+      "file": {
+        "label": "Parameter mit einer Datei oder Momentaufnahme vergleichen…"
+      },
+      "defaults": {
+        "label": "Parameter mit den Standardwerten der Firmware vergleichen"
+      },
+      "keywords": "vergleichen unterschied standard standardwerte datei momentaufnahme übernehmen"
+    },
     "logs": {
       "openFile": {
         "label": "Logdatei öffnen…",
@@ -1496,8 +1627,10 @@
         "failsafes": "Zu Einrichtung wechseln: Failsafes",
         "battery": "Zu Einrichtung wechseln: Akku",
         "initial": "Zu Einrichtung wechseln: Erstabstimmung",
+        "signing": "Zu Einrichtung wechseln: Signierung",
         "serial": "Zu Einrichtung wechseln: Serielle Ports",
         "devices": "Zu Einrichtung wechseln: Geräte",
+        "bridge": "Zu Einrichtung wechseln: Serielle Brücke",
         "info": "Zu Einrichtung wechseln: Fahrzeuginformationen"
       },
       "tune": {
@@ -1527,14 +1660,20 @@
         "keywords": "lesen aktualisieren neu laden abrufen liste"
       }
     },
+    "paramFile": {
+      "param": "Parameter als ArduPilot-.param-Datei speichern …",
+      "parm": "Parameter als MAVProxy-.parm-Datei speichern …",
+      "qgc": "Parameter als QGroundControl-.params-Datei speichern …",
+      "keywords": "exportieren datei schreiben param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Parameter-Snapshot speichern …",
         "keywords": "exportieren sicherung datei schreiben"
       },
       "load": {
-        "label": "Parameter-Snapshot laden …",
-        "keywords": "importieren wiederherstellen datei öffnen"
+        "label": "Parameter-Snapshot oder -Datei laden …",
+        "keywords": "importieren wiederherstellen datei öffnen param parm params"
       }
     },
     "reason": {
@@ -1633,6 +1772,63 @@
     }
   },
   "setup": {
+    "signing": {
+      "summary": "Die Signierung verhindert, dass jemand ohne den Schlüssel diesem Fahrzeug über Funk Befehle sendet.",
+      "fingerprint": "Fingerabdruck des Schlüssels",
+      "setAt": "Gesetzt am",
+      "newHeading": "Schlüssel setzen",
+      "changeHeading": "Neuen Schlüssel setzen",
+      "source": "Herkunft des Schlüssels",
+      "random": "Zufälliger Schlüssel",
+      "fromPassphrase": "Aus einer Passphrase",
+      "randomHint": "Dieser Computer erzeugt einen zufälligen Schlüssel und bewahrt ihn auf. Eine andere Bodenstation kann ihn nicht erhalten.",
+      "passphrase": "Passphrase",
+      "loss": "Verliert dieser Computer den Schlüssel, kann keine Bodenstation das Fahrzeug über Funk steuern, bis seine Signierung über USB zurückgesetzt wird.",
+      "turnOn": "Signierung einschalten",
+      "replace": "Neuen Schlüssel setzen",
+      "turnOff": "Signierung ausschalten",
+      "confirmTitle": "Signierung des Fahrzeugs",
+      "confirmRandom": "Ein zufälliger Schlüssel wird erzeugt, auf diesem Computer aufbewahrt und an das Fahrzeug gesendet.",
+      "confirmPassphrase": "Der Schlüssel aus der Passphrase wird auf diesem Computer aufbewahrt und an das Fahrzeug gesendet.",
+      "confirmOn": "Schlüssel senden",
+      "confirmOffWhat": "Die Signierung wird am Fahrzeug ausgeschaltet und sein Schlüssel von diesem Computer entfernt. Danach kann jede Bodenstation es steuern.",
+      "confirmOff": "Signierung ausschalten",
+      "state": {
+        "off": "Signierung ist aus",
+        "signed": "Signierung ist an",
+        "noAnswer": "Das Fahrzeug signiert nicht mit dem Schlüssel dieses Computers",
+        "unknownKey": "Das Fahrzeug signiert mit einem Schlüssel, den dieser Computer nicht hat"
+      },
+      "note": {
+        "off": "Jede Bodenstation kann dieses Fahrzeug steuern.",
+        "signed": "Dieser Computer und das Fahrzeug teilen einen Schlüssel. Andere Bodenstationen brauchen ihn auch.",
+        "noAnswer": "Der Schlüssel ist vielleicht falsch, oder die Signierung des Fahrzeugs wurde zurückgesetzt. Die Verbindung ist nicht signiert, und über Funk ignoriert das Fahrzeug Befehle. Setzen Sie über USB einen neuen Schlüssel oder schalten Sie die Signierung aus.",
+        "unknownKey": "Eine andere Bodenstation hat ihn gesetzt. Über Funk ignoriert das Fahrzeug die Befehle dieses Computers. Verbinden Sie sich über USB, um einen neuen Schlüssel zu setzen oder die Signierung auszuschalten."
+      },
+      "phraseHint": {
+        "ok": "Andere Bodenstationen erzeugen aus derselben Passphrase denselben Schlüssel.",
+        "empty": "Geben Sie eine Passphrase ein.",
+        "long": "Eine Passphrase hat höchstens 256 Zeichen."
+      },
+      "blocked": {
+        "offline": "Verbinden Sie ein Fahrzeug, um die Signierung einzurichten.",
+        "unknown": "Der Zustand des Fahrzeugs ist nicht bekannt. Die Signierung wird nur an einem Fahrzeug geändert, das bekanntermaßen entschärft ist.",
+        "armed": "Das Fahrzeug ist scharf. Die Signierung wird nur am Boden und entschärft geändert.",
+        "busy": "Eine Änderung der Signierung läuft."
+      },
+      "error": {
+        "NOT_CONNECTED": "Kein Fahrzeug ist verbunden.",
+        "ARMED": "Das Fahrzeug ist scharf. Entschärfen Sie es und versuchen Sie es erneut.",
+        "STATE_UNKNOWN": "Der Zustand des Fahrzeugs ist nicht bekannt. Warten Sie auf seinen Heartbeat und versuchen Sie es erneut.",
+        "BUSY": "Etwas anderes läuft: Parameter, ein Plan, Logs, eine Kalibrierung, ein Motortest oder ein Neustart. Versuchen Sie es danach erneut.",
+        "NO_VEHICLE_ID": "Das Fahrzeug ist noch nicht erkannt. Versuchen Sie es gleich erneut.",
+        "INVALID_VALUE": "Eine Passphrase hat 1 bis 256 Zeichen.",
+        "NOT_SAVED": "Der Schlüssel konnte auf diesem Computer nicht gespeichert werden, daher wurde nichts an das Fahrzeug gesendet. Prüfen Sie den Datenordner der App.",
+        "NOT_CONFIRMED": "Das Fahrzeug hat nicht bestätigt. Prüfen Sie, ob seine Firmware Signierung unterstützt, und versuchen Sie es erneut. Über Funk nimmt ein signierendes Fahrzeug dies nur mit seinem eigenen Schlüssel an: Verwenden Sie USB.",
+        "ABORTED": "Die Verbindung brach ab, bevor das Fahrzeug bestätigte. Der Schlüssel wird aufbewahrt, falls das Fahrzeug ihn übernommen hat.",
+        "other": "Die Signierung konnte nicht geändert werden. Versuchen Sie es erneut."
+      }
+    },
     "initial": {
       "summary": "Startwerte, die Mission Planners Initial Parameter Setup für einen Multikopter aus der Größe der Propeller sowie der Art und den Zellen des Akkus berechnet. Es sind Vorschläge: Wählen Sie sie aus, sehen Sie sich die Liste an der Seite an und schreiben Sie sie.",
       "size": "Propellergröße (Zoll)",
@@ -1662,6 +1858,7 @@
     },
     "sections": "Setup-Seiten",
     "section": {
+      "signing": "Signierung",
       "home": "Übersicht",
       "frame": "Rahmen und Ausrichtung",
       "accel": "Beschleunigungssensor",
@@ -1675,6 +1872,7 @@
       "initial": "Erstabstimmung",
       "serial": "Serielle Ports",
       "devices": "Geräte",
+      "bridge": "Serielle Brücke",
       "info": "Fahrzeuginformationen"
     },
     "group": {
@@ -2010,6 +2208,55 @@
       "motor": "Motor {number} bei {angle} Grad, dreht {spin}",
       "cw": "im Uhrzeigersinn",
       "ccw": "gegen den Uhrzeigersinn"
+    },
+    "bridge": {
+      "summary": "Erreiche ein Gerät hinter dem Autopiloten, etwa ein GPS oder ein Funkmodul, aus einem anderen Programm auf diesem Computer. Das Programm verbindet sich mit einem lokalen TCP-Port, und der Port des Fahrzeugs ist für die Brücke gesperrt, bis du sie beendest.",
+      "port": "Port des Fahrzeugs",
+      "name": {
+        "gps": "GPS {n}",
+        "telem": "Telemetrie {n}",
+        "serial": "Seriell {n}"
+      },
+      "baud": "Geschwindigkeit",
+      "baudUnchanged": "Unverändert",
+      "baudValue": "{baud} Baud",
+      "localPort": "Lokaler TCP-Port",
+      "portHelp": "Programme auf diesem Computer verbinden sich mit 127.0.0.1 an diesem Port. Leer lassen für einen beliebigen freien Port.",
+      "portInvalid": "Der Port ist eine ganze Zahl von 1 bis 65535, oder leer für einen beliebigen freien Port.",
+      "start": "Brücke starten",
+      "stop": "Beenden und Port freigeben",
+      "locked": "{port} ist für die Brücke gesperrt, bis du sie beendest. Programme verbinden sich mit {address}.",
+      "releasing": "{port} wird an das Fahrzeug zurückgegeben…",
+      "fact": {
+        "program": "Programm",
+        "toVehicle": "Bytes zum Fahrzeug",
+        "fromVehicle": "Bytes vom Fahrzeug",
+        "dropped": "Bytes ohne Programm, das sie annimmt",
+        "refused": "Abgewiesene Programme"
+      },
+      "connected": "Verbunden von {address}",
+      "waiting": "Noch keins. Es kann sich jeweils ein Programm verbinden.",
+      "armed": "Das Fahrzeug ist scharf geschaltet: Ein Port wird nur am Boden übernommen.",
+      "unknown": "Der Zustand des Fahrzeugs ist unbekannt: Ein Port wird nur von einem Fahrzeug übernommen, das sicher entschärft ist.",
+      "released": "{port} gehört wieder dem Fahrzeug.",
+      "releaseFailed": "{port} ist womöglich noch gesperrt: Das Fahrzeug hat die Freigabe nicht erhalten. Sie wird erneut gesendet, sobald die Verbindung zurück ist, und ein Neustart des Fahrzeugs gibt den Port ebenfalls frei.",
+      "refused": {
+        "ARMED": "Nicht gestartet: Das Fahrzeug ist scharf geschaltet. Entschärfe es zuerst.",
+        "STATE_UNKNOWN": "Nicht gestartet: Der Zustand des Fahrzeugs ist unbekannt. Warte auf seinen Heartbeat.",
+        "NOT_CONNECTED": "Nicht gestartet: Kein Fahrzeug ist verbunden.",
+        "BUSY": "Nicht gestartet: Eine Brücke läuft bereits.",
+        "PORT_UNAVAILABLE": "Nicht gestartet: Der lokale Port ist belegt oder nicht erlaubt. Wähle einen anderen.",
+        "INVALID_VALUE": "Nicht gestartet: Die Geschwindigkeit ist zu hoch.",
+        "other": "Nicht gestartet: Die Brücke wurde abgelehnt."
+      },
+      "ended": {
+        "STOPPED": "Die Brücke wurde beendet.",
+        "DISCONNECTED": "Die Brücke endete mit der Verbindung.",
+        "LINK_LOST": "Die Verbindung ging verloren, daher endete die Brücke.",
+        "ARMED": "Das Fahrzeug wurde scharf geschaltet, daher endete die Brücke.",
+        "LISTEN_FAILED": "Der lokale Port ist ausgefallen, daher endete die Brücke.",
+        "other": "Die Brücke endete."
+      }
     },
     "serial": {
       "summary": "Wofür jeder serielle Port des Boards genutzt wird und wie schnell er spricht.",

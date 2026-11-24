@@ -17,9 +17,9 @@
     },
     "initialJs": {
       "unit": "KiB",
-      "budget": 1850,
+      "budget": 800,
       "noise": 1,
-      "what": "The JavaScript the page loads before anything else: index.html's module script and its modulepreloads, uncompressed (the app reads them from disk, so the size is parse time)",
+      "what": "The JavaScript the page loads before anything else: index.html's module script and its modulepreloads, uncompressed (the app reads them from disk, so the size is parse time). English only: another language is a chunk loaded when it is chosen (661 KiB when that was made, from 1815 with every language up front)",
       "measuredBy": "e2e/budgets.e2e.ts"
     },
     "longTask": {
@@ -70,6 +70,20 @@
       "noise": 1.5,
       "what": "From the key that connects to the last vehicle again (Ctrl+L) to the top bar saying connected, against ArduPilot SITL, its parameters already downloaded once (#27)",
       "measuredBy": "e2e/sitl-one-key.e2e.ts"
+    },
+    "paramDownloadFtp": {
+      "unit": "ms",
+      "budget": 2000,
+      "noise": 1.5,
+      "what": "A full download of a Copter's parameters by the vehicle's parameter file (MAVLink FTP), against ArduPilot SITL over TCP: from asking the backend to the list in the page. The parameter protocol's time is measured in the same run and printed beside it (#38)",
+      "measuredBy": "e2e/sitl-param-speed.e2e.ts"
+    },
+    "metadataCachedLoad": {
+      "unit": "ms",
+      "budget": 200,
+      "noise": 2,
+      "what": "A cached load of the connected vehicle's parameter metadata (#35): from asking the backend to the metadata in use, the file (the size of ArduPilot's Copter file) read from this computer's cache and parsed, as the line in Settings says it",
+      "measuredBy": "e2e/metadata-download.e2e.ts"
     }
   }
 }

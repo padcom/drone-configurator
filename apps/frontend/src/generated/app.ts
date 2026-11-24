@@ -54,10 +54,10 @@ const run = (test: Check, value: unknown): string | null => {
 }
 
 
-export type ConnectRequest = { "transport": "simulator" | "udp" | "tcp" | "serial", "host"?: string, "port"?: number, "device"?: string, "baud"?: number }
+export type ConnectRequest = { "transport": "simulator" | "udp" | "udp-client" | "tcp" | "tcp-server" | "serial", "host"?: string, "port"?: number, "device"?: string, "baud"?: number }
 
 function validateConnectRequestInto(value: any, path: string): boolean {
-  return map(value, path, ["transport","host","port","device","baud"]) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["simulator","udp","tcp","serial"]))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["baud"] === undefined || nested(value["baud"], `${path}.baud`, (value, path) => uint(value, path, 0xffffffff)))
+  return map(value, path, ["transport","host","port","device","baud"]) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["simulator","udp","udp-client","tcp","tcp-server","serial"]))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["baud"] === undefined || nested(value["baud"], `${path}.baud`, (value, path) => uint(value, path, 0xffffffff)))
 }
 
 /** The first problem with `value` as a connect-request, or null. */
@@ -107,6 +107,33 @@ function validateParamListInto(value: any, path: string): boolean {
 
 /** The first problem with `value` as a param-list, or null. */
 export const validateParamList = (value: unknown) => run(validateParamListInto, value)
+
+export type SavedParams = { "params": (Param)[], "count": number, "savedAt": number | bigint, "source": "ftp" | "list" }
+
+function validateSavedParamsInto(value: any, path: string): boolean {
+  return map(value, path, ["params","count","savedAt","source"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["savedAt"] === undefined ? fail(`${path}.savedAt`, 'present') : nested(value["savedAt"], `${path}.savedAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","list"])))
+}
+
+/** The first problem with `value` as a saved-params, or null. */
+export const validateSavedParams = (value: unknown) => run(validateSavedParamsInto, value)
+
+export type ParamDefault = { "id": string, "value": number }
+
+function validateParamDefaultInto(value: any, path: string): boolean {
+  return map(value, path, ["id","value"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["value"] === undefined ? fail(`${path}.value`, 'present') : nested(value["value"], `${path}.value`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a param-default, or null. */
+export const validateParamDefault = (value: unknown) => run(validateParamDefaultInto, value)
+
+export type ParamDefaults = { "defaults": (ParamDefault)[], "elapsedMs": number }
+
+function validateParamDefaultsInto(value: any, path: string): boolean {
+  return map(value, path, ["defaults","elapsedMs"]) && (value["defaults"] === undefined ? fail(`${path}.defaults`, 'present') : nested(value["defaults"], `${path}.defaults`, (value, path) => list(value, path, (value, path) => validateParamDefaultInto(value, path)))) && (value["elapsedMs"] === undefined ? fail(`${path}.elapsedMs`, 'present') : nested(value["elapsedMs"], `${path}.elapsedMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a param-defaults, or null. */
+export const validateParamDefaults = (value: unknown) => run(validateParamDefaultsInto, value)
 
 export type ParamsProgress = { "received": number, "total": number, "source": "ftp" | "list" }
 
@@ -1044,6 +1071,24 @@ function validateFileContentsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a file-contents, or null. */
 export const validateFileContents = (value: unknown) => run(validateFileContentsInto, value)
 
+export type DiscoveredServices = { "services": (DiscoveredService)[], "error"?: string }
+
+function validateDiscoveredServicesInto(value: any, path: string): boolean {
+  return map(value, path, ["services","error"]) && (value["services"] === undefined ? fail(`${path}.services`, 'present') : nested(value["services"], `${path}.services`, (value, path) => list(value, path, (value, path) => validateDiscoveredServiceInto(value, path)))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a discovered-services, or null. */
+export const validateDiscoveredServices = (value: unknown) => run(validateDiscoveredServicesInto, value)
+
+export type DiscoveredService = { "name": string, "transport": "udp-client" | "tcp", "host": string, "port": number }
+
+function validateDiscoveredServiceInto(value: any, path: string): boolean {
+  return map(value, path, ["name","transport","host","port"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["udp-client","tcp"]))) && (value["host"] === undefined ? fail(`${path}.host`, 'present') : nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined ? fail(`${path}.port`, 'present') : nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a discovered-service, or null. */
+export const validateDiscoveredService = (value: unknown) => run(validateDiscoveredServiceInto, value)
+
 export type SerialPorts = { "ports": (SerialPort)[] }
 
 function validateSerialPortsInto(value: any, path: string): boolean {
@@ -1061,6 +1106,33 @@ function validateSerialPortInto(value: any, path: string): boolean {
 
 /** The first problem with `value` as a serial-port, or null. */
 export const validateSerialPort = (value: unknown) => run(validateSerialPortInto, value)
+
+export type SerialBridgeDevice = "TELEM1" | "TELEM2" | "GPS1" | "GPS2" | "SERIAL0" | "SERIAL1" | "SERIAL2" | "SERIAL3" | "SERIAL4" | "SERIAL5" | "SERIAL6" | "SERIAL7" | "SERIAL8" | "SERIAL9"
+
+function validateSerialBridgeDeviceInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["TELEM1","TELEM2","GPS1","GPS2","SERIAL0","SERIAL1","SERIAL2","SERIAL3","SERIAL4","SERIAL5","SERIAL6","SERIAL7","SERIAL8","SERIAL9"])
+}
+
+/** The first problem with `value` as a serial-bridge-device, or null. */
+export const validateSerialBridgeDevice = (value: unknown) => run(validateSerialBridgeDeviceInto, value)
+
+export type SerialBridgeStart = { "device": SerialBridgeDevice, "baudrate"?: number, "port"?: number, "address"?: string }
+
+function validateSerialBridgeStartInto(value: any, path: string): boolean {
+  return map(value, path, ["device","baudrate","port","address"]) && (value["device"] === undefined ? fail(`${path}.device`, 'present') : nested(value["device"], `${path}.device`, (value, path) => validateSerialBridgeDeviceInto(value, path))) && (value["baudrate"] === undefined || nested(value["baudrate"], `${path}.baudrate`, (value, path) => uint(value, path, 0xffffffff))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["address"] === undefined || nested(value["address"], `${path}.address`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a serial-bridge-start, or null. */
+export const validateSerialBridgeStart = (value: unknown) => run(validateSerialBridgeStartInto, value)
+
+export type SerialBridgeState = { "state": "off" | "running" | "releasing", "device"?: SerialBridgeDevice, "baudrate"?: number, "address"?: string, "port"?: number, "client": boolean, "clientAddress"?: string, "toVehicle": number, "fromVehicle": number, "dropped": number, "refused": number, "why"?: string, "releaseFailed"?: boolean, "error"?: string }
+
+function validateSerialBridgeStateInto(value: any, path: string): boolean {
+  return map(value, path, ["state","device","baudrate","address","port","client","clientAddress","toVehicle","fromVehicle","dropped","refused","why","releaseFailed","error"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["off","running","releasing"]))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => validateSerialBridgeDeviceInto(value, path))) && (value["baudrate"] === undefined || nested(value["baudrate"], `${path}.baudrate`, (value, path) => uint(value, path, 0xffffffff))) && (value["address"] === undefined || nested(value["address"], `${path}.address`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["client"] === undefined ? fail(`${path}.client`, 'present') : nested(value["client"], `${path}.client`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["clientAddress"] === undefined || nested(value["clientAddress"], `${path}.clientAddress`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["toVehicle"] === undefined ? fail(`${path}.toVehicle`, 'present') : nested(value["toVehicle"], `${path}.toVehicle`, (value, path) => uint(value, path, 0xffffffff))) && (value["fromVehicle"] === undefined ? fail(`${path}.fromVehicle`, 'present') : nested(value["fromVehicle"], `${path}.fromVehicle`, (value, path) => uint(value, path, 0xffffffff))) && (value["dropped"] === undefined ? fail(`${path}.dropped`, 'present') : nested(value["dropped"], `${path}.dropped`, (value, path) => uint(value, path, 0xffffffff))) && (value["refused"] === undefined ? fail(`${path}.refused`, 'present') : nested(value["refused"], `${path}.refused`, (value, path) => uint(value, path, 0xffffffff))) && (value["why"] === undefined || nested(value["why"], `${path}.why`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["releaseFailed"] === undefined || nested(value["releaseFailed"], `${path}.releaseFailed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a serial-bridge-state, or null. */
+export const validateSerialBridgeState = (value: unknown) => run(validateSerialBridgeStateInto, value)
 
 export type CalibrationKind = "accel" | "level" | "compass" | "radio"
 
@@ -1206,6 +1278,42 @@ function validateMotorTestStateInto(value: any, path: string): boolean {
 /** The first problem with `value` as a motor-test-state, or null. */
 export const validateMotorTestState = (value: unknown) => run(validateMotorTestStateInto, value)
 
+export type MetadataAsk = { "vehicle"?: MetadataVehicle, "version"?: string, "refresh"?: boolean }
+
+function validateMetadataAskInto(value: any, path: string): boolean {
+  return map(value, path, ["vehicle","version","refresh"]) && (value["vehicle"] === undefined || nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateMetadataVehicleInto(value, path))) && (value["version"] === undefined || nested(value["version"], `${path}.version`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["refresh"] === undefined || nested(value["refresh"], `${path}.refresh`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a metadata-ask, or null. */
+export const validateMetadataAsk = (value: unknown) => run(validateMetadataAskInto, value)
+
+export type MetadataVehicle = "copter" | "plane" | "rover" | "sub" | "tracker" | "blimp"
+
+function validateMetadataVehicleInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["copter","plane","rover","sub","tracker","blimp"])
+}
+
+/** The first problem with `value` as a metadata-vehicle, or null. */
+export const validateMetadataVehicle = (value: unknown) => run(validateMetadataVehicleInto, value)
+
+export type MetadataProgress = { "received": number, "total": number }
+
+function validateMetadataProgressInto(value: any, path: string): boolean {
+  return map(value, path, ["received","total"]) && (value["received"] === undefined ? fail(`${path}.received`, 'present') : nested(value["received"], `${path}.received`, (value, path) => uint(value, path, 0xffffffff))) && (value["total"] === undefined ? fail(`${path}.total`, 'present') : nested(value["total"], `${path}.total`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a metadata-progress, or null. */
+export const validateMetadataProgress = (value: unknown) => run(validateMetadataProgressInto, value)
+
+export type MetadataFile = { "vehicle": MetadataVehicle, "version"?: string, "exact": boolean, "format": "json" | "xml", "text": string, "fromCache": boolean, "stale": boolean, "fetchedAt": number | bigint }
+
+function validateMetadataFileInto(value: any, path: string): boolean {
+  return map(value, path, ["vehicle","version","exact","format","text","fromCache","stale","fetchedAt"]) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateMetadataVehicleInto(value, path))) && (value["version"] === undefined || nested(value["version"], `${path}.version`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["exact"] === undefined ? fail(`${path}.exact`, 'present') : nested(value["exact"], `${path}.exact`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["format"] === undefined ? fail(`${path}.format`, 'present') : nested(value["format"], `${path}.format`, (value, path) => oneOf(value, path, ["json","xml"]))) && (value["text"] === undefined ? fail(`${path}.text`, 'present') : nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["fromCache"] === undefined ? fail(`${path}.fromCache`, 'present') : nested(value["fromCache"], `${path}.fromCache`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["stale"] === undefined ? fail(`${path}.stale`, 'present') : nested(value["stale"], `${path}.stale`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["fetchedAt"] === undefined ? fail(`${path}.fetchedAt`, 'present') : nested(value["fetchedAt"], `${path}.fetchedAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a metadata-file, or null. */
+export const validateMetadataFile = (value: unknown) => run(validateMetadataFileInto, value)
+
 export type MapTileAsk = { "source"?: string, "z": number, "x": number, "y": number }
 
 function validateMapTileAskInto(value: any, path: string): boolean {
@@ -1314,6 +1422,24 @@ function validateLinkStatsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a link-stats, or null. */
 export const validateLinkStats = (value: unknown) => run(validateLinkStatsInto, value)
 
+export type SigningStatus = { "state": "off" | "signed" | "no-answer" | "unknown-key", "fingerprint"?: string, "setAt"?: number | bigint }
+
+function validateSigningStatusInto(value: any, path: string): boolean {
+  return map(value, path, ["state","fingerprint","setAt"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["off","signed","no-answer","unknown-key"]))) && (value["fingerprint"] === undefined || nested(value["fingerprint"], `${path}.fingerprint`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["setAt"] === undefined || nested(value["setAt"], `${path}.setAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a signing-status, or null. */
+export const validateSigningStatus = (value: unknown) => run(validateSigningStatusInto, value)
+
+export type SigningProvision = { "passphrase"?: string }
+
+function validateSigningProvisionInto(value: any, path: string): boolean {
+  return map(value, path, ["passphrase"]) && (value["passphrase"] === undefined || nested(value["passphrase"], `${path}.passphrase`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a signing-provision, or null. */
+export const validateSigningProvision = (value: unknown) => run(validateSigningProvisionInto, value)
+
 export type RecordingState = { "enabled": boolean, "folder": string, "limitMb": number, "key"?: string, "path"?: string, "bytes": number | bigint, "failure"?: RecordingFailure, "removed": number, "removedBytes": number | bigint }
 
 function validateRecordingStateInto(value: any, path: string): boolean {
@@ -1349,7 +1475,9 @@ export interface Services {
   "params.list": { kind: 'method', request: ParamListRequest, response: ParamList }
   "params.cancel": { kind: 'method', request: null, response: null }
   "params.progress": { kind: 'event', payload: ParamsProgress }
+  "params.cached": { kind: 'method', request: null, response: SavedParams }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
+  "params.defaults": { kind: 'method', request: null, response: ParamDefaults }
   "logs.vehicle.list": { kind: 'method', request: null, response: VehicleLogs }
   "logs.download": { kind: 'method', request: LogsDownload, response: LogsDownloaded }
   "logs.cancel": { kind: 'method', request: null, response: null }
@@ -1405,8 +1533,15 @@ export interface Services {
   "link.stats": { kind: 'subscription', params: null, value: LinkStats }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
+  "files.openParams": { kind: 'method', request: null, response: FileOpened }
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
+  "metadata.fetch": { kind: 'method', request: MetadataAsk, response: MetadataFile }
+  "metadata.progress": { kind: 'event', payload: MetadataProgress }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
+  "discovery.browse": { kind: 'method', request: null, response: DiscoveredServices }
+  "serial.bridge.start": { kind: 'method', request: SerialBridgeStart, response: SerialBridgeState }
+  "serial.bridge.stop": { kind: 'method', request: null, response: SerialBridgeState }
+  "serial.bridge.status": { kind: 'subscription', params: null, value: SerialBridgeState }
   "settings.get": { kind: 'method', request: null, response: SettingsState }
   "settings.set": { kind: 'method', request: SettingsPatch, response: SettingsState }
   "settings.changed": { kind: 'event', payload: SettingsState }
@@ -1420,6 +1555,9 @@ export interface Services {
   "recording.dismiss": { kind: 'method', request: null, response: RecordingState }
   "recording.changed": { kind: 'event', payload: RecordingState }
   "forward.status": { kind: 'subscription', params: null, value: ForwardStatus }
+  "signing.status": { kind: 'subscription', params: null, value: SigningStatus }
+  "signing.provision": { kind: 'method', request: SigningProvision, response: SigningStatus }
+  "signing.disable": { kind: 'method', request: null, response: SigningStatus }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -1446,9 +1584,17 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "params.progress": {
     payload: (value: any, path: string) => validateParamsProgressInto(value, path),
   },
+  "params.cached": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSavedParamsInto(value, path),
+  },
   "params.write": {
     request: (value: any, path: string) => validateParamWriteInto(value, path),
     response: (value: any, path: string) => validateParamWriteResultInto(value, path),
+  },
+  "params.defaults": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateParamDefaultsInto(value, path),
   },
   "logs.vehicle.list": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
@@ -1665,13 +1811,40 @@ const services: Record<string, Partial<Record<string, Check>>> = {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateFileOpenedInto(value, path),
   },
+  "files.openParams": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateFileOpenedInto(value, path),
+  },
   "files.read": {
     request: (value: any, path: string) => validateFileReadInto(value, path),
     response: (value: any, path: string) => validateFileContentsInto(value, path),
   },
+  "metadata.fetch": {
+    request: (value: any, path: string) => validateMetadataAskInto(value, path),
+    response: (value: any, path: string) => validateMetadataFileInto(value, path),
+  },
+  "metadata.progress": {
+    payload: (value: any, path: string) => validateMetadataProgressInto(value, path),
+  },
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateSerialPortsInto(value, path),
+  },
+  "discovery.browse": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateDiscoveredServicesInto(value, path),
+  },
+  "serial.bridge.start": {
+    request: (value: any, path: string) => validateSerialBridgeStartInto(value, path),
+    response: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
+  },
+  "serial.bridge.stop": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
+  },
+  "serial.bridge.status": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateSerialBridgeStateInto(value, path),
   },
   "settings.get": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
@@ -1720,6 +1893,18 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "forward.status": {
     params: (value: any, path: string) => value === null || fail(path, 'null'),
     value: (value: any, path: string) => validateForwardStatusInto(value, path),
+  },
+  "signing.status": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateSigningStatusInto(value, path),
+  },
+  "signing.provision": {
+    request: (value: any, path: string) => validateSigningProvisionInto(value, path),
+    response: (value: any, path: string) => validateSigningStatusInto(value, path),
+  },
+  "signing.disable": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSigningStatusInto(value, path),
   },
 }
 

@@ -11,8 +11,16 @@
 // active" a second and a half after the link is made, as a vehicle that is up does (the app waits for it before it calibrates).
 // With VEHICLE_50HZ=1 it sends its position, its radio's channels and its outputs 50 times a second, as a vehicle asked for fast
 // telemetry does, and stays disarmed (idle on the ground): the app must coalesce that for its page (#26).
-import { Conn, listen } from "std/net"
+// The transports of #197: with VEHICLE_UDP=1 it listens on a UDP port instead (`listening <port>`) and answers whoever sent to it
+// last, as a vehicle or a router that listens does (the app's "udp-client"); with VEHICLE_CONNECT_TO=<port> it connects to that
+// TCP port on 127.0.0.1 (the app's "tcp-server"), trying every 100 ms, says `connected to <port>` the first time, and connects
+// again whenever the connection ends.
+// Its serial ports are loopback plugs (SERIAL_CONTROL: what is written comes back); it prints `serial-take <device>` when SERIAL_CONTROL
+// takes a port and `serial-release <device>` when it hands one back (the serial bridge, #198). It has firmware defaults that
+// differ from its values for RTL_ALT and BATT_CAPACITY, served with its parameter file when they are asked for (#40).
+import { Datagram, UdpSocket, bind, connect, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
+import { delay } from "std/timers"
 import {
   ByteStream,
   CommandLong,
@@ -21,15 +29,37 @@ import {
   ParamSet,
   Received,
   SimParam,
+  SerialControl,
+  SerialControlFlag,
+  SETUP_SIGNING_ID,
+  SigningKey,
   SimulatedAutopilot,
   StatusText,
   TcpStream,
   TypedParamValue,
   defaultSimParams,
+  signingTimestamp,
   simulatedLog,
 } from "padcom/pico-mavlink"
 
 let muted = false
+
+/// The signing key the last vehicle held when its connection ended: the next one starts with it, as a vehicle keeps its key in its
+/// storage (each connection is a new simulated vehicle). It is never printed: what is printed is whether there is one.
+class KeptKey {
+  public key: SigningKey? = null
+}
+
+const keptKey = new KeptKey()
+
+/// Keeps the key `sim` holds for the next connection.
+function keepKey(sim: SimulatedAutopilot?): void {
+  if (sim == null) {
+    return
+  }
+  const policy = sim!.conn.signing
+  keptKey.key = if (policy == null) null else policy!.signingKey
+}
 
 /// A stream that says when its far end has gone, and writes nothing after that (a write to a connection the peer has closed is a panic
 /// of the runtime, and a simulator that sends at 25 Hz meets that in the moment between the peer's close and its own stop).
@@ -85,15 +115,80 @@ class EndWatchingStream implements ByteStream {
   }
 }
 
-function serve(conn: Conn): void {
+/// The firmware defaults it gives with its parameter file when asked (`@PARAM/param.pck?withdefaults=1`, the comparison with the
+/// defaults, #40) where they differ from its values: RTL_ALT 3000 (it has 1500) and BATT_CAPACITY 3300 (it has 5200). The others
+/// are at their defaults.
+function defaultOf(id: string): TypedParamValue? {
+  if (id == "RTL_ALT") {
+    return TypedParamValue.Int(3000, MavParamType.INT32)
+  }
+  if (id == "BATT_CAPACITY") {
+    return TypedParamValue.Int(3300, MavParamType.INT32)
+  }
+  return null
+}
+
+/// The parameters with their firmware defaults.
+function withDefaults(params: SimParam[]): SimParam[] {
+  return params.map((p) => SimParam { id: p.id, value: p.value, firmwareDefault: defaultOf(p.id) })
+}
+
+/// A UDP port as a byte stream that answers whoever sent to it last (std/net's UdpStream keeps the first sender), as MAVProxy's
+/// `udpin` does: a ground station that connects again from another port is answered there.
+class FollowingUdpStream implements ByteStream {
+  readonly socket: UdpSocket
+  peer: Datagram? = null
+
+  constructor(socket: UdpSocket) {
+    this.socket = socket
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    const d = await socket.receive()
+    if (d == null) {
+      return null
+    }
+    peer = d
+    return d!.data
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    const to = peer
+    if (to != null) {
+      await socket.send(bytes, to!.addr.port, to!.addr.hostname)
+    }
+  }
+
+  public close(): void {
+    socket.close()
+  }
+}
+
+/// Serves one vehicle over `inner` until it ends; the stream says when it has (`gone`).
+function serve(inner: ByteStream): EndWatchingStream {
   let sim: SimulatedAutopilot? = null
-  const stream = new EndWatchingStream(new TcpStream(conn), () => sim?.stop())
+  const stream = new EndWatchingStream(inner, () => {
+    keepKey(sim)
+    sim?.stop()
+  })
   muted = false
+  held.clear()
   const setup = env.get("VEHICLE_SETUP") == "1"
-  sim = new SimulatedAutopilot(stream, if (setup) setupParams() else defaultSimParams())
+  sim = new SimulatedAutopilot(stream, withDefaults(if (setup) setupParams() else defaultSimParams()))
+  // MAVLink signing (#33): the key of the last connection, and `signing on` or `signing off` to say which (never the key).
+  const key = keptKey.key
+  if (key != null) {
+    sim!.signing.setKey(key!, signingTimestamp(Date.now() as int))
+  }
+  stdout.writeText(if (key != null) "signing on\n" else "signing off\n")
   sim!.conn.on((r: Received) => {
     const m = r.message
-    if (m instanceof ParamSet) {
+    if (m instanceof SerialControl) {
+      heldSerial(m)
+    }
+    if (r.packet.header.msgid == SETUP_SIGNING_ID) {
+      stdout.writeText("setup-signing\n")
+    } else if (m instanceof ParamSet) {
       stdout.writeText("param-set\n")
     } else if (m instanceof CommandLong && m.command as int == MavCmd.DO_MOTOR_TEST) {
       // a test of a motor begins with a timeout above 0, and ends with one of 0
@@ -112,6 +207,10 @@ function serve(conn: Conn): void {
   if (env.get("VEHICLE_LOGS") == "1") {
     withLogs(sim!)
   }
+  // A vehicle that stays disarmed and has nothing else (a write from a parameter file's review is refused while armed).
+  if (env.get("VEHICLE_DISARMED") == "1") {
+    stayDisarmed(sim!)
+  }
   if (env.get("VEHICLE_50HZ") == "1") {
     stayDisarmed(sim!)
     sendsAt50Hz(sim!, stream)
@@ -124,6 +223,27 @@ function serve(conn: Conn): void {
     // The roll rate has a script (a square wave of 1 rad/s every 2 s, and a second-order response to it: 16 % overshoot): the Tune
     // screen's response chart has a step to measure. ATTITUDE_TARGET comes only when it is asked for with SET_MESSAGE_INTERVAL.
     sim!.rateScript = true
+  }
+  return stream
+}
+
+/// The ports SERIAL_CONTROL holds, as this program has seen the requests.
+const held: Map<int, bool> = new Map<int, bool>()
+
+/// Says when SERIAL_CONTROL takes a port, and when it hands it back.
+function heldSerial(m: SerialControl): void {
+  const flags = m.flags as int
+  const device = m.device as int
+  if ((flags & SerialControlFlag.REPLY) != 0) {
+    return
+  }
+  const was = held.get(device) ?? false
+  const takes = (flags & SerialControlFlag.EXCLUSIVE) != 0
+  held.set(device, takes)
+  if (takes && !was) {
+    stdout.writeText(`serial-take ${device}\n`)
+  } else if (!takes && was) {
+    stdout.writeText(`serial-release ${device}\n`)
   }
 }
 
@@ -261,10 +381,42 @@ async function muteOnInput(): Promise<void> throws Error {
   }
 }
 
+/// Connects to the app's TCP port, again whenever the connection ends (#197).
+async function connectTo(port: int): Promise<void> throws Error {
+  let announced = false
+  while (true) {
+    let conn: Conn? = null
+    try {
+      conn = await connect(port)
+    } catch (e: Error) {
+      await delay(100)
+      continue
+    }
+    // (announced before the vehicle is served: what serving prints, `signing off` say, comes after it)
+    if (!announced) {
+      announced = true
+      await stdout.writeText(`connected to ${port}\n`)
+    }
+    const stream: EndWatchingStream? = serve(new TcpStream(conn!))
+    while (!stream!.gone) {
+      await delay(100)
+    }
+  }
+}
+
 muteOnInput()
-const server = await listen()
-// Not println: it stays in a buffer when stdout is a pipe, and the test is waiting to read this.
-await stdout.writeText(`listening ${server.addr.port}\n`)
-for await (const conn of server) {
-  serve(conn)
+const connectPort = env.get("VEHICLE_CONNECT_TO")
+if (connectPort != null) {
+  await connectTo(parseInt(connectPort!))
+} else if (env.get("VEHICLE_UDP") == "1") {
+  const socket = await bind(0)
+  await stdout.writeText(`listening ${socket.addr.port}\n`)
+  const _udp = serve(new FollowingUdpStream(socket))
+} else {
+  const server = await listen()
+  // Not println: it stays in a buffer when stdout is a pipe, and the test is waiting to read this.
+  await stdout.writeText(`listening ${server.addr.port}\n`)
+  for await (const conn of server) {
+    const _tcp = serve(new TcpStream(conn))
+  }
 }

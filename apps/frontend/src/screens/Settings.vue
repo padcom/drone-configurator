@@ -35,6 +35,18 @@
       </Toggle>
       <p :id="`${uid}-metadata-auto-help`" class="muted">{{ t('settings.metadata.autoloadHelp') }}</p>
     </div>
+    <div class="settings-row">
+      <Toggle id="metadata-download" v-model="metadataDownload" :aria-describedby="`${uid}-metadata-download-help`">
+        {{ t('settings.metadata.download') }}
+      </Toggle>
+      <p :id="`${uid}-metadata-download-help`" class="muted">{{ t('settings.metadata.downloadHelp') }}</p>
+    </div>
+    <div class="settings-row">
+      <p id="metadata-download-status" class="muted" aria-live="polite">{{ metadataSetting.status.value }}</p>
+      <Button id="metadata-refresh" :disabled="!metadataSetting.canRefresh.value" @click="metadataSetting.refresh()">
+        {{ t('settings.metadata.refresh') }}
+      </Button>
+    </div>
     <h3 class="settings-group">{{ t('settings.logs.title') }}</h3>
     <p class="muted">{{ t('settings.logs.acts') }}</p>
     <div class="settings-row">
@@ -134,6 +146,10 @@ watch(metadataSetting.path, next => {
 const metadataAutoload = computed({
   get: () => metadataSetting.autoload.value,
   set: (next: boolean) => void metadataSetting.chooseAutoload(next),
+})
+const metadataDownload = computed({
+  get: () => metadataSetting.download.value,
+  set: (next: boolean) => void metadataSetting.chooseDownload(next),
 })
 // How much a change of the flight mode of an armed vehicle asks (RTL, Land, Loiter and Brake never ask).
 const modeConfirmation = useModeConfirmation()

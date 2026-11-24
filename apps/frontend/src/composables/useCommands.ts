@@ -26,7 +26,7 @@ import { LAST_KEY, lastRequest } from '@/lib/app/connectionForm'
 import { OpenLogFile } from '@/lib/commands/logs'
 import { LoadMetadata } from '@/lib/commands/metadata'
 import { ParameterProvider } from '@/lib/commands/parameters'
-import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/snapshots'
+import { parameterCommands } from '@/lib/commands/snapshots'
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { ArmVehicle, DisarmVehicle, EmergencyStop, ReviewBeforeArming, flightModeCommands } from '@/lib/commands/arming'
@@ -34,7 +34,8 @@ import { ChangeAltitude } from '@/lib/commands/changeAltitude'
 import { GoHere } from '@/lib/commands/goHere'
 import { SetHomeHere } from '@/lib/commands/setHomeHere'
 import { TakeOff } from '@/lib/commands/takeoff'
-import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
+import { PARAMS_ACCEPT, openFile, saveText, snapshotFileName } from '@/lib/app/files'
+import { EXTENSIONS } from '@/lib/params/paramFile'
 import { HEARTBEAT_FRESH_MS } from '@/lib/app/armed'
 import { reasonsOf } from '@/lib/fly/prearm'
 import { pageLanguage, say, sayEnglish } from '@/i18n/say'
@@ -105,9 +106,7 @@ function makeRegistry(): CommandRegistry {
     new ConnectToVehicle(),
     new ConnectAgain(),
     new DisconnectFromVehicle(),
-    new DownloadParameters(),
-    new SaveSnapshot(),
-    new LoadSnapshot(),
+    ...parameterCommands(),
     new OpenLogFile(),
     new ParameterProvider(),
   ]
@@ -187,7 +186,7 @@ function vehicleFacts(): VehicleFacts {
  * @returns the facts
  */
 function paramsFacts(): ParamsFacts {
-  const { fields, parameters } = useConfigurator()
+  const { fields, parameters, compare } = useConfigurator()
 
   return {
     count: () => fields.params.value.length,
@@ -195,6 +194,7 @@ function paramsFacts(): ParamsFacts {
     download: () => void parameters.refresh(),
     value: id => fields.params.value.find(param => param.id === id)?.value,
     listComplete: () => fields.list.value === 'complete',
+    compareDefaults: () => void compare.loadDefaults(),
   }
 }
 
@@ -270,12 +270,18 @@ async function importAfter(steps: ImportSteps): Promise<void> {
  * @returns the facts
  */
 function fileFacts(): FileFacts {
-  const { metadata, snapshots, fields, flights, browser } = useConfigurator()
+  const { metadata, snapshots, compare, fields, flights, browser } = useConfigurator()
 
   return {
     loadMetadata: () => openFile(() => metadata.openFile(), text => metadata.load(text)),
-    loadSnapshot: () => openFile(() => snapshots.openFile(), text => snapshots.load(text)),
+    loadSnapshot: () => openFile(() => snapshots.openFile(), text => snapshots.load(text), null, PARAMS_ACCEPT),
+    compareFile: () => openFile(() => compare.openFile(), text => compare.loadText(text), null, PARAMS_ACCEPT),
     saveSnapshot: () => saveText(snapshots, snapshots.snapshot(), snapshotFileName('params', fields.connection.value.vehicle)),
+    saveParamFile: format => saveText(
+      snapshots,
+      snapshots.paramFile(format),
+      snapshotFileName('params', fields.connection.value.vehicle, new Date(), EXTENSIONS[format]),
+    ),
     // The questions the message browser has asked of the open log are answered first (the backend reads one thing at a time).
     openLog: () => void importAfter({ settled: () => browser.settled(), importFile: () => flights.importFile() }),
     logBusy: () => flights.importing.value || flights.phase.value === 'reading' || flights.phase.value === 'loading',

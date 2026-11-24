@@ -14,13 +14,14 @@ import {
   VehicleDiscovery,
   defaultRegistry,
 } from "padcom/pico-mavlink"
-import { Connection, ConnectionState, decodeConnectRequest, encodeConnection } from "./generated/app"
+import { Connection, ConnectionState, ConnectRequestTransport, decodeConnectRequest, encodeConnection } from "./generated/app"
 import { GuardedStream } from "./guarded"
 import { APP_COMPID, Beats, GCS_SYSID } from "./heartbeat"
 import { counted } from "./linkstats"
 import { reopenable, watchSession } from "./reconnect"
 import { recorded } from "./recording"
 import { boardOf, capabilitiesOf, encodingFor, identityOf, infoOf, link } from "./session"
+import { keysRead, readKeys, settle, signForVehicle, watchBeats } from "./signing"
 import { describe, openDetecting } from "./transports"
 import { DetectError, WINDOW_MS } from "./autodetect"
 
@@ -63,7 +64,7 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   // What reconnects use: for a serial request that left the port or the rate to be found, the ones that were (#27).
   let request = asked
   try {
-    const onSimulator = (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim }
+    const onSimulator = (sim: SimulatedAutopilot) => link.adoptSimulator(sim)
     const opened = await openDetecting(asked, onSimulator, WINDOW_MS, () => link.generation == generation)
     if (opened == null || link.generation != generation) {
       opened?.stream.close()
@@ -94,6 +95,8 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   const conn = new MavLinkConnection(await recorded(counted(router)), { registry, protocol: new MavLinkProtocolV2(GCS_SYSID, APP_COMPID) })
   link.conn = conn
   link.router = router
+  // Every heartbeat is kept as it came: whether it is signed, and with which key, says how the link signs (signing.pi).
+  watchBeats(conn)
   if (reopenable(request)) {
     link.stream = stream
   }
@@ -105,7 +108,8 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   beats.start()
   link.beats = beats
   let waited = 0
-  while (waited <= link.heartbeatWaitMs) {
+  const waitMs = if (request.transport == ConnectRequestTransport.TcpServer) link.serverWaitMs else link.heartbeatWaitMs
+  while (waited <= waitMs) {
     if (link.generation != generation) {
       return encodeConnection(link.state)
     }
@@ -116,6 +120,11 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       link.compid = found.compid
       link.autopilot = found.autopilot
       link.attach(conn)
+      // Signed when a key is held that its heartbeats are signed with: the version is then asked for signed.
+      if (!keysRead()) {
+        await readKeys()
+      }
+      signForVehicle(conn)
       const version = await new AutopilotVersionRead(conn, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
       link.encoding = encodingFor(found, version)
       link.capabilities = capabilitiesOf(version)
@@ -123,6 +132,7 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       link.identity = identityOf(found, version)
       link.board = boardOf(found, version)
       link.typeMayChange = false
+      settle()
       link.update(Connection { state: ConnectionState.Connected, vehicle: infoOf(found) })
       watchSession(generation)
       return encodeConnection(link.state)

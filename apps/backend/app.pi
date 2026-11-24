@@ -6,6 +6,7 @@ import { SimulatedAutopilot } from "padcom/pico-mavlink"
 import { register as registerArming } from "./arming"
 import { register as registerCalibration } from "./calibration"
 import { register as registerConnection } from "./connection"
+import { register as registerDiscovery } from "./discovery"
 import { register as registerFiles } from "./files"
 import { register as registerForward } from "./forward"
 import { register as registerLinkStats } from "./linkstats"
@@ -20,15 +21,19 @@ import { register as registerLocalSpectrum } from "./localspectrum"
 import { register as registerLocalSeries } from "./localseries"
 import { register as registerLocalTrack } from "./localtrack"
 import { register as registerMapTiles } from "./maptiles"
+import { register as registerMetadata } from "./metadata"
 import { register as registerMessages } from "./messages"
 import { register as registerMissions } from "./missions"
 import { register as registerMotors } from "./motors"
 import { register as registerParams } from "./params"
+import { register as registerParamStore } from "./paramstore"
 import { register as registerReboot } from "./reboot"
 import { register as registerRecording } from "./recording"
 import { register as registerSerial } from "./serial"
+import { register as registerSerialBridge } from "./serialbridge"
 import { link } from "./session"
 import { register as registerSettings } from "./settings"
+import { register as registerSigning } from "./signing"
 import { register as registerTelemetry } from "./telemetry"
 import { register as registerTuningStream } from "./tuningstream"
 import { register as registerVehicleInfo } from "./vehicleinfo"
@@ -53,6 +58,11 @@ export function setHeartbeatWait(ms: int): void {
   link.heartbeatWaitMs = ms
 }
 
+/// For tests: a shorter wait for a vehicle to connect to a TCP port the backend listens on than 30 s.
+export function setServerWait(ms: int): void {
+  link.serverWaitMs = ms
+}
+
 /// The backend on `transport` (the app runs it on stdio; tests on a memory link).
 export function createBackend(transport: Transport): Communicator {
   const c = new Communicator(transport)
@@ -60,8 +70,10 @@ export function createBackend(transport: Transport): Communicator {
   // flight), so nothing keeps this process alive past the host's grace period.
   c.onClosing = () => link.close()
   registerConnection(c)
+  registerDiscovery(c)
   registerForward(c)
   registerParams(c)
+  registerParamStore(c)
   registerReboot(c)
   registerArming(c)
   registerMissions(c)
@@ -78,6 +90,7 @@ export function createBackend(transport: Transport): Communicator {
   registerLocalImport(c)
   registerLocalSpectrum(c)
   registerMapTiles(c)
+  registerMetadata(c)
   registerTelemetry(c)
   registerLinkStats(c)
   registerTuningStream(c)
@@ -85,7 +98,9 @@ export function createBackend(transport: Transport): Communicator {
   registerMessages(c)
   registerFiles(c)
   registerSerial(c)
+  registerSerialBridge(c)
   registerSettings(c)
+  registerSigning(c)
   registerRecording(c)
   return c
 }

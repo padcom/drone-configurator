@@ -7,7 +7,7 @@ import { join, relative, resolve, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
   FULL, SHARED_BACKEND, SITL_USE, UNIT_ONLY, backendTestsFor, dependents, globToRegExp, importsOf, listSpecs, matchesAny,
-  readTree, run, select, specsFor, summaryOf, unmappedSpecs,
+  WEEKLY_SPEC, readTree, run, select, specsFor, summaryOf, unmappedSpecs,
 } from '../../../.github/ci-select.mjs'
 
 // vitest runs in apps/frontend
@@ -314,6 +314,18 @@ describe('the split of the CI jobs', () => {
     expect(sitl).toContain('e2e/sitl-harness.e2e.ts')
     expect(fake).toContain('e2e/shell.e2e.ts')
     expect(fake.filter(spec => sitl.includes(spec))).toEqual([])
+  })
+
+  it('keeps the weekly specs (a third party\'s server) out of both, and out of the selection and the map', () => {
+    const weekly = listSpecs(root, 'weekly')
+    expect(weekly).toContain('e2e/weekly-metadata-server.e2e.ts')
+    expect(weekly.every(spec => WEEKLY_SPEC.test(spec.replace(/^e2e\//u, '')))).toBe(true)
+    expect([...listSpecs(root, 'sitl'), ...listSpecs(root, 'fake')].filter(spec => weekly.includes(spec))).toEqual([])
+    expect(tree.specs.filter(spec => WEEKLY_SPEC.test(spec))).toEqual([])
+    expect(unmappedSpecs(tree.specs, tree.map)).toEqual([])
+    const all = select({ ...tree, files: ['apps/backend/metadata.pi'] })
+    expect(all.e2e).not.toContain('weekly-metadata-server.e2e.ts')
+    expect(all.e2e).toContain('sitl-metadata.e2e.ts')
   })
 })
 

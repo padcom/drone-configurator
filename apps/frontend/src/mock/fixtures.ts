@@ -17,6 +17,12 @@ export const SERIAL_PORTS = [
   { path: '/dev/ttyAMA0' },
 ]
 
+/** What the mock network advertises (#197): a BlueOS vehicle over UDP and a companion computer over TCP. */
+export const DISCOVERED = [
+  { name: 'BlueOS', transport: 'udp-client' as const, host: '192.168.2.2', port: 14550 },
+  { name: 'Companion', transport: 'tcp' as const, host: '192.168.2.10', port: 5760 },
+]
+
 const p = (id: string, kind: Param['kind'], type: string, value: number): Omit<Param, 'index'> => ({ id, kind, type, value })
 
 export const PARAMS: Param[] = [
@@ -33,6 +39,12 @@ export const PARAMS: Param[] = [
   p('SYSID_THISMAV', 'int', 'INT16', 1),
   p('WPNAV_SPEED', 'real', 'REAL32', 1000),
 ].map((param, index) => ({ ...param, index }))
+
+/**
+ * The firmware's defaults the mock vehicle gives (`params.defaults`, #40) where they differ from its values: a vehicle sends its
+ * defaults with its packed parameter file, and a parameter it sends none for is at its default.
+ */
+export const DEFAULTS: Record<string, number> = { BATT_CAPACITY: 3300, FENCE_RADIUS: 300, WPNAV_SPEED: 500 }
 
 /**
  * A Copter that was set up, as far as the Setup pages can see: the usual parameters and those of its frame, accelerometer,

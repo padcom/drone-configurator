@@ -11,6 +11,7 @@ import { legacyLanguage, setLanguage, storageOf } from '@/i18n/i18n'
 import type { State } from '@/state/state'
 import type { SafetyOptions } from '@/lib/app/safety'
 import { type MetadataModel, useMetadata } from './useMetadata'
+import { type MetadataDownloadDeps, startMetadataDownload } from './useMetadataDownload'
 import { type ParamsDeps, type ParamsModel, useParams } from './useParams'
 import { toastSeverity } from '@/lib/fly/messages'
 import { useToasts } from './toasts'
@@ -20,12 +21,15 @@ import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type AnalysisModel, useAnalysis } from './useAnalysis'
 import { type ForwardingModel, useForwarding } from './useForwarding'
+import { type SigningModel, useSigning } from './useSigning'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type LinkStatsModel, useLinkStats } from './useLinkStats'
+import { type SerialBridgeModel, useSerialBridge } from './useSerialBridge'
 import { type RecordingModel, useRecording } from './useRecording'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
+import { type CompareModel, useCompare } from './useCompare'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
 import { armedOf } from '@/lib/app/armed'
@@ -63,6 +67,8 @@ export interface ConfiguratorHandle {
   metadata: MetadataModel
   /** The snapshots and their import. */
   snapshots: SnapshotsModel
+  /** The comparison of the parameters with a file, a snapshot or the firmware's defaults. */
+  compare: CompareModel
   /** The settings that survive a restart (the language, the interface's own entries). */
   settings: SettingsModel
   /** The texts the vehicle sends, for the Fly aside, the toasts and the failsafe banner. */
@@ -93,10 +99,14 @@ export interface ConfiguratorHandle {
   map: MapSettingsModel
   /** The programs the vehicle's MAVLink is forwarded to, and what the backend says each is doing. */
   forwarding: ForwardingModel
+  /** Whether the link is signed (MAVLink 2 signing), and the actions that set a key on the vehicle or turn its signing off. */
+  signing: SigningModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The quality of the link to the vehicle: loss, rates and latency. */
   link: LinkStatsModel
+  /** The serial bridge: a port of the vehicle reached through a local TCP port. */
+  serialBridge: SerialBridgeModel
   /** The recording of every connection to a tlog: what it is doing, and its preferences. */
   recording: RecordingModel
   /** The state, field by field. */
@@ -155,6 +165,7 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
     missing: parameters.missing,
     downloadInfo: parameters.downloadInfo,
     downloadEnded: parameters.downloadEnded,
+    paramsFromCache: parameters.fromCache,
     filter: parameters.filter,
     initial: parameters.initial,
     selected: parameters.selected,
@@ -348,15 +359,31 @@ async function restoreRemoval(settings: SettingsModel, to: Removal): Promise<voi
 }
 
 /**
+ * The metadata of each vehicle that is connected is downloaded, and what the metadata finds unusual about the draft follows the
+ * metadata, whenever it is loaded or replaced.
+ *
+ * @param deps the vehicle, the metadata and the settings
+ * @param parameters the parameters
+ */
+function followMetadata(deps: MetadataDownloadDeps, parameters: ParamsModel): void {
+  startMetadataDownload(deps)
+  watch(deps.metadata.metadata, () => parameters.refreshWarning())
+}
+
+/**
  * A vehicle that has just been connected has its parameters downloaded. A link that came back to the same vehicle (`resumed`) has
  * them downloaded again too, but that does not replace the initial values: only the user's Download does, and a connection to
- * another vehicle.
+ * another vehicle. A new connection shows the list the backend kept of the vehicle while its download runs (#38).
  *
  * @param vehicle the vehicle link
  * @param parameters the parameters
  */
 function downloadOnConnect(vehicle: Vehicle, parameters: ParamsModel): void {
-  vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
+  vehicle.onSession(connected => {
+    const resumed = vehicle.connection.value.resumed === true
+
+    return connected && void parameters.refresh({ keepInitial: resumed, fromCache: !resumed })
+  })
 }
 
 /**
@@ -521,18 +548,29 @@ function logModels(
   }
 }
 
-/**
- * The snapshots: the parameters are written from them one after the other, and not a logging or notch parameter while the
- * vehicle may be armed.
- *
- * @param deps the link to the backend, how a failure is recorded, the questions, and the parameters
- * @param vehicle the vehicle link
- * @returns the snapshots
- */
-function snapshotsFor(deps: Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters'>, vehicle: Vehicle): SnapshotsModel {
-  const { connection } = vehicle
+/** What the snapshots take from the rest of the interface, besides the vehicle. */
+type SnapshotsFrom = Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters'>
 
-  return useSnapshots({ ...deps, connection, mayBeArmed: () => mayBeArmed(vehicle) })
+/**
+ * The snapshots and parameter files: the parameters are written from them one after the other, and nothing while the vehicle
+ * may be armed. And the comparison with a file or the firmware's defaults (#40), whose rows copied across go to their review.
+ *
+ * @param deps the link to the backend, how a failure is recorded, the questions and the parameters
+ * @param vehicle the vehicle link
+ * @param model the parameter metadata
+ * @returns the snapshots and the comparison
+ */
+function snapshotsFor(
+  deps: SnapshotsFrom,
+  vehicle: Vehicle,
+  model: MetadataModel,
+): Pick<ConfiguratorHandle, 'snapshots' | 'compare'> {
+  const { connection } = vehicle
+  const metadata = () => model.metadata.value
+  const snapshots = useSnapshots({ ...deps, connection, metadata, mayBeArmed: () => mayBeArmed(vehicle) })
+  const compare = useCompare({ client: deps.client, params: deps.parameters.params, connection, metadata, snapshots })
+
+  return { snapshots, compare }
 }
 
 /**
@@ -563,6 +601,43 @@ function startLink(client: BackendClient, vehicle: Vehicle): LinkStatsModel {
   void link.watch()
 
   return link
+}
+
+/**
+ * The link's signing, started: the status bar shows it on every screen.
+ *
+ * @param client the link to the backend
+ * @returns the signing
+ */
+function startSigning(client: BackendClient): SigningModel {
+  const signing = useSigning({ client })
+  void signing.watch()
+
+  return signing
+}
+
+/**
+ * The serial bridge, started: it follows the backend's state from the start, so a port that is locked is shown on every screen.
+ *
+ * @param client the link to the backend
+ * @returns the bridge
+ */
+function startSerialBridge(client: BackendClient): SerialBridgeModel {
+  const bridge = useSerialBridge({ client })
+  void bridge.watch()
+
+  return bridge
+}
+
+/**
+ * What goes over the link besides the vehicle's own: its quality, and the serial bridge.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the two, started
+ */
+function linkModels(client: BackendClient, vehicle: Vehicle): Pick<ConfiguratorHandle, 'link' | 'serialBridge'> {
+  return { link: startLink(client, vehicle), serialBridge: startSerialBridge(client) }
 }
 
 /**
@@ -600,20 +675,19 @@ export function createConfigurator(
   const metadata = useMetadata({ client, rememberPath: path => keepMetadataPath(settings, path) })
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
-  const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)
+  const { snapshots, compare } = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle, metadata)
   const messages = startMessages(client, vehicle)
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   const staged = stagedFor(client, parameters, vehicle, { confirm: askUser, confirmHold: holdOf(confirmWith, vehicle) })
   const motorTest = useMotorTest({ client, connection: vehicle.connection, telemetry: vehicle.telemetry, parameters })
   const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser, motorTest })
   listen(client, vehicle, parameters)
-  // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
-  watch(metadata.metadata, () => parameters.refreshWarning())
+  followMetadata({ vehicle, metadata, settings }, parameters)
   const models = {
-    vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
-    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), link: startLink(client, vehicle),
+    vehicle, parameters, metadata, snapshots, compare, settings, messages, logs, housekeeping, ...linkModels(client, vehicle),
+    staged, ...logModels(client, askUser), setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
-    recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }),
+    recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }), signing: startSigning(client),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

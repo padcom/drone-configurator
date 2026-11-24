@@ -65,7 +65,7 @@ const uid = useId()
 const handle = useConfigurator()
 const status = useSetupStatus(handle)
 const GLYPH: Record<StepState, string> = { done: '✓', open: '!', unknown: '–' }
-const ALSO = ['escs', 'serial', 'devices', 'info'] as const
+const ALSO = ['escs', 'serial', 'signing', 'devices', 'bridge', 'info'] as const
 const listing = computed(() => handle.parameters.list.value === 'loading' || handle.parameters.list.value === 'none')
 const progress = computed(() => status.value.required === 0 ? 0 : status.value.done / status.value.required)
 const progressText = computed(() => t('setup.home.progress', { done: status.value.done, required: status.value.required }))

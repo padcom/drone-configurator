@@ -36,6 +36,26 @@ async function savesAndOpens(): Promise<void> throws Error {
   }
 }
 
+/// A parameter file is opened as text, whatever its line ends: `open.param` when the test directory has one, else `open.json`.
+async function opensAParameterFile(): Promise<void> throws Error {
+  const was = env.get(VARIABLE)
+  const dir = join(env.get("TMPDIR") ?? "/tmp", `dc-files-test-param-${pid}`)
+  try {
+    await mkdir(dir, true)
+    env.set(VARIABLE, dir)
+    const f = await start()
+    await writeText(`${dir}/open.json`, "{\"b\":2}")
+    const json = decodeFileOpened((await f.call("files.openParams")).p ?? Cbor.Null, "$")
+    expect(json.path ?? "no path").toBe(`${dir}/open.json`)
+    await writeText(`${dir}/open.param`, "# comment\r\nRTL_ALT,1500\r\n")
+    const param = decodeFileOpened((await f.call("files.openParams")).p ?? Cbor.Null, "$")
+    expect(`${param.path ?? "no path"} ${param.text ?? "no text"}`).toBe(`${dir}/open.param # comment\r\nRTL_ALT,1500\r\n`)
+  } finally {
+    restore(was)
+    await remove(dir, true)
+  }
+}
+
 async function reportsAMissingFile(): Promise<void> throws Error {
   const was = env.get(VARIABLE)
   const dir = join(env.get("TMPDIR") ?? "/tmp", `dc-files-test-missing-${pid}`)
@@ -194,6 +214,7 @@ async function refusesAFifoThatIsAlreadyThereWithoutWaiting(): Promise<void> thr
 
 describe("the files service", () => {
   it("saves a snapshot under the name asked for and opens the file the test directory holds", savesAndOpens)
+  it("opens a parameter file (open.param in the test directory) as it is, CRLF and all", opensAParameterFile)
   it("reports a file that isn't there as an error", reportsAMissingFile)
   it("reads a .json file by its path, a link too", readsAJsonFileByItsPath)
   it("refuses a relative path, a .., a file that is not .json, a missing one, a folder and a link to one", refusesWhatItDoesNotRead)

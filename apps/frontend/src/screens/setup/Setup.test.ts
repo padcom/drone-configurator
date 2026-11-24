@@ -156,11 +156,12 @@ it('shows how many steps look set up, a card for each with what was checked, and
   expect(wrapper.get('.setup-facts').text()).toContain('QUADROTOR')
 })
 
-it('links, beside the facts, to the pages that are not steps: ESCs, serial ports, devices, vehicle information', async () => {
+it('links, beside the facts, to the pages that are not steps: ESCs, serial ports, signing, devices, bridge, info', async () => {
   const { wrapper } = await page(SetupHome)
 
   const links = wrapper.findAll('.setup-facts .setup-also')
-  expect(links.map(link => link.text())).toEqual(['ESCs', 'Serial ports', 'Devices', 'Vehicle information'])
+  expect(links.map(link => link.text()))
+    .toEqual(['ESCs', 'Serial ports', 'Signing', 'Devices', 'Serial bridge', 'Vehicle information'])
   expect(links[0]?.attributes('href')).toContain('/setup/escs')
 })
 

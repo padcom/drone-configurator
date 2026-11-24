@@ -4,7 +4,7 @@ import type { Connection, Param, SerialPort, Telemetry } from '@/generated/app'
 import type { Initial } from '@/lib/params/initialValues'
 import type { Metadata } from '@/lib/params/metadata'
 import type { Review } from '@/lib/params/snapshot'
-import type { DownloadInfo, ListState } from '@/composables/useParams'
+import type { CachedInfo, DownloadInfo, ListState } from '@/composables/useParams'
 
 /** How a change of a snapshot went when it was applied. */
 export interface AppliedChange {
@@ -30,6 +30,8 @@ export interface State {
   downloadInfo: DownloadInfo | null
   /** How the download that has just ended came (empty from the next start, and after a cancel or a failure): said aloud. */
   downloadEnded: DownloadInfo | null
+  /** Set while the list shown is the one kept from the vehicle's last complete download, until the download replaces it. */
+  paramsFromCache: CachedInfo | null
   /** What the user typed to narrow the list. */
   filter: string
   /** The values at the last complete download: what "changed" is measured against, and what a reset puts back. */

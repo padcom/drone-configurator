@@ -18,7 +18,19 @@ services = {
   ; While a download runs, at most 10 times a second (the first as soon as the total is known, the last when everything has
   ; arrived).
   "params.progress": ["event", params-progress],
+  ; The connected vehicle's list as its last COMPLETE download left it, kept on disk for each vehicle (by its identity: see
+  ; `connection`) across sessions, so that the dashboard can show it at once while a new download runs (#38). It is never the
+  ; vehicle's word now: the download that follows replaces it, and nothing is written from it. `NOT_CACHED` when there is none
+  ; for this vehicle (a file that cannot be read, or is not such a list, is removed, and is none), `NOT_CONNECTED` without a
+  ; vehicle.
+  "params.cached": ["method", null, saved-params],
   "params.write": ["method", param-write, param-write-result],
+  ; The firmware's default of every parameter of the vehicle (#40): its packed parameter file asked for with the defaults
+  ; ("@PARAM/param.pck?withdefaults=1", over MAVLink FTP: ArduPilot 4.1 and later). Nothing is written, and `params.list` is
+  ; not touched. Errors: `NOT_CONNECTED`; `BUSY` (a download, a log, a calibration, a motor test or a plan transfer is under way);
+  ; `UNSUPPORTED` (the vehicle has no MAVLink FTP: the list protocol carries no defaults); the FTP codes (`FTP_TIMEOUT`, ...);
+  ; `ABORTED` (`params.cancel`).
+  "params.defaults": ["method", null, param-defaults],
   ; The flight logs on the vehicle (the backend serves `logs.vehicle.list`, `logs.download`, `logs.cancel`, `logs.progress` and
   ; `logs.erase`). Over MAVLink FTP when the vehicle has it; when it has none (it answers nothing, or does not know the
   ; commands) over the MAVLink log protocol (LOG_REQUEST_LIST / LOG_DATA): slower, with no checksum, so what it fetches is never
@@ -250,12 +262,51 @@ services = {
   "link.stats": ["subscription", null, link-stats],
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
+  ; Like `files.open`, for a parameter snapshot or file: the dialog offers a snapshot (`.json`) and ArduPilot's plain-text
+  ; parameter files (`.param`, `.parm`, QGroundControl's `.params`, `.txt`). The page reads the text and tells the formats apart.
+  "files.openParams": ["method", null, file-opened],
   ; The text of the JSON file at a path the user named (the metadata file kept in the settings), without a dialog. Refused, with
   ; a code that names the rule, for a path that is not absolute or has a `..`, is not a regular file once resolved, does not
   ; end in `.json`, is over 16 MiB, or cannot be read: "INVALID_PATH", "NOT_FOUND", "NOT_A_FILE", "NOT_JSON", "TOO_LARGE",
   ; "UNREADABLE".
   "files.read": ["method", file-read, file-contents],
+  ; ArduPilot's parameter metadata (#35), DOWNLOADED, never bundled (it is GPL): the backend fetches the definitions for a kind of
+  ; vehicle and firmware version from ArduPilot's server (autotest.ardupilot.org/Parameters/), keeps them on disk per vehicle and
+  ; version, and gives the page the file's text, which the page reads (`format`: "xml" for a released version's file, "json" for
+  ; the latest). Without `vehicle` it is the connected vehicle's kind and version (AUTOPILOT_VERSION, asked for). The exact version is
+  ; preferred: a version the server has no file for (a beta, a version newer than the server's list, a vehicle that did not say)
+  ; gives the latest file, with `exact` false. A released version's file never changes, so it is kept for good; the latest is asked
+  ; for again after 7 days, and a stale one is given (`stale`) when the server cannot be reached. `refresh` asks the server even when
+  ; the cache has the file. A cache entry that is cut short or is not a definition file is fetched again. Fails with `BAD_REQUEST` (a
+  ; version that is not three numbers), `NOT_CONNECTED` (no `vehicle`, and none is connected), `UNSUPPORTED_VEHICLE` (the connected
+  ; vehicle is not an ArduPilot of a kind the server has files for), `TOO_LARGE` (over 16 MiB) and `UNAVAILABLE` (the server cannot
+  ; be reached or has no file, and nothing is kept).
+  ; A file is fetched in parts of 128 KiB (HTTP ranges, held together by the file's ETag; a server that sends the whole file at once
+  ; is taken as it is): a part may take 30 s, so a slow link that makes progress gets the file (a link that cannot move 128 KiB
+  ; in 30 s, under about 35 kbit/s, is "cannot be reached"), and the whole download may take 20 minutes. The page waits for the
+  ; answer longer than that. `metadata.progress` says how far a download from the server is, after each part.
+  "metadata.fetch": ["method", metadata-ask, metadata-file],
+  "metadata.progress": ["event", metadata-progress],
   "serial.ports": ["method", null, serial-ports],
+  ; MAVLink services that announce themselves on the local network (#197), over multicast DNS service discovery (RFC 6762,
+  ; RFC 6763). See `discovered-services`.
+  "discovery.browse": ["method", null, discovered-services],
+  ; THE SERIAL BRIDGE (#198): a serial port of the vehicle (its GPS, a telemetry radio, SERIALn) reached by a program on this
+  ; computer through a local TCP port, over MAVLink's SERIAL_CONTROL (pico-mavlink's SerialControlStream). `serial.bridge.start`
+  ; takes the port from whatever uses it on the vehicle (SERIAL_CONTROL's EXCLUSIVE: a GPS driver, a MAVLink link) and listens on
+  ; `address` (127.0.0.1 unless asked otherwise) at `port` (0 or none: a free one; the state says which). What the program writes
+  ; goes to the device, what the device says goes to the program. ONE program at a time: a second one is refused (it reads one line
+  ; that says why, and is closed; `refused` counts them). The port is LOCKED for as long as the bridge runs, and is ALWAYS given back
+  ; when it ends, by whichever way: `serial.bridge.stop`, the vehicle disconnected or its link lost, the app closing, or the vehicle
+  ; arming (a GPS taken away in flight is a vehicle without a position). The release is tried again (and, when it could not go out,
+  ; once more when the link comes back); `releaseFailed` says it never got out. Refused, with nothing sent: `NOT_CONNECTED`,
+  ; `ARMED`, `STATE_UNKNOWN` (no heartbeat for 3 s, or an arm in flight: counts as armed), `BUSY` (a bridge runs or is releasing its
+  ; port), `INVALID_VALUE` (a baud rate over 4000000) and `PORT_UNAVAILABLE` (the local port cannot be listened on: in use, or
+  ; not allowed). `serial.bridge.stop` answers once the release is over (a bridge that is off answers at once, with its state).
+  ; `serial.bridge.status` says the state at once and whenever it changes (the byte counts at most 4 times a second).
+  "serial.bridge.start": ["method", serial-bridge-start, serial-bridge-state],
+  "serial.bridge.stop": ["method", null, serial-bridge-state],
+  "serial.bridge.status": ["subscription", null, serial-bridge-state],
   ; Settings that survive a restart (see `settings`). `settings.set` takes a patch and answers with the document it made.
   "settings.get": ["method", null, settings-state],
   "settings.set": ["method", settings-patch, settings-state],
@@ -309,17 +360,37 @@ services = {
   ; `forward.status` gives every configured endpoint, in the settings' order, at once and then whenever something changes (at most
   ; twice a second while frames flow).
   "forward.status": ["subscription", null, forward-status],
+  ; MAVLink 2 message signing (#33). A key is made here (`signing.provision`: a random one, or the SHA-256 of `passphrase`), sent to
+  ; the connected vehicle with SETUP_SIGNING and confirmed by a signed command it answers signed; from then on the link signs what it
+  ; sends and drops what is not signed with the key (RADIO_STATUS from a radio excepted). The key is kept by the BACKEND, per vehicle,
+  ; in its own file in the app's data folder that only the user can read (not in the settings document), and never goes to the page:
+  ; the page sees whether the link is signed, a fingerprint and when the key was set. When a vehicle whose key is kept connects, the
+  ; link signs by itself; one that does not answer with the key is `no-answer` (the key may be wrong, or its signing was reset).
+  ; `signing.disable` turns the vehicle's signing off (the all-zero key) and confirms it, then forgets the key. Both are refused
+  ; before anything is sent with `NOT_CONNECTED`, `ARMED`, `STATE_UNKNOWN` (unknown counts as armed), `BUSY` (another signing
+  ; change, a parameter, plan, log, calibration or motor test is under way), `NO_VEHICLE_ID` (the vehicle is not identified yet);
+  ; `signing.provision` with `INVALID_VALUE` (an empty passphrase, or one over 256 characters) and `NOT_SAVED` (the key could not be
+  ; written: then nothing is sent, because a key that is not kept would lock this computer out). `NOT_CONFIRMED` when the vehicle
+  ; did not confirm (a provisioning that was not confirmed is undone here; the vehicle's state is then what its heartbeats say).
+  "signing.status": ["subscription", null, signing-status],
+  "signing.provision": ["method", signing-provision, signing-status],
+  "signing.disable": ["method", null, signing-status],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
 ; without hardware or SITL; "udp" listens on `host`:`port` (default 127.0.0.1:14550, where SITL and most telemetry
-; bridges send); "serial" is a USB or UART port (`device`, at `baud`). A serial request without `device` uses the port
+; bridges send); "udp-client" sends to `host`:`port` first (default 127.0.0.1:14550: a vehicle, a companion computer or a
+; MAVLink router that listens there) and takes the datagrams that come back, from a port of its own (#197); "tcp" connects to
+; `host`:`port` (default 127.0.0.1:5760); "tcp-server" listens on `host`:`port` (default 127.0.0.1:5760) and takes the vehicle,
+; or a forwarder, that connects in: one at a time, and the next one when it goes (the session waits up to 30 s for the first
+; heartbeat, not 3). The two that listen take `host` as the address to listen on: 127.0.0.1 unless the user chose every
+; interface ("0.0.0.0", which exposes the port to the network); "serial" is a USB or UART port (`device`, at `baud`). A serial request without `device` uses the port
 ; most likely to be an autopilot (`serial-port.likely`); without `baud` the backend tries the common rates in turn until
 ; MAVLink arrives (#27). A failed detection says why in `connection.errorCode`: "NO_SERIAL_PORT" (no port to try),
 ; "NO_AUTOPILOT_PORT" (several ports, none recognised), "PORT_GONE" (the port went away while it was being tried),
 ; "NO_MAVLINK" (no rate brought MAVLink).
 connect-request = {
-  transport: "simulator" / "udp" / "tcp" / "serial",
+  transport: "simulator" / "udp" / "udp-client" / "tcp" / "tcp-server" / "serial",
   ? host: tstr,
   ? port: uint .size 2,
   ? device: tstr,
@@ -382,6 +453,22 @@ param-list = {
   ; Set on a resume (`param-list-request`) that reused what was kept: how many parameters were not asked for again.
   ? reused: uint .size 2,
 }
+
+; A vehicle's list as its last complete download left it: `savedAt` is when that download ended (ms since 1970), `source` how
+; it came.
+saved-params = {
+  params: [* param],
+  count: uint .size 2,
+  savedAt: uint .size 8,
+  source: "ftp" / "list",
+}
+
+; The firmware's default of one parameter. ArduPilot's file carries a default only where it differs from the value: a parameter
+; it carries none for is at its default, and its value then is the default.
+param-default = { id: tstr, value: float }
+
+; The defaults of every parameter the vehicle has, in the order of its list, and how long the transfer took.
+param-defaults = { defaults: [* param-default], elapsedMs: uint .size 4 }
 
 ; How far a download is: `received` of `total` parameters, and by which way they come.
 params-progress = {
@@ -1206,12 +1293,60 @@ file-read = { path: tstr }
 
 file-contents = { text: tstr }
 
+; What answered a look for MAVLink services on the local network, in about two seconds: the DNS-SD service types
+; `_mavlink._udp` and `_mavlink._tcp`, the ones BlueOS and CubePilot's Herelink announce and QGroundControl browses. The
+; backend asks once, from a port of its own, and the responders answer it directly (a one-shot query, RFC 6762 section
+; 5.1), so only what answers on the network of the machine's default route is found, and nothing that announces itself
+; later. A `_mavlink._udp` service is reached by sending to it ("udp-client"), a `_mavlink._tcp` one by connecting to it
+; ("tcp"). `name` is the name the service gives itself; `host` its IPv4 address when it was told, else its host name.
+; `error` says why nothing could be asked (no network); an empty list with no error is a look that found nothing.
+discovered-services = { services: [* discovered-service], ? error: tstr }
+discovered-service = { name: tstr, transport: "udp-client" / "tcp", host: tstr, port: uint .size 2 }
+
 ; The serial ports the backend's machine has (padcom/serialport's listPorts).
 serial-ports = { ports: [* serial-port] }
 
 ; `description` names a USB adapter: vendor:product and the product name. `board` names what its USB identity says it
 ; is (an autopilot's maker or a USB-serial chip), and `likely` marks the one port a serial request without a device uses.
 serial-port = { path: tstr, ? description: tstr, ? board: tstr, ? likely: bool }
+
+; A serial device of the vehicle, as SERIAL_CONTROL_DEV names it: the first two telemetry ports and GPS ports, or SERIAL0 to SERIAL9
+; (the port numbers of the SERIALn_* parameters).
+serial-bridge-device = "TELEM1" / "TELEM2" / "GPS1" / "GPS2" / "SERIAL0" / "SERIAL1" / "SERIAL2" / "SERIAL3" / "SERIAL4" / "SERIAL5"
+  / "SERIAL6" / "SERIAL7" / "SERIAL8" / "SERIAL9"
+
+; What `serial.bridge.start` asks: the device; its speed in bits a second (0 or none: as it is); the local TCP port (0 or none: a free
+; one) and the address to listen on (none: 127.0.0.1, this computer only).
+serial-bridge-start = {
+  device: serial-bridge-device,
+  ? baudrate: uint .size 4,
+  ? port: uint .size 2,
+  ? address: tstr,
+}
+
+; The bridge. `state`: `off` (none runs: the fields say how the last one ended), `running` (the device is LOCKED for SERIAL_CONTROL)
+; or `releasing` (it ended, and the port is being given back). `device`, `baudrate`, `address` and `port` are the last bridge's;
+; `client` says a program is connected (`clientAddress` is where from). Bytes: `toVehicle` written to the device, `fromVehicle`
+; read from it, `dropped` of those read while no program was connected (nobody to give them to). `refused` counts the programs
+; turned away while one was connected. When it ended: `why` (`STOPPED` by the user, `DISCONNECTED` the session ended, `LINK_LOST`,
+; `ARMED` the vehicle armed, `LISTEN_FAILED` the local port failed), and `releaseFailed` when the release never got out (the
+; vehicle may still hold the port until it reboots). `error` is the last thing that went wrong while it ran (a write that failed).
+serial-bridge-state = {
+  state: "off" / "running" / "releasing",
+  ? device: serial-bridge-device,
+  ? baudrate: uint .size 4,
+  ? address: tstr,
+  ? port: uint .size 2,
+  client: bool,
+  ? clientAddress: tstr,
+  toVehicle: uint .size 4,
+  fromVehicle: uint .size 4,
+  dropped: uint .size 4,
+  refused: uint .size 4,
+  ? why: tstr,
+  ? releaseFailed: bool,
+  ? error: tstr,
+}
 
 ; ---- Calibrations ----
 
@@ -1359,6 +1494,27 @@ motor-test-state = {
 
 ; A tile: the zoom, the column and the row of the web-mercator grid (0 to 2^z - 1). `source` is `osm` or `custom`; absent, the one
 ; the settings choose.
+; What `metadata.fetch` is asked: a kind of vehicle and its version ("4.7.1"), or nothing for the connected vehicle.
+metadata-ask = { ? vehicle: metadata-vehicle, ? version: tstr, ? refresh: bool }
+metadata-vehicle = "copter" / "plane" / "rover" / "sub" / "tracker" / "blimp"
+
+; How far a download of a definition file from the server is: `received` of `total` bytes.
+metadata-progress = { received: uint .size 4, total: uint .size 4 }
+
+; A definition file: its `text` in its `format`, for `vehicle` at `version` (absent when the vehicle did not say a released one).
+; `exact` is whether the file is that version's (false: the latest). `fromCache`: from the disk, not the server just now; `stale`: the
+; latest file, past its 7 days, given because the server cannot be reached; `fetchedAt` when the server gave it (ms since 1970).
+metadata-file = {
+  vehicle: metadata-vehicle,
+  ? version: tstr,
+  exact: bool,
+  format: "json" / "xml",
+  text: tstr,
+  fromCache: bool,
+  stale: bool,
+  fetchedAt: uint .size 8,
+}
+
 map-tile-ask = { ? source: tstr, z: uint .size 1, x: uint .size 4, y: uint .size 4 }
 
 ; A tile: `contentType` image/png, image/jpeg or image/webp, the image in `bytes`. `fromCache`: it came from the disk, not the
@@ -1440,6 +1596,19 @@ link-stats = {
   totalReceived: uint .size 4,
   totalLost: uint .size 4,
 }
+; Whether the link to the connected vehicle is signed (#33). `off`: no key is kept for it (or no vehicle is connected) and its
+; heartbeats are not signed. `signed`: a key is kept for it and the vehicle signs with it; the link signs and checks. `no-answer`: a
+; key is kept for it but the vehicle does not sign with it (the key may be wrong, or its signing was reset over USB); the link goes
+; on unsigned. `unknown-key`: the vehicle signs, with a key this computer does not have (another ground station set it). With a key
+; kept: `fingerprint` (the first 8 hex digits of the SHA-256 of the key: it names the key and gives nothing of it away) and `setAt`
+; (when it was set, ms since 1970).
+signing-status = {
+  state: "off" / "signed" / "no-answer" / "unknown-key",
+  ? fingerprint: tstr,
+  ? setAt: uint .size 8,
+}
+; A random key (no passphrase), or the SHA-256 of a passphrase (as other ground stations make them): 1 to 256 characters.
+signing-provision = { ? passphrase: tstr }
 
 ; What the recording of the connections is doing (`recording.state`). `folder` is the folder in use (the setting, or the default),
 ; `limitMb` the limit (0: none). `key` and `path` name the recording being made, `bytes` what it holds so far (0 when none is

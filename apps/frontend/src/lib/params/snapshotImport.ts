@@ -1,6 +1,6 @@
-// What the snapshot import panel says and allows, from plain values (no DOM). Vue's templates escape the text; the
-// words come from the translations.
-import type { Change } from './snapshot'
+// What the import panel (a snapshot or a parameter file under review) says and allows, from plain values (no DOM). Vue's
+// templates escape the text; the words come from the translations.
+import type { Change, ReviewSource } from './snapshot'
 import type { State } from '@/state/state'
 import type { Translate } from '@/lib/fly/telemetryCards'
 
@@ -52,7 +52,19 @@ function writtenResult(written: State['applied'][number], translate: Translate):
 }
 
 /**
- * The result of a row that has not been written: why it cannot be made, that applying stopped before it, or nothing.
+ * The result of a row with a value the metadata finds unusual (a warning: it can still be ticked), or of one with nothing to say.
+ *
+ * @param warning what the metadata finds unusual, or null
+ * @param translate looks up a message
+ * @returns the result
+ */
+function warningResult(warning: string | null, translate: Translate): RowResult {
+  return warning ? { tone: 'warn', text: translate('import.unusual', { warning }) } : { tone: '', text: '' }
+}
+
+/**
+ * The result of a row that has not been written: why it cannot be made, that applying stopped before it, what the metadata finds
+ * unusual about the value, or nothing.
  *
  * @param change the row's change
  * @param progress how far applying has got
@@ -63,8 +75,11 @@ function unwrittenResult(change: Change, progress: Progress, translate: Translat
   if (change.problem) {
     return { tone: 'warn', text: change.problem }
   }
+  if (progress.stopped && progress.picked) {
+    return { tone: '', text: translate('import.notWritten') }
+  }
 
-  return { tone: '', text: progress.stopped && progress.picked ? translate('import.notWritten') : '' }
+  return warningResult(change.warning, translate)
 }
 
 /**
@@ -90,29 +105,41 @@ export interface ReviewStatus {
 }
 
 /**
- * What the line says before anything was written: how many are ticked, or to tick some.
+ * What the line says before anything was written: that nothing is written while the vehicle may be armed, how many are ticked,
+ * or to tick some.
  *
  * @param count how many changes are ticked
+ * @param armed whether the vehicle is armed or may be
  * @param translate looks up a message
  * @returns the line
  */
-function beforeWriting(count: number, translate: Translate): ReviewStatus {
+function beforeWriting(count: number, armed: boolean, translate: Translate): ReviewStatus {
+  if (armed) {
+    return { tone: 'warn', text: translate('import.armed') }
+  }
+
   return { tone: '', text: count > 0 ? translate('import.ready', { count }) : translate('import.tick') }
+}
+
+/** What the line above the buttons depends on. */
+export type StatusState = Pick<State, 'picked' | 'applied' | 'applying'> & {
+  /** Whether the vehicle is armed or may be: nothing is written then. */
+  armed?: boolean
 }
 
 /**
  * The line above the buttons.
  *
- * @param state what is ticked, what was applied, and whether a write is under way
+ * @param state what is ticked, what was applied, whether a write is under way, and whether the vehicle may be armed
  * @param translate looks up a message
  * @returns the line
  */
-export function statusOf(state: Pick<State, 'picked' | 'applied' | 'applying'>, translate: Translate): ReviewStatus {
+export function statusOf(state: StatusState, translate: Translate): ReviewStatus {
   if (state.applying) {
     return { tone: '', text: translate('import.writing') }
   }
   if (state.applied.length === 0) {
-    return beforeWriting(state.picked.length, translate)
+    return beforeWriting(state.picked.length, state.armed === true, translate)
   }
 
   return stoppedEarly(state.applied, false)
@@ -134,9 +161,37 @@ export function panelShown(review: State['importReview'], error: string | null):
 /**
  * Whether the button that writes the ticked changes does anything now.
  *
- * @param state what is ticked, whether a write is under way, and the connection
- * @returns true when something is ticked, nothing is being written, and the vehicle is connected
+ * @param state what is ticked, whether a write is under way, the connection, and whether the vehicle may be armed
+ * @returns true when something is ticked, nothing is being written, and the vehicle is connected and known to be disarmed
  */
-export function canApply(state: Pick<State, 'picked' | 'applying' | 'connection'>): boolean {
-  return state.picked.length > 0 && !state.applying && state.connection.state === 'connected'
+export function canApply(state: Pick<State, 'picked' | 'applying' | 'connection'> & { armed?: boolean }): boolean {
+  return state.picked.length > 0 && !state.applying && state.connection.state === 'connected' && state.armed !== true
+}
+
+/** The words of the review that depend on where the values come from. */
+export interface SourceWords {
+  /** The heading. */
+  heading: string
+  /** The heading of the column of the wanted values. */
+  column: string
+}
+
+/**
+ * The heading and the column of a review, for a snapshot, a parameter file or the firmware's defaults.
+ *
+ * @param source where the values come from
+ * @param translate looks up a message
+ * @returns the words
+ */
+export function sourceWords(source: ReviewSource, translate: Translate): SourceWords {
+  if (source.kind === 'snapshot') {
+    return { heading: translate('import.from', { savedAt: source.savedAt }), column: translate('import.column.snapshot') }
+  }
+  if (source.kind === 'defaults') {
+    return { heading: translate('import.fromDefaults'), column: translate('import.column.defaults') }
+  }
+
+  const format = translate(`paramFile.format.${source.format}`)
+
+  return { heading: translate('import.fromFile', { format }), column: translate('import.column.file') }
 }

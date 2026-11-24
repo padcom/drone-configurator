@@ -8,6 +8,7 @@ import type {
 import type { GuidedPreferences, Place } from '@/lib/fly/guided'
 import type { IconName } from '@/lib/ui/icons'
 import type { SearchIndex } from '@/lib/params/paramSearch'
+import type { ParamFileFormat } from '@/lib/params/paramFile'
 import type { SafetyOptions } from '@/lib/app/safety'
 import type { ToastInput } from '@/composables/toasts'
 
@@ -114,6 +115,8 @@ export interface ParamsFacts {
   value(id: string): number | undefined
   /** Whether the complete list of the vehicle's parameters is there (the backend's fence rules need it). */
   listComplete(): boolean
+  /** Reads the firmware's defaults from the vehicle and compares the parameters with them. */
+  compareDefaults(): void
 }
 
 /** The parts of the page that open on a command: the dialogs that are not a screen. */
@@ -153,8 +156,12 @@ export interface FileFacts {
   loadMetadata(): void
   /** Saves the parameters as a snapshot file (the host's dialog in Pico Desktop, a download in a browser). */
   saveSnapshot(): void
-  /** Opens a snapshot file and loads it, the same way as `loadMetadata` does for metadata. */
+  /** Saves the parameters as one of ArduPilot's plain-text parameter files (`.param`, `.parm`, `.params`), the same way. */
+  saveParamFile(format: ParamFileFormat): void
+  /** Opens a snapshot or parameter file and loads it for review, the same way as `loadMetadata` does for metadata. */
   loadSnapshot(): void
+  /** Opens a snapshot or parameter file, the same way, and compares the parameters with it. */
+  compareFile(): void
   /** Lets the user choose a log file (a ground station's recording), imports it and opens it in Flights. */
   openLog(): void
   /** Whether a log is being read or imported (the backend does one read at a time). */

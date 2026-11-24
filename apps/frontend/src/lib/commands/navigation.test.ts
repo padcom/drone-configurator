@@ -80,7 +80,9 @@ const SETUP_PARTS = [
   'battery',
   'initial',
   'serial',
+  'signing',
   'devices',
+  'bridge',
   'info',
 ]
 

@@ -39,7 +39,7 @@ async function openDialog(last?: string) {
   return { wrapper, feed, connect, listPorts, setUi }
 }
 
-it('is shut until it is asked for, and then shows the four kinds of link as tabs, UDP chosen', async () => {
+it('is shut until it is asked for, and then shows what was found and the four kinds of link as tabs, UDP chosen', async () => {
   const handle = createConfigurator(mockBackend())
   const wrapper = mount(ConnectDialog, { ...withI18n, attachTo: document.body })
   await flushPromises()
@@ -51,8 +51,8 @@ it('is shut until it is asked for, and then shows the four kinds of link as tabs
 
   expect(wrapper.get('h2').text()).toBe('Connect to a vehicle')
   const tabs = wrapper.findAll('#transport button')
-  expect(tabs.map(tab => tab.text())).toEqual(['UDP', 'TCP', 'Serial', 'Simulator'])
-  expect(tabs.map(tab => tab.attributes('aria-pressed'))).toEqual(['true', 'false', 'false', 'false'])
+  expect(tabs.map(tab => tab.text())).toEqual(['Found', 'UDP', 'TCP', 'Serial', 'Simulator'])
+  expect(tabs.map(tab => tab.attributes('aria-pressed'))).toEqual(['false', 'true', 'false', 'false', 'false'])
   expect(wrapper.get('#transport').attributes('role')).toBe('group')
 })
 
@@ -81,14 +81,16 @@ it('listens on UDP at the default port before any connection was made, and conne
   expect(connect).toHaveBeenLastCalledWith({ transport: 'tcp', host: '127.0.0.1', port: 5760 })
 })
 
-it('shows the host and port for UDP and TCP, the device and baud rate for serial, and neither for the simulator', async () => {
+it('shows the port (and a host to go to) for UDP and TCP, the device and rate for serial, none for the simulator', async () => {
   const { wrapper } = await openDialog()
   await wrapper.get('#transport-simulator').trigger('click')
   expect(wrapper.find('#host').exists() || wrapper.find('#device').exists()).toBe(false)
 
   const present = (...ids: string[]) => ids.map(id => wrapper.find(id).exists())
   await wrapper.get('#transport-udp').trigger('click')
-  expect(present('#host', '#port', '#device')).toEqual([true, true, false])
+  expect(present('#host', '#port', '#all-interfaces', '#device')).toEqual([false, true, true, false])
+  await wrapper.get('#transport-tcp').trigger('click')
+  expect(present('#host', '#port', '#all-interfaces', '#device')).toEqual([true, true, false, false])
 
   await wrapper.get('#transport-serial').trigger('click')
   expect(present('#host', '#device', '#baud')).toEqual([false, true, true])
@@ -264,4 +266,120 @@ it('closes by itself when the link is up, and with Cancel', async () => {
 
   expect(useConnectDialog().open.value).toBe(false)
   expect(wrapper.find('dialog').exists()).toBe(false)
+})
+
+/**
+ * Chooses a way round of UDP or TCP (#197).
+ *
+ * @param wrapper the dialog
+ * @param transport the kind of link
+ */
+async function chooseRole(wrapper: Awaited<ReturnType<typeof openDialog>>['wrapper'], transport: string): Promise<void> {
+  await wrapper.get(`#link-role input[value="${transport}"]`).setValue(true)
+}
+
+it('goes both ways round on UDP and TCP: sends to a vehicle that listens, and listens for one that connects', async () => {
+  const { wrapper, connect } = await openDialog()
+  const roles = wrapper.findAll('#link-role input[type="radio"]')
+  expect(roles.map(role => role.element.parentElement?.textContent?.trim()))
+    .toEqual(['Listen for the vehicle', 'Send to the vehicle'])
+
+  await chooseRole(wrapper, 'udp-client')
+  await wrapper.get('#host').setValue('192.168.2.2')
+  await wrapper.get('#connect').trigger('submit')
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'udp-client', host: '192.168.2.2' })
+
+  await wrapper.get('#transport-tcp').trigger('click')
+  await chooseRole(wrapper, 'tcp-server')
+  expect(wrapper.find('#host').exists()).toBe(false)
+  await wrapper.get('#port').setValue('5770')
+  await wrapper.get('#connect').trigger('submit')
+  // Only this computer, unless every interface is chosen: what was typed as a host before is not sent.
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'tcp-server', port: 5770 })
+  expect(wrapper.text()).toContain('the vehicle or a forwarder connects to it')
+})
+
+it('listens on this computer only, unless every interface is chosen, and then says the port is exposed', async () => {
+  const { wrapper, connect } = await openDialog()
+  await wrapper.get('#transport-tcp').trigger('click')
+  await chooseRole(wrapper, 'tcp-server')
+  expect(wrapper.get('#exposure').text()).toBe('Only programs on this computer can reach port 5760.')
+
+  await wrapper.get('#all-interfaces').setValue(true)
+  expect(wrapper.get('#exposure').text()).toContain('Other computers on your network can reach port 5760')
+  await wrapper.get('#connect').trigger('submit')
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'tcp-server', host: '0.0.0.0' })
+
+  await wrapper.get('#all-interfaces').setValue(false)
+  await wrapper.get('#connect').trigger('submit')
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'tcp-server' })
+})
+
+it('keeps the way round when a tab is chosen again, and opens on the last one that was made', async () => {
+  const last = JSON.stringify({ transport: 'udp-client', host: '10.0.0.7', port: '14551', device: '', baud: '' })
+  const { wrapper } = await openDialog(last)
+  expect(wrapper.get('#transport-udp').attributes('aria-pressed')).toBe('true')
+  expect(wrapper.get<HTMLInputElement>('#link-role input[value="udp-client"]').element.checked).toBe(true)
+  expect(wrapper.get<HTMLInputElement>('#host').element.value).toBe('10.0.0.7')
+
+  await wrapper.get('#transport-udp').trigger('click')
+  expect(wrapper.get<HTMLInputElement>('#link-role input[value="udp-client"]').element.checked).toBe(true)
+  await wrapper.get('#transport-tcp').trigger('click')
+  expect(wrapper.get<HTMLInputElement>('#link-role input[value="tcp"]').element.checked).toBe(true)
+})
+
+it('says what to try next in the words of a link that listens for the vehicle', async () => {
+  const { wrapper, feed } = await openDialog()
+  await wrapper.get('#transport-tcp').trigger('click')
+  await chooseRole(wrapper, 'tcp-server')
+  feed({ error: 'no heartbeat from tcp server 127.0.0.1:5760' })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#connect-error').text()).toContain('Check that the vehicle or the forwarder connects to this port')
+})
+
+it('looks on the network on the Found tab, lists what answered, and connects to one with its own Connect', async () => {
+  const { wrapper, connect, setUi, feed } = await openDialog()
+  await wrapper.get('#transport-found').trigger('click')
+  await flushPromises()
+
+  expect(wrapper.get('#transport-found').attributes('aria-pressed')).toBe('true')
+  expect(wrapper.find('#connect-button').exists()).toBe(false)
+  expect(wrapper.get('#found-status').text()).toBe('Found 2 services.')
+  expect(wrapper.findAll('#found li').map(item => item.text()))
+    .toEqual(['BlueOSUDP 192.168.2.2:14550Connect', 'CompanionTCP 192.168.2.10:5760Connect'])
+
+  await wrapper.get('#found-connect-0').trigger('click')
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'udp-client', host: '192.168.2.2', port: 14550 })
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+  // Kept as the last connection, so Connect again goes back to it.
+  expect(setUi).toHaveBeenCalledWith('connect.last', JSON.stringify({
+    transport: 'udp-client', host: '192.168.2.2', port: '14550', device: '', baud: '',
+  }))
+})
+
+it('says when nothing answered, or why it could not look, and looks again when asked', async () => {
+  const handle = createConfigurator(mockBackend())
+  const discover = vi.spyOn(handle.vehicle, 'discover')
+    .mockResolvedValueOnce({ services: [] })
+    .mockResolvedValueOnce({ services: [], error: 'Network is unreachable' })
+  vi.spyOn(handle.settings, 'uiValue').mockReturnValue(undefined)
+  const wrapper = mount(ConnectDialog, { ...withI18n, attachTo: document.body })
+  await flushPromises()
+  useConnectDialog().show()
+  await wrapper.vm.$nextTick()
+  await wrapper.get('#transport-found').trigger('click')
+  await flushPromises()
+  expect(wrapper.get('#found-status').text()).toContain('Nothing on the network announced a MAVLink service')
+  expect(wrapper.find('#found').exists()).toBe(false)
+
+  await wrapper.get('#discover').trigger('click')
+  await flushPromises()
+  expect(discover).toHaveBeenCalledTimes(2)
+  expect(wrapper.get('#found-status').text()).toContain("Couldn't look on the network: Network is unreachable")
+
+  // Back to a kind of link: the form is as it was, with its Connect.
+  await wrapper.get('#transport-udp').trigger('click')
+  expect(wrapper.find('#connect-button').exists()).toBe(true)
 })

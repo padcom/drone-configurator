@@ -50,6 +50,11 @@ export interface SitlOptions {
   defaultParams?: Record<string, number>
   /** How long it may take to answer with a heartbeat. @default 60_000 */
   startTimeoutMs?: number
+  /**
+   * What SERIAL2 is (SITL's `--serial2`), for a link that SITL starts itself (#197): `tcpclient:127.0.0.1:<port>` connects to a TCP
+   * port that listens, `udpclient:127.0.0.1:<port>` sends to a UDP port. @default SITL's own (a TCP port it listens on)
+   */
+  serial2?: string
 }
 
 /** A SITL instance that is up and answering MAVLink on TCP. */
@@ -155,10 +160,16 @@ export function defaultsFile(params: Record<string, number>): string {
 }
 
 /** The command line for SITL. */
-export function sitlArguments(options: { instance: number; frame: string; speedup: number; defaults?: readonly string[] }): string[] {
+export function sitlArguments(
+  options: { instance: number; frame: string; speedup: number; defaults?: readonly string[]; serial2?: string },
+): string[] {
   const defaults = options.defaults?.length ? ['--defaults', options.defaults.join(',')] : []
+  const serial2 = options.serial2 ? ['--serial2', options.serial2] : []
 
-  return ['-w', '--model', options.frame, '--speedup', String(options.speedup), '-I', String(options.instance), '--sim-address=127.0.0.1', ...defaults]
+  return [
+    '-w', '--model', options.frame, '--speedup', String(options.speedup), '-I', String(options.instance), '--sim-address=127.0.0.1',
+    ...defaults, ...serial2,
+  ]
 }
 
 /**
@@ -494,7 +505,8 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
   try {
     directory = await mkdtemp(join(tmpdir(), 'sitl-'))
     const defaults = [...shippedDefaults(found.path, frame), ...await ownDefaults(directory, options.defaultParams)]
-    child = spawn(found.path, sitlArguments({ instance, frame, speedup, defaults }), { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] })
+    const serial2 = options.serial2
+    child = spawn(found.path, sitlArguments({ instance, frame, speedup, defaults, serial2 }), { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] })
   } catch (error) {
     claim.release()
     throw error

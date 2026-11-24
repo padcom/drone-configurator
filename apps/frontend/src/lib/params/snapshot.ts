@@ -1,9 +1,9 @@
 // Parameter snapshots: a vehicle's parameters saved as JSON, and what loading one would change.
 // Nothing here writes: only the changes the user picked and confirmed are applied (useSnapshots).
 import { say } from '@/i18n/say'
-import { validateDraft } from './draft'
 import type { Param, VehicleInfo } from '@/generated/app'
-import { canonical } from './paramValue'
+import { type Diff, type DiffOptions, diffValues } from './paramDiff'
+import type { ParamFileFormat } from './paramFile'
 
 /** The `format` of a snapshot file. */
 export const FORMAT = 'drone-configurator/params'
@@ -48,28 +48,25 @@ export function saveSnapshot(params: Param[], vehicle: VehicleInfo | undefined, 
   return `${JSON.stringify(snapshot, null, 2)}\n`
 }
 
-/** One parameter a snapshot would change, or why it can't. */
-export interface Change {
-  /** The parameter's id. */
-  id: string
-  /** Its value on the vehicle now, or null if the vehicle has none. */
-  from: number | null
-  /** Its value in the snapshot. */
-  to: number
-  /** Why it won't be written (unknown here, another type, an invalid value), or null. */
-  problem: string | null
+export type { Change } from './paramDiff'
+
+/** The firmware's defaults, as the vehicle gives them (#40). */
+export interface DefaultsSource {
+  /** Always `defaults`. */
+  kind: 'defaults'
 }
 
-/** What loading a snapshot would do. */
-export interface Review {
-  /** The snapshot under review. */
-  snapshot: Snapshot
-  /** Parameters whose values differ (and ones that can't be applied, with why). */
-  changes: Change[]
-  /** How many are the same as on the vehicle already. */
-  unchanged: number
+/** Where the values under review come from: a snapshot (and when it was saved), a parameter file (its format), the defaults. */
+export type ReviewSource = { kind: 'snapshot', savedAt: string } | { kind: 'file', format: ParamFileFormat } | DefaultsSource
+
+/** What loading a snapshot or a parameter file would do. */
+export interface Review extends Diff {
+  /** Where the values come from. */
+  source: ReviewSource
   /** A different vehicle type or autopilot than the one connected, if so. */
   vehicleWarning: string | null
+  /** What the file has that is not a change: names in it more than once, lines that are not parameters. */
+  notes: string[]
 }
 
 /**
@@ -151,41 +148,6 @@ export function parseSnapshot(text: string): Snapshot | string {
 }
 
 /**
- * Whether a snapshot's parameter and the vehicle's are of different types.
- *
- * @param current the vehicle's parameter
- * @param wanted the snapshot's parameter
- * @returns true if the kind or the type differs
- */
-const differentType = (current: Param, wanted: SnapshotParam) => current.kind !== wanted.kind || current.type !== wanted.type
-
-/**
- * What loading one parameter of a snapshot would change.
- *
- * @param wanted the snapshot's parameter
- * @param current the vehicle's parameter, if it has one
- * @returns the change (with why it can't be applied, if so), or null if the value is the same already
- */
-function changeFor(wanted: SnapshotParam, current: Param | undefined): Change | null {
-  const { id, value: to } = wanted
-  if (!current) {
-    return { id, from: null, to, problem: say('problem.notOnVehicle') }
-  }
-  if (differentType(current, wanted)) {
-    return { id, from: current.value, to, problem: say('problem.otherType', { snapshot: wanted.type, vehicle: current.type }) }
-  }
-
-  // Compared, and written, as the numbers the vehicle holds (0.1 in a file is the same as the float that came back for it).
-  const value = canonical(current, to)
-
-  if (canonical(current, current.value) === value) {
-    return null
-  }
-
-  return { id, from: current.value, to: value, problem: validateDraft(current, String(to)) }
-}
-
-/**
  * Whether two vehicles are of different types or autopilots.
  *
  * @param was the vehicle the snapshot is from
@@ -201,7 +163,7 @@ const differs = (was: VehicleInfo, now: VehicleInfo) => was.type !== now.type ||
  * @param now the connected vehicle, if any
  * @returns the warning, or null
  */
-function warningFor(was: VehicleInfo | undefined, now: VehicleInfo | undefined): string | null {
+export function warningFor(was: VehicleInfo | undefined, now: VehicleInfo | undefined): string | null {
   if (!was || !now || !differs(was, now)) {
     return null
   }
@@ -215,12 +177,14 @@ function warningFor(was: VehicleInfo | undefined, now: VehicleInfo | undefined):
  * @param snapshot the snapshot
  * @param params the vehicle's parameters now
  * @param vehicle the connected vehicle
+ * @param options the metadata, if loaded (read-only parameters are not written, and its ranges give warnings)
  * @returns the review
  */
-export function review(snapshot: Snapshot, params: Param[], vehicle: VehicleInfo | undefined): Review {
-  const byId = new Map(params.map(param => [param.id, param]))
-  const found = snapshot.params.map(wanted => changeFor(wanted, byId.get(wanted.id)))
-  const changes = found.filter((change): change is Change => change !== null)
-
-  return { snapshot, changes, unchanged: found.length - changes.length, vehicleWarning: warningFor(snapshot.vehicle, vehicle) }
+export function review(snapshot: Snapshot, params: Param[], vehicle: VehicleInfo | undefined, options: DiffOptions = {}): Review {
+  return {
+    source: { kind: 'snapshot', savedAt: snapshot.savedAt },
+    ...diffValues(snapshot.params, params, options),
+    vehicleWarning: warningFor(snapshot.vehicle, vehicle),
+    notes: [],
+  }
 }

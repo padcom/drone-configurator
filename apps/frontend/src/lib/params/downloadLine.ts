@@ -1,7 +1,8 @@
 // The one muted line under the parameter list that says how the last download came: "Parameters: 1370 · by file transfer in
 // 0.8 s", or by the list and why not by file transfer, or what a resume after a dropped link reused. A diagnostic, not a choice
-// for the user.
-import type { DownloadInfo } from '@/composables/useParams'
+// for the user. While a download runs on a new connection, the line says that the list shown is the one kept from the vehicle's
+// last download, and when that was (#38).
+import type { CachedInfo, DownloadInfo } from '@/composables/useParams'
 import type { Format } from '@/i18n/useFormat'
 
 /** Looks a message up (vue-i18n's `t`). */
@@ -55,4 +56,21 @@ export function downloadLine(info: DownloadInfo | null, count: number, t: Say, f
   }
 
   return info.source === 'ftp' ? t('params.progress.info.ftp', named) : byList(info.fallback, named, t)
+}
+
+/**
+ * The line about a list that is shown from the vehicle's last download while the download runs.
+ *
+ * @param cached the kept list, or null when the list shown is not one
+ * @param t looks a message up
+ * @param f formats the date and time in the user's language
+ * @returns the line, or null when the list shown is not a kept one
+ */
+export function cachedLine(cached: CachedInfo | null, t: Say, f: Format): string | null {
+  return cached === null
+    ? null
+    : t('params.progress.info.cached', {
+      count: cached.count,
+      time: f.dateTime(new Date(cached.savedAt)),
+    })
 }

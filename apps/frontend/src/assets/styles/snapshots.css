@@ -1,6 +1,6 @@
 /*
  * The snapshot tools of the Parameters screen (SnapshotToolbar.vue, SnapshotImport.vue): tokens only. The review is a table of
- * what a snapshot would change, with the result of each write beside it and the buttons under it.
+ * what a snapshot or a parameter file would change, with the result of each write beside it and the buttons under it.
  */
 
 .review {
@@ -37,6 +37,16 @@
   font-weight: 500;
   color: var(--color-warn);
   background: var(--color-warn-soft);
+}
+
+/* What a parameter file has that is not a change (a name more than once, a line that is not a parameter): text, not colour. */
+.review-notes {
+  max-height: 6rem;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-8);
+  margin: 0;
+  overflow: auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 .review-scroll {
@@ -158,4 +168,131 @@
 
 .review-actions button {
   min-height: 48px;
+}
+
+/*
+ * The comparison (ParamCompare.vue, #40): the list's place in the Parameters screen while it is open. Its head and filters stay
+ * put, the kit's table scrolls by itself, and the button is under it.
+ */
+.compare {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.compare-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.compare-head h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.compare-head p,
+.compare-loading {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+}
+
+.compare-loading,
+.compare-error {
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.compare-error {
+  color: var(--color-error);
+}
+
+.compare-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
+.compare-field {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.compare-table {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 320px;
+}
+
+.compare-table > .data-table {
+  position: absolute;
+  inset: 0;
+}
+
+.compare-table .data-table-scroll {
+  border: 0;
+  border-radius: 0;
+  scrollbar-width: thin;
+}
+
+.compare-td {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-td:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.compare-td.name,
+.compare-td.vehicle,
+.compare-td.other {
+  font-family: var(--font-mono);
+}
+
+.compare-td.vehicle {
+  color: var(--color-text-muted);
+}
+
+.compare-td.other {
+  color: var(--color-accent);
+}
+
+.compare-td.status {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.compare .data-table-row.warn .compare-td.status {
+  color: var(--color-warn);
+}
+
+.compare-td input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.compare .data-table-cell {
+  padding: 0;
+}
+
+/* The list's place while the comparison is not open: as if the list were in the pane itself (it is hidden while it is). */
+.param-list-slot {
+  display: contents;
 }

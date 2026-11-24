@@ -1,0 +1,187 @@
+// The parameters of each vehicle kept on disk across sessions (paramstore.pi, #38): on their own, and through `params.cached`
+// against the simulated vehicle.
+import { describe, it, expect } from "std/test"
+import { Cbor } from "pico-desktop/communicator"
+import { exists, mkdir, remove, writeText } from "std/fs"
+import { tmpDir } from "std/os"
+import { join } from "std/path"
+import { pid } from "std/process"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  Param,
+  ParamKind,
+  ParamList,
+  ParamListRequest,
+  ParamListSource,
+  SavedParamsSource,
+  decodeParamList,
+  decodeSavedParams,
+  encodeConnectRequest,
+  encodeParamListRequest,
+} from "./generated/app"
+import { fileNameOf, keepForTests, loadList, readList, saveList, textOf } from "./paramstore"
+import { link } from "./session"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+/// A folder of its own for a test.
+async function folder(name: string): Promise<string> throws Error {
+  const root = join(tmpDir(), `drone-configurator-paramstore-${name}-${pid}-${Date.now()}`)
+  await mkdir(root, true)
+  return root
+}
+
+function int(id: string, index: int, value: f64): Param {
+  return Param { id: id, index: index as u16, kind: ParamKind.Int, type: "INT32", value: value }
+}
+
+function real(id: string, index: int, value: f32): Param {
+  return Param { id: id, index: index as u16, kind: ParamKind.Real, type: "REAL32", value: value as f64 }
+}
+
+/// A list as a download gives it.
+function listOf(params: Param[], complete: bool): ParamList {
+  return ParamList {
+    params: params,
+    count: params.length as u16,
+    complete: complete,
+    missing: [],
+    source: ParamListSource.Ftp,
+  }
+}
+
+/// A list as text, by index, with its kind and type.
+function shown(params: Param[]): string {
+  return params.map((q: Param) => `${q.index}:${q.id}=${q.value}:${q.kind == ParamKind.Real}:${q.type}`).join(" ")
+}
+
+/// Values that a float holds and that text must give back to the bit: small, large, negative, a tenth, an int above 2^24.
+function sample(): Param[] {
+  return [
+    int("BRD_SERIAL_NUM", 0, 16777217.0),
+    int("FRAME_CLASS", 1, -1.0),
+    real("ATC_RAT_RLL_P", 2, 0.135 as f32),
+    real("INS_ACC_OFFS_X", 3, -0.00012345 as f32),
+    real("BIG", 4, 3.4e38 as f32),
+    real("TINY", 5, 1.0e-30 as f32),
+    real("TENTH", 6, 0.1 as f32),
+  ]
+}
+
+/// A complete list is kept and given back as it was, to the bit; the file is named by a hash, not by the identity.
+async function keepsAndGivesBackAList(): Promise<void> throws Error {
+  const root = await folder("roundtrip")
+  try {
+    const params = sample()
+    expect(await saveList(root, "1/1/2/3/uid:2.1.2.3", listOf(params, true), 1700000000123)).toBe(true)
+    const saved = await loadList(root, "1/1/2/3/uid:2.1.2.3")
+    expect(saved != null).toBe(true)
+    const s = saved!
+    expect(`${s.count} ${s.savedAt} ${s.source == SavedParamsSource.Ftp}`).toBe("7 1700000000123 true")
+    expect(shown(s.params)).toBe(shown(params))
+    // The numbers themselves, not their text: the same to the bit.
+    for (let i = 0; i < params.length; i++) {
+      expect(`${params[i].id} ${s.params[i].value == params[i].value}`).toBe(`${params[i].id} true`)
+    }
+    expect(fileNameOf("1/1/2/3/uid:2.1.2.3").includes("uid")).toBe(false)
+    expect(await exists(join(root, "params", fileNameOf("1/1/2/3/uid:2.1.2.3")))).toBe(true)
+  } finally {
+    await remove(root, true)
+  }
+}
+
+/// Another vehicle has nothing, and its own list does not replace the first one's.
+async function keepsEachVehicleApart(): Promise<void> throws Error {
+  const root = await folder("apart")
+  try {
+    await saveList(root, "a", listOf([int("A", 0, 1.0)], true), 1000)
+    expect((await loadList(root, "b")) == null).toBe(true)
+    await saveList(root, "b", listOf([int("B", 0, 2.0)], true), 2000)
+    expect(shown((await loadList(root, "a"))!.params)).toBe("0:A=1:false:INT32")
+    expect(shown((await loadList(root, "b"))!.params)).toBe("0:B=2:false:INT32")
+    // A file of another identity under this one's name (a hash that is the same) is not this vehicle's, and is not broken.
+    const other = readList(textOf("x", listOf([int("X", 0, 1.0)], true), 1000), "y")
+    expect(`${other.saved == null} ${other.corrupt}`).toBe("true false")
+  } finally {
+    await remove(root, true)
+  }
+}
+
+/// Nothing is kept of an incomplete download, of a vehicle with no identity, or of a list with a value a file cannot hold; what
+/// was kept before stays.
+async function keepsOnlyCompleteLists(): Promise<void> throws Error {
+  const root = await folder("complete")
+  try {
+    expect(await saveList(root, "a", listOf([int("A", 0, 1.0)], true), 1000)).toBe(true)
+    expect(await saveList(root, "a", listOf([int("A", 0, 5.0)], false), 2000)).toBe(false)
+    expect(await saveList(root, "", listOf([int("A", 0, 5.0)], true), 2000)).toBe(false)
+    expect(await saveList(root, "a", listOf([real("NAN", 0, (0.0 / 0.0) as f32)], true), 2000)).toBe(false)
+    expect(await saveList(root, "a", listOf([], true), 2000)).toBe(false)
+    expect(`${(await loadList(root, "a"))!.savedAt}`).toBe("1000")
+  } finally {
+    await remove(root, true)
+  }
+}
+
+/// A file that is not JSON, or is JSON but not such a list, is none, and is removed.
+async function removesACorruptFile(): Promise<void> throws Error {
+  const root = await folder("corrupt")
+  try {
+    const path = join(root, "params", fileNameOf("a"))
+    for (const text of ["{ not json", "[]", `{"version":1,"identity":"a","savedAt":5,"source":"ftp","count":1,"params":[]}`,
+        `{"version":1,"identity":"a","savedAt":5,"source":"ftp","count":1,"params":[{"id":"A","index":7,"real":false,"type":"INT32","value":1}]}`,
+        `{"version":2,"identity":"a","savedAt":5,"source":"ftp","count":1,"params":[{"id":"A","index":0,"real":false,"type":"INT32","value":1}]}`]) {
+      await saveList(root, "a", listOf([int("A", 0, 1.0)], true), 1000)
+      await writeText(path, text)
+      expect((await loadList(root, "a")) == null).toBe(true)
+      expect(await exists(path)).toBe(false)
+    }
+  } finally {
+    await remove(root, true)
+  }
+}
+
+async function list(f: Frontend): Promise<ParamList> throws Error {
+  const e = await f.call("params.list", encodeParamListRequest(ParamListRequest {}))
+  expect(e.err?.code ?? "").toBe("")
+  return decodeParamList(e.p ?? Cbor.Null, "$")
+}
+
+async function connect(f: Frontend): Promise<void> throws Error {
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+}
+
+/// Through the backend: nothing before a download (`NOT_CACHED`), refused without a vehicle (`NOT_CONNECTED`), and the list of
+/// the last complete download in the next session to the same vehicle.
+async function givesTheLastListInTheNextSession(): Promise<void> throws Error {
+  const root = await folder("session")
+  useDirectoryForTests(root)
+  const f = await start()
+  keepForTests(true)
+  try {
+    expect((await f.call("params.cached")).err?.code ?? "").toBe("NOT_CONNECTED")
+    await connect(f)
+    expect((await f.call("params.cached")).err?.code ?? "").toBe("NOT_CACHED")
+    const downloaded = await list(f)
+    link.close()
+    await connect(f)
+    const e = await f.call("params.cached")
+    expect(e.err?.code ?? "").toBe("")
+    const saved = decodeSavedParams(e.p ?? Cbor.Null, "$")
+    expect(`${saved.count} ${saved.params.length}`).toBe("12 12")
+    expect(shown(saved.params)).toBe(shown(downloaded.params))
+    expect((saved.savedAt as int) > 0).toBe(true)
+  } finally {
+    link.close()
+    await remove(root, true)
+  }
+}
+
+describe("the parameters kept for each vehicle across sessions", () => {
+  it("keeps a complete list and gives it back to the bit, in a file named by a hash", keepsAndGivesBackAList)
+  it("keeps each vehicle's list apart", keepsEachVehicleApart)
+  it("keeps only complete lists of a vehicle with an identity", keepsOnlyCompleteLists)
+  it("removes a file that is not such a list, and gives nothing", removesACorruptFile)
+  it("gives the last complete list in the next session to the same vehicle", givesTheLastListInTheNextSession)
+})

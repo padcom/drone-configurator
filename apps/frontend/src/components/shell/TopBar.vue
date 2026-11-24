@@ -72,7 +72,11 @@
             @select="modes.pick"
           />
           <!-- LINK is the link's quality, from the backend's own measure (link.stats), and the button to its details. -->
-          <LinkIndicator v-else-if="cell.id === 'link'" />
+          <!-- ... and whether the link is signed (#33), the way to the Signing page. -->
+          <span v-else-if="cell.id === 'link'" class="link-cell">
+            <LinkIndicator />
+            <SigningIndicator />
+          </span>
           <template v-else-if="cell.missing">
             <span aria-hidden="true">{{ cell.value }}</span>
             <span class="visually-hidden">{{ t('truth.notReported') }}</span>
@@ -82,6 +86,8 @@
       </div>
     </dl>
     <div class="actions">
+      <!-- A port of the vehicle that a serial bridge holds is never out of sight (#198). -->
+      <SerialBridgeBadge />
       <!-- The command palette has no button here: it is the command "Show command palette", reached by its key. -->
       <!-- With the link down and a last connection kept, one click connects to it again (#27); its key works anywhere. -->
       <CommandButton v-if="again" id="connect-again" command="connect.last" look="primary" icon-position="none" />
@@ -95,6 +101,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
 import LinkIndicator from './LinkIndicator.vue'
+import SigningIndicator from './SigningIndicator.vue'
+import SerialBridgeBadge from './SerialBridgeBadge.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Menu from '@/components/ui/Menu.vue'

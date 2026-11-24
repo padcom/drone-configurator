@@ -1,0 +1,400 @@
+// MAVLink 2 message signing (#33): `signing.provision` makes a key (random, or the SHA-256 of a passphrase), keeps it for the vehicle
+// (signingkeys.pi: a file of the backend's own that only the user can read) and sends it to the vehicle with SETUP_SIGNING, confirmed
+// by a signed command the vehicle answers signed (pico-mavlink's SigningSetup); `signing.disable` turns the vehicle's signing off and
+// forgets the key; `signing.status` says whether the link is signed, with the key's fingerprint, never the key.
+//
+// When a vehicle connects (or the link comes back), the link signs by itself when a key is held that the vehicle's heartbeats are
+// signed with: every heartbeat is kept as it came (`watchBeats`), and its signature is checked against each key held, which needs no
+// command and no wait. A vehicle that signs with a key this computer does not have is `unknown-key`; one for which a key is held but
+// which does not sign with it is `no-answer` (the key may be wrong, or its signing was reset over USB). Either way the link goes on
+// unsigned: over USB ArduPilot still takes unsigned commands, over a radio it ignores them, and the page says why.
+//
+// Safety: the keys go nowhere but the key file and the vehicle. What this module says (errors, events, `toString`) names a key by its
+// fingerprint only; a passphrase is never repeated. The SETUP_SIGNING frame is never recorded (pico-mavlink's TlogTap leaves it out).
+// A key is written to the file BEFORE it is sent (a key the vehicle holds and this computer does not would lock it out), and a key is
+// only forgotten when the vehicle is known not to hold it: a provisioning that was not confirmed is settled by the vehicle's next
+// heartbeat (signed with the new key: it took it; unsigned or with the old key: it did not), and with no heartbeat both keys are kept
+// and the next connection finds the right one.
+//
+// The link's policy takes unsigned RADIO_STATUS (a telemetry radio cannot sign) and drops every other unsigned or wrongly signed
+// packet, and replays. It does not check the age of the first packet of a stream (the spec's minute): a vehicle with no GPS time
+// restores an old timestamp after a reboot, and would be refused for good.
+import { Cbor, Communicator, CommunicatorError, RequestContext, Sink } from "pico-desktop/communicator"
+import {
+  Heartbeat,
+  MavLinkConnection,
+  MavLinkError,
+  MavLinkPacket,
+  RADIO_ID,
+  RADIO_STATUS_ID,
+  Received,
+  SigningKey,
+  SigningPolicy,
+  SigningSetup,
+  UnsignedPolicy,
+} from "padcom/pico-mavlink"
+import { SigningProvision, SigningStatus, SigningStatusState, decodeSigningProvision, encodeSigningStatus } from "./generated/app"
+import { KeptKey, KeysError, addKey, fingerprintOf, forget, forgetVehicle, heldKeyFor, heldKeys, keepOnly, keptKeys, keysReady, loadKeys } from "./signingkeys"
+import { SessionPart, armedState, connectedLink, link, rebootExpected } from "./session"
+
+/// The longest passphrase taken (characters).
+export const MAX_PASSPHRASE: int = 256
+
+/// How long the waits are; the tests shorten them.
+class Waits {
+  /// For the vehicle's answer to the confirming command, per try (ms).
+  public answerMs: int = 1000
+  /// How many times SETUP_SIGNING is sent again when no answer confirms it.
+  public retries: int = 3
+  /// For a heartbeat that settles a provisioning that was not confirmed (ms).
+  public beatMs: int = 2500
+}
+
+export const waits = new Waits()
+
+/// What the service holds.
+class Signing {
+  public status: SigningStatus = SigningStatus { state: SigningStatusState.Off }
+  public watchers: Sink[] = []
+  /// Whether a provisioning or a disabling runs.
+  public busy: bool = false
+  /// The last heartbeat of each sender (`system << 8 | component`), as it came: whether and how it is signed.
+  public beats: Map<int, MavLinkPacket> = new Map<int, MavLinkPacket>()
+  public conn: MavLinkConnection? = null
+  public listener: int = -1
+}
+
+const signing = new Signing()
+
+/// The part of the session: when it ends, the link is no longer signed and the heartbeats kept are forgotten.
+class SigningPart implements SessionPart {
+  public attach(_conn: MavLinkConnection): void {
+  }
+
+  public detach(): void {
+    stopWatching()
+    say(SigningStatusState.Off, null)
+  }
+}
+
+/// Registers the service on `c`.
+export function register(c: Communicator): void {
+  link.parts.set("signing", new SigningPart())
+  c.handle("signing.provision", provision)
+  c.handle("signing.disable", disable)
+  c.publish("signing.status", watch)
+}
+
+/// The signing policy of the link for `key`: unsigned RADIO_STATUS (and ArduPilot's older RADIO) taken, everything else signed with
+/// the key; no check of a first packet's age (see the top of this file).
+export function policyFor(key: SigningKey): SigningPolicy {
+  return new SigningPolicy(key, UnsignedPolicy.AcceptListed([RADIO_STATUS_ID, RADIO_ID]), { windowMs: 0 })
+}
+
+/// What the page is told now.
+export function signingStatus(): SigningStatus {
+  return signing.status
+}
+
+/// Says what the signing is, to every watcher (only when it changed).
+function say(state: SigningStatusState, key: KeptKey?): void {
+  const next = SigningStatus {
+    state: state,
+    fingerprint: if (key == null) null else key!.fingerprint,
+    setAt: if (key == null) null else key!.setAt as u64,
+  }
+  const now = signing.status
+  if (now.state == next.state && now.fingerprint == next.fingerprint && now.setAt == next.setAt) {
+    return
+  }
+  signing.status = next
+  for (const w of signing.watchers) {
+    w.next(encodeSigningStatus(next))
+  }
+}
+
+function watch(_params: Cbor?, sink: Sink): void throws Error {
+  sink.next(encodeSigningStatus(signing.status))
+  signing.watchers.push(sink)
+  sink.onClose = () => {
+    signing.watchers = signing.watchers.filter((w: Sink) => w.id != sink.id)
+  }
+}
+
+/// Keeps every heartbeat `conn` receives, as it came (connection.pi calls this as soon as the connection is made, before a vehicle
+/// is identified). Until the session ends.
+export function watchBeats(conn: MavLinkConnection): void {
+  stopWatching()
+  signing.conn = conn
+  signing.listener = conn.on((r: Received) => {
+    if (r.packet.header.msgid == Heartbeat.MSG_ID) {
+      signing.beats.set(senderOf(r.packet), r.packet)
+    }
+  })
+}
+
+function stopWatching(): void {
+  const c = signing.conn
+  if (c != null) {
+    c!.off(signing.listener)
+  }
+  signing.conn = null
+  signing.listener = -1
+  signing.beats.clear()
+}
+
+function senderOf(p: MavLinkPacket): int {
+  return ((p.header.sysid as int) << 8) | (p.header.compid as int)
+}
+
+/// The last heartbeat of the connected autopilot, if one was heard.
+function lastBeat(): MavLinkPacket? {
+  return signing.beats.get((link.sysid << 8) | link.compid)
+}
+
+/// The key, among `keys`, that `beat` is signed with; null when it is not signed, or with none of them.
+export function keySigning(beat: MavLinkPacket?, keys: KeptKey[]): KeptKey? {
+  if (beat == null) {
+    return null
+  }
+  const s = beat!.signature
+  if (s == null) {
+    return null
+  }
+  // The newest first: after a provisioning that was not settled, the vehicle's key is more likely the new one.
+  let found: KeptKey? = null
+  for (const k of keys) {
+    if (s!.matches(k.key.reveal()) && (found == null || k.setAt > found!.setAt)) {
+      found = k
+    }
+  }
+  return found
+}
+
+/// Reads the keys file, the first time (connection.pi and reconnect.pi call it before `signForVehicle`, only when `keysReady` is
+/// false: the keys are then in memory, and what follows needs no wait).
+export async function readKeys(): Promise<void> {
+  await loadKeys()
+}
+
+/// Whether the keys file has been read.
+export function keysRead(): bool {
+  return keysReady()
+}
+
+/// Before the vehicle's version is read (connecting, or the link back): the link signs when a key is held that the vehicle's last
+/// heartbeat is signed with, and stops signing otherwise. `settle` says the rest once the vehicle is identified. The keys are the
+/// ones in memory (`readKeys` first).
+export function signForVehicle(conn: MavLinkConnection): void {
+  conn.useSigning(null)
+  const beat = lastBeat()
+  const key = keySigning(beat, heldKeys())
+  if (key != null) {
+    conn.useSigning(policyFor(key!.key))
+    say(SigningStatusState.Signed, key)
+    return
+  }
+  const signed = beat != null && beat!.signature != null
+  say(if (signed) SigningStatusState.UnknownKey else SigningStatusState.Off, null)
+}
+
+/// The vehicle is identified (`link.identity`): a vehicle whose link is not signed, and for which a key is held, does not sign with
+/// it (`no-answer`).
+export function settle(): void {
+  if (signing.status.state == SigningStatusState.Signed || link.identity == "") {
+    return
+  }
+  const kept = heldKeyFor(link.identity)
+  if (kept != null) {
+    say(SigningStatusState.NoAnswer, kept)
+  }
+}
+
+/// Why signing may not be changed now, as a code, or null when it may.
+export function refusal(): string? {
+  const armed = armedState()
+  if (armed == null) {
+    return "STATE_UNKNOWN"
+  }
+  if (armed!) {
+    return "ARMED"
+  }
+  if (signing.busy || link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || link.planning || rebootExpected()) {
+    return "BUSY"
+  }
+  if (link.identity == "") {
+    return "NO_VEHICLE_ID"
+  }
+  return null
+}
+
+/// The words for a refusal's code.
+function reasonOf(code: string): string {
+  match (code) {
+    "STATE_UNKNOWN" => "the vehicle's state is unknown (no heartbeat for 3 s): signing is changed only on a vehicle known to be disarmed",
+    "ARMED" => "the vehicle is armed: signing is changed only on the ground, disarmed",
+    "BUSY" => "a signing change, a parameter, plan, log, calibration, motor test or reboot is under way",
+    _ => "the vehicle is not identified yet",
+  }
+}
+
+/// Fails when signing may not be changed now.
+function check(): MavLinkConnection throws CommunicatorError {
+  const conn = connectedLink()
+  const why = refusal()
+  if (why != null) {
+    throw new CommunicatorError(why!, reasonOf(why!))
+  }
+  return conn
+}
+
+/// The key a request asks for: random, or from its passphrase (1 to `MAX_PASSPHRASE` characters, never repeated in an error).
+export function keyOfRequest(ask: SigningProvision): SigningKey throws CommunicatorError {
+  const phrase = ask.passphrase
+  if (phrase == null) {
+    return SigningKey.random()
+  }
+  if (phrase!.length == 0 || phrase!.length > MAX_PASSPHRASE) {
+    throw new CommunicatorError("INVALID_VALUE", `a passphrase is 1 to ${MAX_PASSPHRASE} characters`)
+  }
+  return SigningKey.fromPassphrase(phrase!)
+}
+
+/// The setup of the connected autopilot's signing.
+function setupFor(conn: MavLinkConnection): SigningSetup {
+  return new SigningSetup(conn, { system: link.sysid, component: link.compid }, {
+    timeoutMs: waits.answerMs,
+    retries: waits.retries,
+    signal: link.session.signal,
+  })
+}
+
+/// The next heartbeat of the connected autopilot, whether signed or not (the link checks nothing while it is waited for), or null.
+async function nextBeat(conn: MavLinkConnection): Promise<MavLinkPacket?> throws Error {
+  const before = conn.signing
+  conn.useSigning(null)
+  try {
+    const r = await conn.waitFor(
+      (r: Received) => r.packet.header.msgid == Heartbeat.MSG_ID && r.packet.header.sysid as int == link.sysid
+        && r.packet.header.compid as int == link.compid,
+      waits.beatMs,
+      link.session.signal,
+    )
+    return if (r == null) null else r!.packet
+  } finally {
+    conn.useSigning(before)
+  }
+}
+
+/// A provisioning the vehicle did not confirm: its next heartbeat says whether it took the key (signed with it), or not (unsigned,
+/// or signed with another key: the new key is forgotten). With no heartbeat, both keys are kept. Whether it took it.
+async function settleUnconfirmed(conn: MavLinkConnection, kept: KeptKey): Promise<bool> throws Error {
+  const beat = await nextBeat(conn)
+  if (beat == null) {
+    return false
+  }
+  if (keySigning(beat, [kept]) != null) {
+    conn.useSigning(policyFor(kept.key))
+    return true
+  }
+  try {
+    await forget(kept)
+  } catch (e: KeysError) {
+    // (kept: a key that is held and not used is harmless; the next connection does not find it in the vehicle's heartbeats)
+  }
+  return false
+}
+
+/// Says what the signing is after a change that did not go through: what the link does now, and what is held.
+async function sayAfterFailure(conn: MavLinkConnection): Promise<void> {
+  const policy = conn.signing
+  if (policy != null) {
+    for (const k of await keptKeys()) {
+      if (k.key.equals(policy!.signingKey)) {
+        say(SigningStatusState.Signed, k)
+        return
+      }
+    }
+  }
+  say(SigningStatusState.Off, null)
+  settle()
+}
+
+async function provision(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = if (payload == null) SigningProvision {} else decodeSigningProvision(payload!, "$")
+  const conn = check()
+  const key = keyOfRequest(ask)
+  signing.busy = true
+  try {
+    return await provisionWith(conn, key)
+  } finally {
+    signing.busy = false
+  }
+}
+
+async function provisionWith(conn: MavLinkConnection, key: SigningKey): Promise<Cbor?> throws Error {
+  const kept = new KeptKey(link.identity, key, Date.now() as int)
+  try {
+    await addKey(kept)
+  } catch (e: KeysError) {
+    throw new CommunicatorError("NOT_SAVED", `${e.message}. Nothing was sent to the vehicle.`)
+  }
+  const generation = link.generation
+  let confirmed = false
+  try {
+    confirmed = (await setupFor(conn).provision(policyFor(key))).confirmed
+    if (!confirmed && link.generation == generation) {
+      confirmed = await settleUnconfirmed(conn, kept)
+    }
+  } catch (e: MavLinkError) {
+    // Stopped (the link was lost, the user disconnected): the vehicle may hold the key, so both are kept.
+    throw new CommunicatorError(e.code, `signing was not set up: ${e.message}. The key is kept, in case the vehicle took it.`)
+  }
+  if (!confirmed) {
+    await sayAfterFailure(conn)
+    throw new CommunicatorError("NOT_CONFIRMED", "the vehicle did not confirm the key. Check that it supports signing, and try again.")
+  }
+  try {
+    await keepOnly(kept)
+  } catch (e: KeysError) {
+    // (the older key stays in the file: harmless, the vehicle's heartbeats are not signed with it)
+  }
+  say(SigningStatusState.Signed, kept)
+  encodeSigningStatus(signing.status)
+}
+
+async function disable(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const conn = check()
+  signing.busy = true
+  try {
+    return await disableOn(conn)
+  } finally {
+    signing.busy = false
+  }
+}
+
+async function disableOn(conn: MavLinkConnection): Promise<Cbor?> throws Error {
+  let confirmed = false
+  try {
+    confirmed = (await setupFor(conn).disable()).confirmed
+  } catch (e: MavLinkError) {
+    throw new CommunicatorError(e.code, `signing was not turned off: ${e.message}`)
+  }
+  if (!confirmed) {
+    await sayAfterFailure(conn)
+    throw new CommunicatorError("NOT_CONFIRMED",
+      "the vehicle did not confirm that signing is off. Over a radio it takes this only signed with its own key; over USB it always does.")
+  }
+  say(SigningStatusState.Off, null)
+  try {
+    await forgetVehicle(link.identity)
+  } catch (e: KeysError) {
+    throw new CommunicatorError("NOT_SAVED", `signing is off on the vehicle, but its key could not be removed from this computer: ${e.message}`)
+  }
+  encodeSigningStatus(signing.status)
+}
+
+/// For tests: the fingerprint of a key, as the page is told it.
+export function fingerprintForTests(key: SigningKey): string {
+  return fingerprintOf(key)
+}

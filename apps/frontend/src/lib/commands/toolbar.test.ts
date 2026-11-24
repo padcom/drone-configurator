@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import { fakeContext } from '@/testing/commandContext'
 import { ConnectToVehicle, DisconnectFromVehicle, ShowPalette } from './app'
-import { DownloadParameters, LoadSnapshot, SaveSnapshot } from './snapshots'
+import { DownloadParameters, LoadSnapshot, SaveParamFile, SaveSnapshot, parameterCommands } from './snapshots'
 
 describe('Disconnect', () => {
   it.each([['connected', true], ['reconnecting', true], ['connecting', false], ['disconnected', false]] as const)(
@@ -99,4 +99,18 @@ describe('the snapshots', () => {
 
     expect(fake.calls.snapshot).toEqual(['load'])
   })
+})
+
+it('saves a parameter file in each format only when there are parameters, each under a label of its own', () => {
+  const none = fakeContext({ paramCount: 0 })
+  const some = fakeContext({ paramCount: 3 })
+  const saves = ['param', 'parm', 'qgc'] as const
+
+  expect(new SaveParamFile('param').isEnabled(none.ctx)).toEqual({ enabled: false, reasonKey: 'palette.reason.noParameters' })
+  saves.forEach(format => new SaveParamFile(format).execute(some.ctx))
+
+  expect(some.calls.snapshot).toEqual(['save.param', 'save.parm', 'save.qgc'])
+  expect(parameterCommands().map(command => command.id).slice(3, 6))
+    .toEqual(['paramFile.save.param', 'paramFile.save.parm', 'paramFile.save.qgc'])
+  expect(new SaveParamFile('qgc').labelKey).toBe('palette.paramFile.qgc')
 })

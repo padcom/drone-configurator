@@ -1,6 +1,6 @@
 // The checks for a vehicle reached over a real link, in the real window. They say nothing about
 // which vehicle it is: each *.e2e.ts says that (ArduPilot SITL, or the simulator behind TCP).
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
@@ -36,6 +36,11 @@ export interface LiveVehicle {
   /** An integer parameter that's safe to change by `paramStep`, and is put back afterwards. */
   param: string
   paramStep: number
+  /** Its parameters stay as they are while it stands (no counters or learned values): a file saved from it and loaded back is
+   * the same to the last bit. */
+  stableParams: boolean
+  /** A parameter file ArduPilot itself has (its Tools/autotest/default_params), to load for review, if there is one here. */
+  realParamFile?: () => string | null
 }
 
 /**
@@ -111,6 +116,25 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   }
 
   const valueIn = (saved: Saved) => saved.params.find(p => p.id === vehicle.param)?.value
+
+  /** The text of the file the app saved whose name starts with `prefix` and ends with `suffix`, once it's there. */
+  async function savedText(prefix: string, suffix: string): Promise<string> {
+    return vi.waitFor(() => {
+      const name = readdirSync(files).find(f => f.startsWith(prefix) && f.endsWith(suffix))
+      if (!name) {
+        throw new Error(`no ${prefix}*${suffix} file saved in ${files}`)
+      }
+
+      return readFileSync(join(files, name), 'utf8')
+    }, { timeout: 10_000, interval: 100 })
+  }
+
+  /** Loads `text` as a parameter file (the backend opens `open.param` of the test folder), and waits for its review. */
+  async function loadParamFile(text: string): Promise<void> {
+    writeFileSync(join(files, 'open.param'), text)
+    await app.click('#load-button')
+    await app.waitForText('#import', 'Parameter file: ')
+  }
 
   beforeAll(async () => {
     // Instead of the native file dialogs, which a test can't click (the backend's FileChooser).
@@ -260,6 +284,131 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.click('#backup')
     expect(valueIn(await savedSnapshot('backup-'))).toBe(original)
     await app.click('#close-import')
+  })
+
+  it('saves a .param file, loads it back unchanged, and applies an edited one with a read-back', async ({ onTestFinished }) => {
+    const original = await currentValue()
+    onTestFinished(() => putBack(original))
+    onTestFinished(() => rmSync(join(files, 'open.param'), { force: true }))
+    const changed = original + vehicle.paramStep
+
+    // From the command palette, as the keyboard does (the toolbar has no room for a button per format).
+    await openPalette(app)
+    await app.fill('#palette-input', 'ArduPilot .param')
+    await app.waitFor(`document.querySelector('[data-command="paramFile.save.param"]') !== null`)
+    await app.click('[data-command="paramFile.save.param"]')
+    const saved = await savedText('params-', '.param')
+    const lines = saved.split('\n')
+    expect(lines[0]).toMatch(/^# Parameters of QUADROTOR \(ARDUPILOTMEGA\), vehicle 1, saved by Drone Configurator on /u)
+    expect(lines).toContain(`${vehicle.param},${original}`)
+    expect(saved).not.toContain('\r')
+
+    // As it was saved: the same, to the last bit of every float (on a vehicle whose counters run, those few differ).
+    await loadParamFile(saved)
+    const [, differ = '', same = ''] = /^Different: (\d+); already the same: (\d+)\./u.exec(await app.text('.review-head p')) ?? []
+    console.info(`a .param file loaded back unchanged: ${differ} differ, ${same} the same`)
+    expect(Number(differ) + Number(same)).toBe(lines.length - 2)
+    expect(Number(differ)).toBeLessThanOrEqual(vehicle.stableParams ? 0 : 5)
+    await app.click('#close-import')
+
+    // Edited the way a person does: CRLF line ends, a comment, a value changed, and a name the vehicle does not have.
+    const edited = ['# edited by hand', ...lines.filter(line => !line.startsWith(`${vehicle.param},`)), `${vehicle.param} ${changed}`]
+    await loadParamFile([...edited, 'NOT_ON_VEHICLE,1'].join('\r\n'))
+    await app.waitForText('#import', new RegExp(`${vehicle.param}\\s+${original}\\s+→ ${changed}`, 'u'))
+    await app.waitForText('#import', /NOT_ON_VEHICLE\s+—\s+→ 1\s+not on this vehicle/u)
+    expect(await app.evaluate<boolean>(`document.querySelector('input[data-pick="NOT_ON_VEHICLE"]').disabled`)).toBe(true)
+    expect(await app.evaluate<boolean>(`document.querySelector('input[data-pick="${vehicle.param}"]').checked`)).toBe(false)
+
+    await app.click(`input[data-pick="${vehicle.param}"]`)
+    await app.click('#apply')
+    await app.waitForText('#question', `Write 1 parameter to the vehicle (${vehicle.param})?`)
+    await confirmWrite(app)
+    await app.waitForText('#import', `Written and read back: ${changed}`, vehicle.downloadTimeoutMs)
+    expect(await currentValue()).toBe(changed)
+    await app.click('#close-import')
+  })
+
+  it('loads a parameter file of ArduPilot\'s own for review, and writes nothing until told', async ({ skip }) => {
+    const path = vehicle.realParamFile?.() ?? null
+    if (path === null || !existsSync(path)) {
+      skip()
+
+      return
+    }
+    await loadParamFile(readFileSync(path, 'utf8'))
+
+    // The review lists the rows that differ (or none), with nothing ticked.
+    expect(await app.text('.review-head p')).toMatch(/^Different: \d+; already the same: \d+\. Tick the ones to write\.$/u)
+    expect(await app.evaluate<number>(`document.querySelectorAll('#import input[type=checkbox]:checked').length`)).toBe(0)
+    await app.click('#close-import')
+  })
+
+  /** The status (`same`, `differs`, `vehicleOnly`, `otherOnly`) of a row of the comparison, or '' when it is not shown. */
+  const compareStatus = (id: string) => app.evaluate<string>(
+    `document.querySelector('#compare [data-id="${id}"]')?.dataset.status ?? ''`,
+  )
+
+  /** Opens the comparison with the firmware's defaults, and narrows it to the parameter of these checks, every row of it shown. */
+  async function compareWithDefaults(): Promise<void> {
+    await app.click('#compare-defaults')
+    await app.waitForText('#compare h3', 'Compared with: Firmware defaults', vehicle.downloadTimeoutMs)
+    await app.click('#compare-only-differences')
+    await app.fill('#compare-search', vehicle.param)
+    await app.waitFor(`document.querySelector('#compare [data-id="${vehicle.param}"]') !== null`)
+  }
+
+  it('compares with the firmware defaults, and copies a default across through the review, read back', async ({ onTestFinished }) => {
+    const original = await currentValue()
+    onTestFinished(() => putBack(original))
+    await compareWithDefaults()
+    // A parameter at its default is moved off it first, so that there is something to copy across.
+    if (await compareStatus(vehicle.param) === 'same') {
+      await app.click('#close-compare')
+      await write(original, original + vehicle.paramStep)
+      await compareWithDefaults()
+    }
+    expect(await compareStatus(vehicle.param)).toBe('differs')
+    const cells = await app.evaluate<string[]>(`[...document.querySelectorAll('#compare [data-id="${vehicle.param}"] [data-column]')]
+      .map(cell => cell.innerText.trim())`)
+    const fallback = Number(/^-?[\d.]+/u.exec(cells[3] ?? '')?.[0])
+    console.info(`${vehicle.param}: ${cells[2]} on the vehicle, ${cells[3]} by default`)
+    expect(Number.isFinite(fallback)).toBe(true)
+
+    // Copied across: to the review, ticked, and nothing written until it is confirmed.
+    await app.click(`#compare input[data-copy="${vehicle.param}"]`)
+    await app.click('#compare-review')
+    await app.waitForText('#import', 'Firmware defaults')
+    expect(await app.evaluate<boolean>(`document.querySelector('input[data-pick="${vehicle.param}"]').checked`)).toBe(true)
+    await app.click('#apply')
+    await app.waitForText('#question', `Write 1 parameter to the vehicle (${vehicle.param})?`)
+    await confirmWrite(app)
+    await app.waitForText('#import', `Written and read back: ${fallback}`, vehicle.downloadTimeoutMs)
+    await app.click('#close-import')
+    expect(await currentValue()).toBe(fallback)
+  })
+
+  it('compares with a file that misses parameters and has one the vehicle lacks, and writes nothing', async ({ onTestFinished }) => {
+    onTestFinished(() => rmSync(join(files, 'open.param'), { force: true }))
+    const original = await currentValue()
+    await showAllParameters(app)
+    const count = Number((await app.waitForText('#list-status', /^\d+ parameters$/u)).split(' ')[0])
+    writeFileSync(join(files, 'open.param'), `${vehicle.param},${original + vehicle.paramStep}\nNOT_ON_VEHICLE,1\n`)
+
+    await app.click('#compare-file')
+    await app.waitForText('#compare h3', 'Compared with: Parameter file: ')
+
+    // One differs, one is not on the vehicle, and every other parameter of the vehicle is only on the vehicle.
+    expect(await app.text('#compare-summary'))
+      .toBe(`Different: 1; only on the vehicle: ${count - 1}; not on the vehicle: 1; the same: 0.`)
+    await app.fill('#compare-search', 'NOT_ON_VEHICLE')
+    await app.waitFor(`document.querySelector('#compare [data-id="NOT_ON_VEHICLE"]') !== null`)
+    expect(await compareStatus('NOT_ON_VEHICLE')).toBe('otherOnly')
+    expect(await app.evaluate<boolean>(`document.querySelector('#compare input[data-copy="NOT_ON_VEHICLE"]').disabled`)).toBe(true)
+    await app.fill('#compare-search', vehicle.param)
+    await app.waitFor(`document.querySelector('#compare [data-id="${vehicle.param}"]') !== null`)
+    expect(await compareStatus(vehicle.param)).toBe('differs')
+    await app.click('#close-compare')
+    expect(await currentValue()).toBe(original)
   })
 
   it('disconnects and reconnects', async () => {
