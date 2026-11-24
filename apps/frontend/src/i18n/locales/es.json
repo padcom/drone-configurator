@@ -1248,8 +1248,29 @@
     "load": "Cargar instantánea",
     "loadMetadata": "Cargar metadatos"
   },
+  "paramFile": {
+    "save": {
+      "param": "Guardar .param",
+      "parm": "Guardar .parm",
+      "qgc": "Guardar .params"
+    },
+    "format": {
+      "param": "ArduPilot .param (NOMBRE,VALOR)",
+      "parm": "MAVProxy .parm (NOMBRE VALOR)",
+      "qgc": "QGroundControl .params"
+    }
+  },
   "import": {
     "from": "Instantánea del {savedAt}",
+    "fromFile": "Archivo de parámetros: {format}",
+    "notes": "Sobre el archivo",
+    "unusual": "{warning}. Revísalo antes de escribirlo.",
+    "armed": "No se escribe nada mientras el vehículo está armado o puede estarlo. Desármalo primero.",
+    "note": {
+      "duplicate": "{id} está en las líneas {lines}: se usa el valor de la línea {last}.",
+      "malformed": "La línea {line} no es un parámetro y se omite: {text}",
+      "moreMalformed": "{count} línea más no es un parámetro. | {count} líneas más no son parámetros."
+    },
     "itWas": "Era {warning}.",
     "summary": "Distintos: {differ}; ya iguales: {same}. Marca los que quieras escribir.",
     "noValue": "—",
@@ -1257,6 +1278,7 @@
       "apply": "Aplicar",
       "vehicle": "En el vehículo",
       "snapshot": "En la instantánea",
+      "file": "En el archivo",
       "result": "Resultado"
     },
     "verified": "✓ Escrito y releído: {detail}",
@@ -1373,10 +1395,13 @@
     "noParams": "no tiene parámetros",
     "snapshotVersion": "instantánea versión {version} (esta app lee la versión {supported})",
     "malformed": "sus parámetros están mal formados",
+    "noParamLines": "no tiene líneas de parámetros (NOMBRE,VALOR o NOMBRE VALOR, uno por línea)",
     "notSnapshot": "no es una instantánea de parámetros de Drone Configurator"
   },
   "problem": {
     "notOnVehicle": "no está en este vehículo",
+    "readOnly": "solo lectura: lo fija el propio vehículo",
+    "otherComponent": "para el componente {file} en el archivo; el autopiloto es el componente {vehicle}",
     "otherType": "{snapshot} en la instantánea, {vehicle} en el vehículo",
     "otherVehicle": "guardado desde un {was} ({wasAutopilot}); este es un {now} ({nowAutopilot})",
     "notConfirmed": "el vehículo informa {reported}, no {written}"
@@ -1525,14 +1550,20 @@
         "keywords": "leer actualizar recargar lista"
       }
     },
+    "paramFile": {
+      "param": "Guardar los parámetros como archivo .param de ArduPilot…",
+      "parm": "Guardar los parámetros como archivo .parm de MAVProxy…",
+      "qgc": "Guardar los parámetros como archivo .params de QGroundControl…",
+      "keywords": "exportar archivo escribir param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Guardar una instantánea de los parámetros…",
         "keywords": "exportar copia archivo escribir"
       },
       "load": {
-        "label": "Cargar una instantánea de los parámetros…",
-        "keywords": "importar restaurar archivo abrir"
+        "label": "Cargar una instantánea o un archivo de parámetros…",
+        "keywords": "importar restaurar archivo abrir param parm params"
       }
     },
     "reason": {

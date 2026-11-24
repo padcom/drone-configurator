@@ -30,13 +30,15 @@ describe('reviewing a snapshot', () => {
     s.vehicle = { ...VEHICLE, type: 'FIXED_WING' }
     const r = review(s, PARAMS, { ...VEHICLE })
     expect(r.changes).toEqual([
-      { id: 'FENCE_ENABLE', from: 0, to: 300, problem: 'INT8 goes from -128 to 127' },
-      { id: 'RTL_ALT', from: 1500, to: 2000, problem: null },
-      { id: 'NOT_A_PARAM', from: null, to: 1, problem: 'not on this vehicle' },
-      { id: 'SYSID_THISMAV', from: 1, to: 2, problem: 'REAL32 in the snapshot, INT16 on the vehicle' },
+      { id: 'FENCE_ENABLE', from: 0, to: 300, problem: 'INT8 goes from -128 to 127', warning: null },
+      { id: 'RTL_ALT', from: 1500, to: 2000, problem: null, warning: null },
+      { id: 'NOT_A_PARAM', from: null, to: 1, problem: 'not on this vehicle', warning: null },
+      { id: 'SYSID_THISMAV', from: 1, to: 2, problem: 'REAL32 in the snapshot, INT16 on the vehicle', warning: null },
     ])
     expect(r.unchanged).toBe(PARAMS.length - 2)
     expect(r.vehicleWarning).toBe('saved from a FIXED_WING (ARDUPILOTMEGA); this is a QUADROTOR (ARDUPILOTMEGA)')
+    expect(r.source).toEqual({ kind: 'snapshot', savedAt: '2026-11-07T12:00:00.000Z' })
+    expect(r.notes).toEqual([])
   })
 
   it('count a float of -0 or a tiny negative in the file as the 0 the vehicle has: no change', () => {
@@ -47,4 +49,15 @@ describe('reviewing a snapshot', () => {
     expect(review(file(-1e-50), [...PARAMS, trim], { ...VEHICLE }).changes).toEqual([])
     expect(review(file(0.5), [...PARAMS, { ...trim, value: -0 }], { ...VEHICLE }).changes).toHaveLength(1)
   })
+})
+
+it('skips a read-only parameter and warn of a value outside the range, with metadata', () => {
+  const s = saved()
+  s.params = s.params.map(p => p.id === 'RTL_ALT' ? { ...p, value: 900000 } : p.id === 'BATT_CAPACITY' ? { ...p, value: 1 } : p)
+  const metadata = new Map([['RTL_ALT', { min: 200, max: 300000, units: 'cm' }], ['BATT_CAPACITY', { readOnly: true }]])
+
+  expect(review(s, PARAMS, { ...VEHICLE }, { metadata }).changes).toEqual([
+    { id: 'BATT_CAPACITY', from: 5200, to: 1, problem: 'read-only: the vehicle sets it itself', warning: null },
+    { id: 'RTL_ALT', from: 1500, to: 900000, problem: null, warning: 'Outside the usual range 200–300000 cm' },
+  ])
 })

@@ -1,0 +1,13 @@
+# Defaults of a test vehicle, aligned the way hand-written defaults files are
+FRAME_CLASS     1
+FRAME_TYPE	1
+  BATT_MONITOR    4   # a comment after the value
+
+SERVO1_FUNCTION = 33
+SERVO2_FUNCTION=34
+COMPASS_OFS_X   -18
+RC1_MIN         1000.000000
+LOG_BITMASK     0x7FFE
+SYSID_MYGCS     255 @READONLY
+	
+SIM_SPEEDUP 1e1

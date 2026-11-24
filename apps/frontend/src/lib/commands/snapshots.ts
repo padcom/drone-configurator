@@ -1,7 +1,9 @@
-// The commands of the Parameters toolbar: download the list again, save a snapshot, load a snapshot. The buttons run these
-// through the registry, as the palette does. (Load metadata is `metadata.load`, in metadata.ts.)
+// The commands of the Parameters toolbar: download the list again, save a snapshot, save a parameter file (one command per
+// format), load a snapshot or a parameter file. The buttons run these through the registry, as the palette does. (Load
+// metadata is `metadata.load`, in metadata.ts.)
 import type { Availability, Command, CommandContext, CommandOutcome } from './command'
 import { PARAMETERS_GROUP } from './metadata'
+import { PARAM_FILE_FORMATS, type ParamFileFormat } from '@/lib/params/paramFile'
 
 /**
  * A reason a command may not run.
@@ -94,7 +96,55 @@ export class SaveSnapshot implements Command {
   }
 }
 
-/** Opens a snapshot file and loads it. */
+/** Saves the parameters as one of ArduPilot's plain-text parameter files. */
+export class SaveParamFile implements Command {
+  readonly id: string
+
+  readonly labelKey: string
+
+  readonly buttonLabelKey: string
+
+  readonly groupKey = PARAMETERS_GROUP
+
+  readonly icon = 'save'
+
+  readonly keywordKeys = ['palette.paramFile.keywords']
+
+  /**
+   * The command of one format.
+   *
+   * @param format the format the file is written in
+   */
+  constructor(private readonly format: ParamFileFormat) {
+    this.id = `paramFile.save.${format}`
+    this.labelKey = `palette.paramFile.${format}`
+    this.buttonLabelKey = `paramFile.save.${format}`
+  }
+
+  /**
+   * Only when there are parameters to save.
+   *
+   * @param ctx the context
+   * @returns whether it may, and if not why
+   */
+  isEnabled(ctx: CommandContext): Availability {
+    return ctx.params.count() > 0 ? { enabled: true } : no('palette.reason.noParameters')
+  }
+
+  /**
+   * Saves the file: the host's dialog in Pico Desktop, a download in a browser.
+   *
+   * @param ctx the context
+   * @returns the focus stays where it is
+   */
+  execute(ctx: CommandContext): CommandOutcome {
+    ctx.files.saveParamFile(this.format)
+
+    return { focus: 'restore' }
+  }
+}
+
+/** Opens a snapshot or a parameter file and loads it for review. */
 export class LoadSnapshot implements Command {
   readonly id = 'snapshot.load'
 
@@ -128,4 +178,15 @@ export class LoadSnapshot implements Command {
 
     return { focus: 'restore' }
   }
+}
+
+/**
+ * The commands of the Parameters toolbar, in the order they are registered.
+ *
+ * @returns download, save a snapshot, load a snapshot or file, and save a parameter file in each format
+ */
+export function parameterCommands(): Command[] {
+  const saves = PARAM_FILE_FORMATS.map(format => new SaveParamFile(format))
+
+  return [new DownloadParameters(), new SaveSnapshot(), new LoadSnapshot(), ...saves]
 }
