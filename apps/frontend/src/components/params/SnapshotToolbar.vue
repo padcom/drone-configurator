@@ -4,7 +4,7 @@
   <!-- Saving and loading a snapshot, and comparing the parameters with a file or a snapshot, or with the firmware's defaults
        (#40), under one button, so that the toolbar stays one row at 1000 px. Saving as a plain-text parameter file (ArduPilot's
        .param, MAVProxy's .parm, QGroundControl's .params) is in the palette (paramFile.save.*). -->
-  <DropPanel id="param-files" icon="file" :label="t('params.files.label')" :title="t('params.files.title')">
+  <DropPanel id="param-files" icon="file" actions :label="t('params.files.label')" :title="t('params.files.title')">
     <CommandButton id="save" command="snapshot.save" icon-position="left" />
     <CommandButton id="load-button" command="snapshot.load" icon-position="left" />
     <CommandButton id="compare-file" command="params.compare.file" icon-position="left" />

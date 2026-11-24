@@ -47,6 +47,18 @@ it('opens a titled panel of controls that stays open while they are used, and co
   expect(wrapper.get('.trigger').text()).toBe('Filters1 on')
 })
 
+it('closes when an action in it is pressed, when it holds actions', async () => {
+  const wrapper = mount({
+    components: { DropPanel },
+    template: `<DropPanel label="Snapshot" title="Snapshot" actions><button id="act" type="button">Save</button></DropPanel>`,
+  }, { attachTo: document.body })
+  await wrapper.get('.trigger').trigger('click')
+
+  await wrapper.get('#act').trigger('click')
+
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+})
+
 it('closes on Escape with the focus back on its button, and on a press elsewhere', async () => {
   const wrapper = dropPanel()
   await wrapper.get('.trigger').trigger('click')

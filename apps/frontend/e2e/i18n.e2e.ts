@@ -51,7 +51,8 @@ describe('the parameter list and the editor', () => {
 
   it('show the file buttons and the import panel as text, not message keys', async () => {
     await showSnapshotTools(app)
-    expect(await app.text('#param-files .panel-title')).toBe('Snapshots and comparison')
+    const title = await app.evaluate<string>(`document.querySelector('#param-files .panel-title').textContent`)
+    expect(title).toBe('Snapshots and comparison')
     expect(await app.text('#save')).toBe('Save snapshot')
     expect(await app.text('#load-button')).toBe('Load snapshot')
     expect(await app.text('#metadata-button')).toBe('Load metadata')

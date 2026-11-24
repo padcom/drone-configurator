@@ -28,7 +28,7 @@
       @keydown.esc="escape"
     >
       <h2 :id="titleId" class="panel-title">{{ title }}</h2>
-      <div class="drop-panel-body">
+      <div class="drop-panel-body" @click="chosen">
         <slot />
       </div>
     </div>
@@ -40,12 +40,12 @@
 // them all. The button says how many of them are in force (a badge, part of its name) and whether the panel is open; the panel
 // takes the focus when it opens, and Tab goes through its controls; it stays open while they are used. Escape closes it and puts
 // the focus back on the button; the focus or a press elsewhere closes it too. Unlike Popover (which only shows what can be read),
-// it holds actions.
+// it holds actions: a panel of buttons (`actions`) closes when one is pressed, as a menu does; one of settings stays open.
 import { nextTick, onBeforeUnmount, ref, useId } from 'vue'
 import Icon from './Icon.vue'
 import type { IconName } from '@/lib/ui/icons'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   /** What the button says. */
   label: string
   /** The title of the panel. */
@@ -56,7 +56,9 @@ withDefaults(defineProps<{
   countText?: string
   /** An icon before the words. */
   icon?: IconName
-}>(), { count: 0, countText: undefined, icon: undefined })
+  /** The panel holds actions (buttons), not settings: it closes when one is pressed, as a menu does. */
+  actions?: boolean
+}>(), { count: 0, countText: undefined, icon: undefined, actions: false })
 
 const triggerId = useId()
 const panelId = useId()
@@ -132,6 +134,17 @@ function escape(event: KeyboardEvent): void {
     event.preventDefault()
     event.stopPropagation()
     close(true)
+  }
+}
+
+/**
+ * A press in the panel: a panel of actions closes once the action has run (where the focus goes is the action's).
+ *
+ * @param event the press
+ */
+function chosen(event: MouseEvent): void {
+  if (props.actions && (event.target as Element | null)?.closest('button') !== null) {
+    close(false)
   }
 }
 

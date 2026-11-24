@@ -7,6 +7,19 @@ import { feed, withI18n } from '@/testing/testing'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { PARAMS, VEHICLE, telemetryAt } from '@/mock/fixtures'
 
+/**
+ * Presses a button of the Snapshot panel, opening the panel first when it is closed (it closes when an action is pressed).
+ *
+ * @param wrapper the toolbar
+ * @param selector the button
+ */
+async function pressInPanel(wrapper: VueWrapper, selector: string): Promise<void> {
+  if (!wrapper.find('#param-files .panel').exists()) {
+    await wrapper.get('#param-files > .trigger').trigger('click')
+  }
+  await wrapper.get(selector).trigger('click')
+}
+
 afterEach(() => {
   delete window.picoDesktop
 })
@@ -105,8 +118,8 @@ it('offers the comparison on the toolbar once there are parameters, the defaults
   await flushPromises()
   expect(wrapper.get('#compare-file .command-button-label').text()).toBe('Compare with file')
   window.picoDesktop = {} as never
-  await wrapper.get('#compare-file').trigger('click')
-  await wrapper.get('#compare-defaults').trigger('click')
+  await pressInPanel(wrapper, '#compare-file')
+  await pressInPanel(wrapper, '#compare-defaults')
 
   expect(openFile).toHaveBeenCalledOnce()
   expect(loadDefaults).toHaveBeenCalledOnce()
