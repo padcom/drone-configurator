@@ -18,6 +18,13 @@ import { pathToFileURL } from 'node:url'
  */
 export const SHARED_BACKEND = ['app', 'main', 'session', 'testing', 'test-frontend', 'guarded']
 
+/**
+ * A spec that depends on a third party's server (ArduPilot's parameter metadata, #35) and runs only weekly
+ * (.github/workflows/weekly-e2e.yml), never for a pull request or a push: a slow or absent server must not block a change. It is in
+ * no shard of CI's e2e jobs and in no entry of the e2e map; `listSpecs(root, 'weekly')` lists them.
+ */
+export const WEEKLY_SPEC = /^weekly-[^/]+\.e2e\.ts$/u
+
 /** What a spec uses to start a SITL: a spec that does is a SITL spec, whatever its name. */
 export const SITL_USE = /\b(?:describeSitl|withSitl|startSitl)\b/u
 
@@ -214,7 +221,7 @@ export function unmappedSpecs(specs, map) {
  * @returns {{ specs: string[], sitlSpecs: string[], backend: { tests: string[], imports: Record<string, string[]> }, map: object }} the tree
  */
 export function readTree(root) {
-  const specs = readdirSync(join(root, E2E_DIR)).filter(name => name.endsWith('.e2e.ts')).sort()
+  const specs = readdirSync(join(root, E2E_DIR)).filter(name => name.endsWith('.e2e.ts') && !WEEKLY_SPEC.test(name)).sort()
   const sitlSpecs = specs.filter(name => SITL_USE.test(readFileSync(join(root, E2E_DIR, name), 'utf8')))
   const sources = readdirSync(join(root, BACKEND_DIR)).filter(name => name.endsWith('.pi')).sort()
   const imports = Object.fromEntries(sources.map(name => [name.replace(/\.pi$/u, ''), importsOf(readFileSync(join(root, BACKEND_DIR, name), 'utf8'))]))
@@ -249,12 +256,16 @@ export function run(argv, input) {
 }
 
 /**
- * The window specs of one kind, as `pnpm e2e` takes them (run from apps/frontend): the specs that start a SITL, or the others.
+ * The window specs of one kind, as `pnpm e2e` takes them (run from apps/frontend): the specs that start a SITL, the others, or
+ * the weekly ones (`WEEKLY_SPEC`), which are neither of the first two.
  * @param {string} root the repository root
- * @param {'sitl' | 'fake'} kind which specs
+ * @param {'sitl' | 'fake' | 'weekly'} kind which specs
  * @returns {string[]} paths such as `e2e/shell.e2e.ts`, sorted
  */
 export function listSpecs(root, kind) {
+  if (kind === 'weekly') {
+    return readdirSync(join(root, E2E_DIR)).filter(name => WEEKLY_SPEC.test(name)).sort().map(name => `e2e/${name}`)
+  }
   const tree = readTree(root)
   return tree.specs.filter(name => tree.sitlSpecs.includes(name) === (kind === 'sitl')).map(name => `e2e/${name}`)
 }
@@ -263,7 +274,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
   const args = process.argv.slice(2)
   const kind = args[args.indexOf('--list') + 1]
   if (args.includes('--list')) {
-    if (kind !== 'sitl' && kind !== 'fake') throw new Error('--list takes sitl or fake')
+    if (kind !== 'sitl' && kind !== 'fake' && kind !== 'weekly') throw new Error('--list takes sitl, fake or weekly')
     process.stdout.write(`${listSpecs(args[args.indexOf('--root') + 1] ?? '.', kind).join('\n')}\n`)
   } else {
     process.stdout.write(run(args, readFileSync(0, 'utf8')))

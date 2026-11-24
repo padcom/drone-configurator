@@ -1,4 +1,6 @@
-// `metadata.fetch` against a LOCAL fake of ArduPilot's server (never the real one): the exact version's file is preferred and kept,
+// `metadata.fetch` against a LOCAL fake of ArduPilot's server (never the real one), which answers ranges in parts as the real one
+// does (slowly, or not at all, when a test says so): a slow link that makes progress gets the file and says how far it is, a part
+// that makes no progress is given up, a file made again in the middle is taken whole; the exact version's file is preferred and kept,
 // the latest is given (and said: `exact` false) when the server has none for the version, offline with nothing kept is an error and
 // with something kept is that, a stale latest file is asked for again and given when the server is gone, a corrupt or cut entry is
 // fetched again, `refresh` asks the server, a page that is not a definition file is never kept, and with no vehicle named it is the
@@ -7,6 +9,7 @@ import { describe, it, expect } from "std/test"
 import { mkdir, readDir, readText, remove, writeText } from "std/fs"
 import { join } from "std/path"
 import { pid } from "std/process"
+import { delay } from "std/timers"
 import { serve, HttpServer } from "std/http"
 import { Cbor, Envelope } from "pico-desktop/communicator"
 import {
@@ -17,10 +20,11 @@ import {
   MetadataFileFormat,
   MetadataVehicle,
   decodeMetadataFile,
+  decodeMetadataProgress,
   encodeConnectRequest,
   encodeMetadataAsk,
 } from "./generated/app"
-import { clockForTests, isVersion, isWhole, kindOfType, urlOf, useServerForTests } from "./metadata"
+import { clockForTests, isVersion, isWhole, kindOfType, partsForTests, totalOfRange, urlOf, useServerForTests } from "./metadata"
 import { restartForTests as restartSettings, useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
 
@@ -33,9 +37,59 @@ class Fake {
   public userAgent: string = ""
   /// "ok", "down" (answers 503), "html" (answers 200 with a page that is not a definition file).
   public mode: string = "ok"
+  /// Whether a `Range` is answered with that part (206), as ArduPilot's server does; else the whole file comes (200).
+  public ranges: bool = false
+  /// How long each part takes, and the part (from 0) from which on each takes `stallMs` instead.
+  public partDelayMs: int = 0
+  public stallFrom: int = 1000000
+  public stallMs: int = 0
+  /// The file's ETag; `changeAfter` parts in, it becomes another (the file was made again on the server).
+  public etag: string = "\"one\""
+  public changeAfter: int = 1000000
+  public parts: int = 0
+}
+
+/// Waits (a delay that is not stopped).
+async function pause(ms: int): Promise<void> {
+  try {
+    await delay(ms)
+  } catch (e: Error) {
+    // Not stopped.
+  }
+}
+
+/// The part a `Range` asks for (206), or the whole file when the `If-Range` is not the file's ETag (200).
+async function part(req: Request, body: string): Promise<Response> {
+  const range = req.headers.get("range") ?? ""
+  const n = fake.parts
+  fake.parts += 1
+  await pause(if (n >= fake.stallFrom) fake.stallMs else fake.partDelayMs)
+  if (n >= fake.changeAfter) {
+    fake.etag = "\"two\""
+  }
+  const headers = new Map<string, string>()
+  headers.set("etag", fake.etag)
+  const ifRange = req.headers.get("if-range") ?? fake.etag
+  if (!fake.ranges || !range.startsWith("bytes=") || ifRange != fake.etag) {
+    return new Response(body, { status: 200, headers: headers })
+  }
+  const bounds = range.slice(6).split("-")
+  const from = parseInt(bounds[0])
+  const to = Math.min(parseInt(bounds[1]), body.length - 1)
+  headers.set("content-range", `bytes ${from}-${to}/${body.length}`)
+  return new Response(body.slice(from, to + 1), { status: 206, headers: headers })
 }
 
 const fake = new Fake()
+
+/// A definition file of 300 parameters (about 40 KB), made up here.
+function bigXml(): string {
+  const params: string[] = []
+  for (let i = 0; i < 300; i++) {
+    params.push(`      <param humanName="Made up ${i}" name="ArduCopter:TEST_${i}" documentation="A parameter of this test, number ${i}." user="Standard"/>`)
+  }
+  return `<?xml version="1.0"?>\n<paramfile>\n  <vehicles>\n    <parameters name="ArduCopter">\n${params.join("\n")}\n    </parameters>\n  </vehicles>\n</paramfile>\n`
+}
 
 async function handle(req: Request): Promise<Response> {
   const rest = if (req.url.startsWith("/")) req.url else req.url.slice(req.url.indexOf("//") + 2)
@@ -49,10 +103,13 @@ async function handle(req: Request): Promise<Response> {
     return new Response("<html><body>maintenance</body></html>", { status: 200 })
   }
   if (path == "/versioned/Copter/stable-4.5.7/apm.pdef.xml") {
-    return new Response(XML_457, { status: 200 })
+    return await part(req, XML_457)
+  }
+  if (path == "/versioned/Copter/stable-4.6.0/apm.pdef.xml") {
+    return await part(req, bigXml())
   }
   if (path.endsWith("/apm.pdef.json")) {
-    return new Response(JSON_LATEST, { status: 200 })
+    return await part(req, JSON_LATEST)
   }
   return new Response("not found", { status: 404 })
 }
@@ -82,12 +139,21 @@ async function rig(): Promise<Rig> throws Error {
   clockForTests(0)
   fake.hits = []
   fake.mode = "ok"
+  fake.ranges = false
+  fake.partDelayMs = 0
+  fake.stallFrom = 1000000
+  fake.stallMs = 0
+  fake.etag = "\"one\""
+  fake.changeAfter = 1000000
+  fake.parts = 0
+  partsForTests(131072, 30000)
   const server = await serve({ port: 0 }, handle)
   useServerForTests(`http://127.0.0.1:${server.addr.port}`)
   return new Rig(await start(), root, server)
 }
 
 async function done(r: Rig): Promise<void> throws Error {
+  partsForTests(131072, 30000)
   await r.server.shutdown()
   useServerForTests(null)
   clockForTests(0)
@@ -273,6 +339,63 @@ async function isTheConnectedVehiclesWithNoVehicleNamed(): Promise<void> throws 
   await done(r)
 }
 
+/// The `received` of each `metadata.progress` the frontend has heard, in order.
+function heardProgress(r: Rig): int[] {
+  const out: int[] = []
+  for (const e of r.f.heard) {
+    if (e.n == "metadata.progress") {
+      out.push(decodeMetadataProgress(e.p ?? Cbor.Null, "$").received as int)
+    }
+  }
+  return out
+}
+
+async function getsAFileOverASlowLinkThatMakesProgress(): Promise<void> throws Error {
+  const r = await rig()
+  // 40 KB in parts of 4 KiB, each taking 150 ms: the whole takes about 1.5 s, three times what one part may take.
+  fake.ranges = true
+  fake.partDelayMs = 150
+  partsForTests(4096, 500)
+  const file = await fileFor(r, copter("4.6.0"))
+  expect(file.exact).toBe(true)
+  expect(file.text).toBe(bigXml())
+  expect(fake.parts).toBe((bigXml().length + 4095) / 4096)
+  // It said how far it was, part after part, up to the whole.
+  const heard = heardProgress(r)
+  expect(heard.length >= fake.parts - 1).toBe(true)
+  expect(heard[heard.length - 1]).toBe(bigXml().length)
+  for (let i = 1; i < heard.length; i++) {
+    expect(heard[i] >= heard[i - 1]).toBe(true)
+  }
+  await done(r)
+}
+
+async function givesUpOnAPartThatMakesNoProgress(): Promise<void> throws Error {
+  const r = await rig()
+  fake.ranges = true
+  fake.partDelayMs = 20
+  fake.stallFrom = 3
+  fake.stallMs = 1500
+  partsForTests(4096, 500)
+  const e = await ask(r, copter("4.6.0"))
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  // Nothing of it was kept.
+  expect(e.err!.message.includes("cannot be reached")).toBe(true)
+  await done(r)
+}
+
+async function takesTheWholeNewFileWhenItChangesOnTheServerInTheMiddle(): Promise<void> throws Error {
+  const r = await rig()
+  fake.ranges = true
+  fake.changeAfter = 2
+  partsForTests(4096, 5000)
+  const file = await fileFor(r, copter("4.6.0"))
+  expect(file.text).toBe(bigXml())
+  // The first two parts, then the whole new file (the If-Range no longer matched).
+  expect(fake.parts).toBe(3)
+  await done(r)
+}
+
 function namesTheKindsAndTheFiles(): void {
   expect(kindOfType("QUADROTOR") == MetadataVehicle.Copter).toBe(true)
   expect(kindOfType("HELICOPTER") == MetadataVehicle.Copter).toBe(true)
@@ -292,6 +415,9 @@ function namesTheKindsAndTheFiles(): void {
   expect(isWhole(XML_457.slice(0, 60), MetadataFileFormat.Xml)).toBe(false)
   expect(isWhole(JSON_LATEST, MetadataFileFormat.Json)).toBe(true)
   expect(isWhole("{\"error\": 1}", MetadataFileFormat.Json)).toBe(false)
+  expect(totalOfRange("bytes 0-131071/2329019")).toBe(2329019)
+  expect(totalOfRange("bytes 0-10/*")).toBe(-1)
+  expect(totalOfRange("")).toBe(-1)
 }
 
 describe("metadata.fetch", () => {
@@ -305,4 +431,7 @@ describe("metadata.fetch", () => {
   it("never keeps a page that is not a definition file", neverKeepsAPageThatIsNotADefinitionFile)
   it("refuses a version that is not three numbers", refusesAVersionThatIsNotThreeNumbers)
   it("is the connected vehicle's kind and version when no vehicle is named", isTheConnectedVehiclesWithNoVehicleNamed)
+  it("gets a file over a slow link that makes progress, part after part, and says how far it is", getsAFileOverASlowLinkThatMakesProgress)
+  it("gives up on a part that makes no progress", givesUpOnAPartThatMakesNoProgress)
+  it("takes the whole new file when it changes on the server in the middle", takesTheWholeNewFileWhenItChangesOnTheServerInTheMiddle)
 })

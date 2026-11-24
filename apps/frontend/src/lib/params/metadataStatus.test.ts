@@ -50,6 +50,8 @@ describe('the line about the metadata in use', () => {
 
   it('says a download runs, a file is in use, nothing was tried, or why nothing came', () => {
     expect(line({ downloading: true })).toBe('Downloading the parameter metadata…')
+    expect(line({ downloading: true, progress: { received: 1_250_000, total: 2_329_019 } }))
+      .toBe('Downloading the parameter metadata: 1.3 of 2.3 MB…')
     expect(line({ source: 'file' })).toBe('A file you loaded is in use. Nothing is downloaded while it is.')
     expect(line({ source: 'none', downloaded: null })).toBe(NOTHING_YET)
     expect(line({ source: 'none', downloaded: null, downloadError: 'the server cannot be reached' }))

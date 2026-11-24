@@ -17,6 +17,7 @@ export interface Selection {
 }
 export const SHARED_BACKEND: string[]
 export const SITL_USE: RegExp
+export const WEEKLY_SPEC: RegExp
 export const FULL: string[]
 export const UNIT_ONLY: string[]
 export function globToRegExp(glob: string): RegExp
@@ -32,4 +33,4 @@ export function select(input: {
 export function summaryOf(result: Selection, totals: { specs: number, tests: number, files: number, shadow: boolean }): string
 export function readTree(root: string): { specs: string[], sitlSpecs: string[], backend: BackendTree, map: E2eMap }
 export function run(argv: string[], input: string): string
-export function listSpecs(root: string, kind: 'sitl' | 'fake'): string[]
+export function listSpecs(root: string, kind: 'sitl' | 'fake' | 'weekly'): string[]

@@ -2,6 +2,7 @@
 // version, whether it is that version's or the latest (and why), when, and whether it came from this computer's cache (and how
 // fast); or a file the user loaded; or why nothing was downloaded. A diagnostic, not a choice.
 import type { DownloadedMetadata, MetadataSource } from '@/composables/useMetadata'
+import type { MetadataProgress } from '@/generated/app'
 import type { Format } from '@/i18n/useFormat'
 
 /** Looks a message up (vue-i18n's `t`). */
@@ -17,6 +18,8 @@ export interface MetadataState {
   downloadError: string | null
   /** Whether a download runs. */
   downloading: boolean
+  /** How far a download from the server is, when it says. */
+  progress?: MetadataProgress | null
 }
 
 /**
@@ -53,17 +56,33 @@ function howItCame(got: DownloadedMetadata, t: Say, f: Format): string {
 }
 
 /**
- * The line that has nothing to name: a download that runs, or a file the user loaded.
+ * How far a download from the server is, in megabytes.
+ *
+ * @param progress the bytes received and the size of the file
+ * @param t looks a message up
+ * @param f formats the numbers
+ * @returns the line
+ */
+function howFar(progress: MetadataProgress, t: Say, f: Format): string {
+  const mb = (bytes: number) => f.number(bytes / 1_000_000, 1)
+
+  return t('settings.metadata.status.downloadingPart', { received: mb(progress.received), total: mb(progress.total) })
+}
+
+/**
+ * The line that names no file: a download that runs (and how far it is, when it says), or a file the user loaded.
  *
  * @param state where the metadata came from
- * @returns the key of the line under `settings.metadata.status`, or null
+ * @param t looks a message up
+ * @param f formats the numbers
+ * @returns the line, or null
  */
-function fixedKey(state: MetadataState): string | null {
+function fixedLine(state: MetadataState, t: Say, f: Format): string | null {
   if (state.downloading) {
-    return 'downloading'
+    return state.progress ? howFar(state.progress, t, f) : t('settings.metadata.status.downloading')
   }
 
-  return state.source === 'file' ? 'file' : null
+  return state.source === 'file' ? t('settings.metadata.status.file') : null
 }
 
 /**
@@ -86,9 +105,9 @@ function nothing(error: string | null, t: Say): string {
  * @returns the line
  */
 export function metadataStatus(state: MetadataState, t: Say, f: Format): string {
-  const fixed = fixedKey(state)
+  const fixed = fixedLine(state, t, f)
   if (fixed !== null) {
-    return t(`settings.metadata.status.${fixed}`)
+    return fixed
   }
   const got = state.source === 'download' ? state.downloaded : null
 

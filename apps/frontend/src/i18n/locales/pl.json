@@ -943,6 +943,7 @@
       "refresh": "Pobierz ponownie",
       "status": {
         "downloading": "Pobieranie metadanych parametrów…",
+        "downloadingPart": "Pobieranie metadanych parametrów: {received} z {total} MB…",
         "file": "Używany jest wczytany przez Ciebie plik. Dopóki jest, nic nie jest pobierane.",
         "none": "Jeszcze nic nie pobrano. Metadane są pobierane po podłączeniu pojazdu.",
         "failed": "Nie pobrano: {error}. Parametry są pokazane bez opisów.",

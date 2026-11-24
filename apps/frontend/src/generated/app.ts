@@ -1251,6 +1251,15 @@ function validateMetadataVehicleInto(value: any, path: string): boolean {
 /** The first problem with `value` as a metadata-vehicle, or null. */
 export const validateMetadataVehicle = (value: unknown) => run(validateMetadataVehicleInto, value)
 
+export type MetadataProgress = { "received": number, "total": number }
+
+function validateMetadataProgressInto(value: any, path: string): boolean {
+  return map(value, path, ["received","total"]) && (value["received"] === undefined ? fail(`${path}.received`, 'present') : nested(value["received"], `${path}.received`, (value, path) => uint(value, path, 0xffffffff))) && (value["total"] === undefined ? fail(`${path}.total`, 'present') : nested(value["total"], `${path}.total`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a metadata-progress, or null. */
+export const validateMetadataProgress = (value: unknown) => run(validateMetadataProgressInto, value)
+
 export type MetadataFile = { "vehicle": MetadataVehicle, "version"?: string, "exact": boolean, "format": "json" | "xml", "text": string, "fromCache": boolean, "stale": boolean, "fetchedAt": number | bigint }
 
 function validateMetadataFileInto(value: any, path: string): boolean {
@@ -1461,6 +1470,7 @@ export interface Services {
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
   "metadata.fetch": { kind: 'method', request: MetadataAsk, response: MetadataFile }
+  "metadata.progress": { kind: 'event', payload: MetadataProgress }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
   "serial.bridge.start": { kind: 'method', request: SerialBridgeStart, response: SerialBridgeState }
   "serial.bridge.stop": { kind: 'method', request: null, response: SerialBridgeState }
@@ -1730,6 +1740,9 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "metadata.fetch": {
     request: (value: any, path: string) => validateMetadataAskInto(value, path),
     response: (value: any, path: string) => validateMetadataFileInto(value, path),
+  },
+  "metadata.progress": {
+    payload: (value: any, path: string) => validateMetadataProgressInto(value, path),
   },
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

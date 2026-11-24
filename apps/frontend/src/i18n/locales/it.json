@@ -943,6 +943,7 @@
       "refresh": "Scarica di nuovo",
       "status": {
         "downloading": "Download dei metadati dei parametri…",
+        "downloadingPart": "Download dei metadati dei parametri: {received} di {total} MB…",
         "file": "È in uso un file che hai caricato. Finché lo è, non si scarica nulla.",
         "none": "Ancora nulla di scaricato. Si scaricano quando si collega un veicolo.",
         "failed": "Non scaricati: {error}. I parametri sono mostrati senza descrizioni.",

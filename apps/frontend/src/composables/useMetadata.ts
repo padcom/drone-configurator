@@ -3,7 +3,7 @@
 // file the user picks. It talks to the backend through the client (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
-import type { MetadataFile, MetadataVehicle } from '@/generated/app'
+import type { MetadataFile, MetadataProgress, MetadataVehicle } from '@/generated/app'
 import { say } from '@/i18n/say'
 import { type Metadata, parseMetadata } from '@/lib/params/metadata'
 
@@ -54,6 +54,8 @@ export interface MetadataModel {
   readonly downloadError: ShallowRef<string | null>
   /** Whether a download runs. */
   readonly downloading: ShallowRef<boolean>
+  /** How far the download from the server that runs is (null when none runs, or the file comes from the cache). */
+  readonly progress: ShallowRef<MetadataProgress | null>
   /** Loads parameter metadata (replacing what was loaded). */
   load: (text: string) => void
   /**
@@ -77,6 +79,12 @@ export interface MetadataModel {
   loadFrom: (path: string) => Promise<string | null>
 }
 
+/**
+ * How long the answer of `metadata.fetch` is waited for: longer than the backend may take for a download (20 minutes, in parts
+ * that each must come within 30 s: a slow link that makes progress gets the file), which then answers with why it gave up.
+ */
+const FETCH_WAIT_MS = 25 * 60_000
+
 /** The metadata. */
 class ParamMetadata implements MetadataModel {
   readonly metadata = shallowRef<Metadata>(new Map())
@@ -86,6 +94,7 @@ class ParamMetadata implements MetadataModel {
   readonly downloaded = shallowRef<DownloadedMetadata | null>(null)
   readonly downloadError = shallowRef<string | null>(null)
   readonly downloading = shallowRef(false)
+  readonly progress = shallowRef<MetadataProgress | null>(null)
 
   /**
    * Makes the metadata.
@@ -138,12 +147,17 @@ class ParamMetadata implements MetadataModel {
   async download(options: { refresh?: boolean } = {}): Promise<DownloadedMetadata | null> {
     const started = performance.now()
     this.downloading.value = true
+    const stop = this.deps.client.onEvent('metadata.progress', progress => {
+      this.progress.value = progress
+    })
 
     try {
       return this.took(await this.fetchReadable(options.refresh === true), started)
     } catch (error) {
       return this.notDownloaded(describeError(error), options.refresh === true)
     } finally {
+      stop()
+      this.progress.value = null
       this.downloading.value = false
     }
   }
@@ -155,7 +169,7 @@ class ParamMetadata implements MetadataModel {
    * @returns the file and what it says, or why it is not metadata
    */
   private async fetchReadable(refresh: boolean): Promise<{ file: MetadataFile, read: Metadata | string }> {
-    const file = await this.deps.client.call('metadata.fetch', refresh ? { refresh } : {})
+    const file = await this.deps.client.call('metadata.fetch', refresh ? { refresh } : {}, { timeoutMs: FETCH_WAIT_MS })
     const read = parseMetadata(file.text)
     if (typeof read === 'string' && file.fromCache) {
       return this.fetchReadable(true)

@@ -943,6 +943,7 @@
       "refresh": "Download again",
       "status": {
         "downloading": "Downloading the parameter metadata…",
+        "downloadingPart": "Downloading the parameter metadata: {received} of {total} MB…",
         "file": "A file you loaded is in use. Nothing is downloaded while it is.",
         "none": "Nothing downloaded yet. It is downloaded when a vehicle is connected.",
         "failed": "Not downloaded: {error}. Parameters are shown without descriptions.",

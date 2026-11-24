@@ -943,6 +943,7 @@
       "refresh": "Descargar de nuevo",
       "status": {
         "downloading": "Descargando los metadatos de parámetros…",
+        "downloadingPart": "Descargando los metadatos de parámetros: {received} de {total} MB…",
         "file": "Se usa un archivo que cargaste. Mientras tanto no se descarga nada.",
         "none": "Aún no se ha descargado nada. Se descarga al conectar un vehículo.",
         "failed": "No descargados: {error}. Los parámetros se muestran sin descripciones.",

@@ -335,6 +335,12 @@ class MockVehicle {
 
       return
     }
+    if (!next.fromCache) {
+      // A download from the server says how far it is, as the backend does after each part.
+      const total = next.text.length
+      this.send({ k: 'event', n: 'metadata.progress', p: { received: Math.floor(total / 2), total } })
+      this.send({ k: 'event', n: 'metadata.progress', p: { received: total, total } })
+    }
     ok(next)
   }
 

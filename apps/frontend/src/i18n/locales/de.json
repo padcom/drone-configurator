@@ -943,6 +943,7 @@
       "refresh": "Erneut herunterladen",
       "status": {
         "downloading": "Parameter-Metadaten werden heruntergeladen…",
+        "downloadingPart": "Parameter-Metadaten werden heruntergeladen: {received} von {total} MB…",
         "file": "Eine von Ihnen geladene Datei wird verwendet. Solange das so ist, wird nichts heruntergeladen.",
         "none": "Noch nichts heruntergeladen. Das geschieht, sobald ein Fahrzeug verbunden ist.",
         "failed": "Nicht heruntergeladen: {error}. Parameter werden ohne Beschreibungen angezeigt.",

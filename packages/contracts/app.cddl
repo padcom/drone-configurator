@@ -266,7 +266,12 @@ services = {
   ; version that is not three numbers), `NOT_CONNECTED` (no `vehicle`, and none is connected), `UNSUPPORTED_VEHICLE` (the connected
   ; vehicle is not an ArduPilot of a kind the server has files for), `TOO_LARGE` (over 16 MiB) and `UNAVAILABLE` (the server cannot
   ; be reached or has no file, and nothing is kept).
+  ; A file is fetched in parts of 128 KiB (HTTP ranges, held together by the file's ETag; a server that sends the whole file at once
+  ; is taken as it is): a part may take 30 s, so a slow link that makes progress gets the file (a link that cannot move 128 KiB
+  ; in 30 s, under about 35 kbit/s, is "cannot be reached"), and the whole download may take 20 minutes. The page waits for the
+  ; answer longer than that. `metadata.progress` says how far a download from the server is, after each part.
   "metadata.fetch": ["method", metadata-ask, metadata-file],
+  "metadata.progress": ["event", metadata-progress],
   "serial.ports": ["method", null, serial-ports],
   ; THE SERIAL BRIDGE (#198): a serial port of the vehicle (its GPS, a telemetry radio, SERIALn) reached by a program on this
   ; computer through a local TCP port, over MAVLink's SERIAL_CONTROL (pico-mavlink's SerialControlStream). `serial.bridge.start`
@@ -1428,6 +1433,9 @@ motor-test-state = {
 ; What `metadata.fetch` is asked: a kind of vehicle and its version ("4.7.1"), or nothing for the connected vehicle.
 metadata-ask = { ? vehicle: metadata-vehicle, ? version: tstr, ? refresh: bool }
 metadata-vehicle = "copter" / "plane" / "rover" / "sub" / "tracker" / "blimp"
+
+; How far a download of a definition file from the server is: `received` of `total` bytes.
+metadata-progress = { received: uint .size 4, total: uint .size 4 }
 
 ; A definition file: its `text` in its `format`, for `vehicle` at `version` (absent when the vehicle did not say a released one).
 ; `exact` is whether the file is that version's (false: the latest). `fromCache`: from the disk, not the server just now; `stale`: the
