@@ -10,6 +10,7 @@
     "arming.test.pi": 100,
     "calibration.test.pi": 90,
     "connection.test.pi": 21,
+    "discovery.test.pi": 24,
     "fft.test.pi": 20,
     "files.test.pi": 21,
     "forward.test.pi": 26,
@@ -49,6 +50,7 @@
     "telemetry.test.pi": 34,
     "testing.test.pi": 20,
     "tlogdecoder.test.pi": 20,
+    "transports.test.pi": 28,
     "tuning.test.pi": 67,
     "tuningstream.test.pi": 27,
     "vehicleinfo.test.pi": 25
@@ -110,6 +112,7 @@
     "takeoff.e2e.ts": 17,
     "tcp-vehicle.e2e.ts": 19,
     "tlog-import.e2e.ts": 2,
+    "transports.e2e.ts": 6,
     "tune-response.e2e.ts": 11,
     "tune.e2e.ts": 9,
     "value-rounding.e2e.ts": 2,
@@ -130,6 +133,7 @@
     "sitl-plan.e2e.ts": 32,
     "sitl-recording.e2e.ts": 90,
     "sitl-reconnect.e2e.ts": 22,
+    "sitl-transports.e2e.ts": 30,
     "sitl-serial-bridge.e2e.ts": 40,
     "sitl-vehicles.e2e.ts": 60,
     "sitl.e2e.ts": 20

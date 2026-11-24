@@ -3,7 +3,7 @@
 // deliberate slowdown does to a passing set of samples, and that every budget names the spec that measures it.
 import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { BUDGETS, type Budget, budgetOf, judge, percentile } from './budgets'
+import { BUDGETS, type Budget, budgetOf, judge, percentile, percentile95 } from './budgets'
 
 /** A budget for these tests: 100 ms, the 95th percentile within twice that. */
 const SWITCH: Budget = { unit: 'ms', budget: 100, noise: 2, what: 'a test', measuredBy: 'e2e/budgets.test.ts' }
@@ -48,7 +48,18 @@ describe('the judging of a budget', () => {
 
   it('takes the upper middle as the median of an even count', () => {
     expect(percentile([1, 2, 3, 4], 0.5)).toBe(3)
-    expect(percentile([5], 0.95)).toBe(5)
+  })
+
+  it('does not let one slow sample of a few decide the 95th percentile, and takes the usual one of many (#559)', () => {
+    // (a cold start that hit a busy runner: 4645 ms among starts of ~350 ms)
+    expect(percentile95([358, 340, 4645, 371, 352])).toBe(371)
+    expect(percentile95([5])).toBe(5)
+    expect(percentile95(Array.from({ length: 100 }, (_unused, i) => i + 1))).toBe(95)
+    expect(judge('coldStart', [358, 340, 4645, 371, 352], { ...SWITCH, budget: 2000, noise: 1.5 }).ok).toBe(true)
+  })
+
+  it('still fails when two of a few samples are slow', () => {
+    expect(judge('coldStart', [358, 4100, 4645, 371, 352], { ...SWITCH, budget: 2000, noise: 1.5 }).ok).toBe(false)
   })
 })
 

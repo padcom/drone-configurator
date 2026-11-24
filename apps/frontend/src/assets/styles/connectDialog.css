@@ -57,3 +57,53 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
+
+/* The Found tab (ConnectFound.vue, #197): what answered on the network, each with its own Connect. */
+.connect-found {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.connect-found-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.connect-found-list {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.connect-found-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.connect-found-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.connect-found-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connect-found-detail {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
