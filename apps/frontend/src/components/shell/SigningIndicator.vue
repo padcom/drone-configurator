@@ -6,7 +6,6 @@
     :class="look.tone"
     :data-state="status.state"
     :to="{ name: sectionRouteName('setup', 'signing') }"
-    :title="t(look.titleKey)"
     :aria-label="t('topBar.signing.open', { state: word })"
   >
     <Icon :name="look.icon" />

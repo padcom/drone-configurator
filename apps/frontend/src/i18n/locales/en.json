@@ -1643,63 +1643,6 @@
     }
   },
   "setup": {
-    "signing": {
-      "summary": "Signing stops anyone without the key from sending commands to this vehicle over the radio.",
-      "fingerprint": "Key fingerprint",
-      "setAt": "Set on",
-      "newHeading": "Set a key",
-      "changeHeading": "Set a new key",
-      "source": "Where the key comes from",
-      "random": "Random key",
-      "fromPassphrase": "From a passphrase",
-      "randomHint": "This computer makes a random key and keeps it. Another ground station cannot be given it.",
-      "passphrase": "Passphrase",
-      "loss": "If this computer loses the key, no ground station can command the vehicle over the radio until its signing is reset over USB.",
-      "turnOn": "Turn signing on",
-      "replace": "Set the new key",
-      "turnOff": "Turn signing off",
-      "confirmTitle": "Vehicle signing",
-      "confirmRandom": "A random key is made, kept on this computer and sent to the vehicle.",
-      "confirmPassphrase": "The key made from the passphrase is kept on this computer and sent to the vehicle.",
-      "confirmOn": "Send the key",
-      "confirmOffWhat": "Signing is turned off on the vehicle and its key is removed from this computer. Any ground station can then command it.",
-      "confirmOff": "Turn signing off",
-      "state": {
-        "off": "Signing is off",
-        "signed": "Signing is on",
-        "noAnswer": "The vehicle does not sign with the key this computer holds",
-        "unknownKey": "The vehicle signs with a key this computer does not have"
-      },
-      "note": {
-        "off": "Any ground station can command this vehicle.",
-        "signed": "This computer and the vehicle share a key. Other ground stations need it too.",
-        "noAnswer": "The key may be wrong, or the vehicle's signing was reset. The link is not signed, and over a radio the vehicle ignores commands. Set a new key over USB, or turn signing off.",
-        "unknownKey": "Another ground station set it. Over a radio the vehicle ignores this computer's commands. Connect over USB to set a new key or turn signing off."
-      },
-      "phraseHint": {
-        "ok": "Other ground stations make the same key from the same passphrase.",
-        "empty": "Type a passphrase.",
-        "long": "A passphrase is at most 256 characters."
-      },
-      "blocked": {
-        "offline": "Connect a vehicle to set up signing.",
-        "unknown": "The vehicle's state is not known. Signing is changed only on a vehicle known to be disarmed.",
-        "armed": "The vehicle is armed. Signing is changed only on the ground, disarmed.",
-        "busy": "A signing change is under way."
-      },
-      "error": {
-        "NOT_CONNECTED": "No vehicle is connected.",
-        "ARMED": "The vehicle is armed. Disarm it, then try again.",
-        "STATE_UNKNOWN": "The vehicle's state is not known. Wait for its heartbeat, then try again.",
-        "BUSY": "Something else is under way: parameters, a plan, logs, a calibration, a motor test or a reboot. Try again when it is done.",
-        "NO_VEHICLE_ID": "The vehicle is not identified yet. Try again in a moment.",
-        "INVALID_VALUE": "A passphrase is 1 to 256 characters.",
-        "NOT_SAVED": "The key could not be saved on this computer, so nothing was sent to the vehicle. Check the app's data folder.",
-        "NOT_CONFIRMED": "The vehicle did not confirm. Check that its firmware supports signing, then try again. Over a radio, a vehicle that signs takes this only with its own key: use USB.",
-        "ABORTED": "The link was lost before the vehicle confirmed. The key is kept, in case the vehicle took it.",
-        "other": "Signing could not be changed. Try again."
-      }
-    },
     "initial": {
       "summary": "Starting values calculated by Mission Planner's Initial Parameter Setup for a multicopter, from the size of its propellers and the kind and cells of its battery. They are suggestions: choose them, look at the list on the side, and write them.",
       "size": "Propeller size (inches)",

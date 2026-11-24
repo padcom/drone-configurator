@@ -7,6 +7,7 @@ import { afterEach, expect, it } from 'vitest'
 import { RouterLinkStub, type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { i18n, setLanguage } from '@/i18n/i18n'
+import { loadSigningMessages } from '@/i18n/signingMessages'
 import { telemetryAt } from '@/mock/fixtures'
 import { type MockControl, mockBackend } from '@/mock/mock-backend'
 import { feed } from '@/testing/testing'
@@ -30,6 +31,7 @@ afterEach(() => {
  * @returns the page, the word, the Configurator, the mock's control and the questions asked
  */
 async function page(answer = true) {
+  await loadSigningMessages()
   const control: MockControl = {}
   const asked: string[] = []
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, control }), question => {

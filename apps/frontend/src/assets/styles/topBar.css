@@ -215,6 +215,36 @@
   outline-offset: 2px;
 }
 
+/*
+ * Below 1000 px the bar may wrap, and anything that widens a cell can push a row down and the screen with it: there the sign of the
+ * signing takes no room at all. It is the icon alone, in the corner of the LINK cell (in its padding, beside the label), and its
+ * word is still read out.
+ */
+@media (width < 1000px) {
+  .top-bar .cell.link {
+    position: relative;
+  }
+
+  .top-bar .link-signing {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    padding: 0;
+  }
+
+  .top-bar .link-signing-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
 .top-bar .link-details {
   display: grid;
   grid-template-columns: auto 1fr;
