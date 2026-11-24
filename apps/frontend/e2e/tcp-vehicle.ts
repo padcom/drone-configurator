@@ -70,6 +70,16 @@ export class TcpVehicle {
   }
 
   /**
+   * Builds and starts one that never arms and has nothing else (a write from a review of a snapshot or a parameter file is
+   * refused while the vehicle is armed or may be).
+   *
+   * @returns the running vehicle, with its port known
+   */
+  static startDisarmed(): Promise<TcpVehicle> {
+    return TcpVehicle.#launch({ ...environment(false, false, '', false), VEHICLE_DISARMED: '1' })
+  }
+
+  /**
    * Builds and starts one that listens on a UDP port instead, and answers whoever sent to it last (#197: the app's "udp-client").
    *
    * @returns the running vehicle, with its UDP port known

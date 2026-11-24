@@ -4,17 +4,18 @@ import SnapshotImport from './SnapshotImport.vue'
 import { mockBackend } from '@/mock/mock-backend'
 import { feed, withI18n } from '@/testing/testing'
 import { createConfigurator } from '@/composables/useConfigurator'
-import { VEHICLE } from '@/mock/fixtures'
+import { VEHICLE, telemetryAt } from '@/mock/fixtures'
 import type { Review } from '@/lib/params/snapshot'
 
 const review: Review = {
-  snapshot: { format: 'drone-configurator/params', version: 1, savedAt: '2026-11-07T12:00:00.000Z', params: [] },
+  source: { kind: 'snapshot', savedAt: '2026-11-07T12:00:00.000Z' },
   changes: [
-    { id: 'RTL_ALT', from: 1500, to: 2000, problem: null },
-    { id: 'NOT_A_PARAM', from: null, to: 1, problem: 'not on this vehicle' },
+    { id: 'RTL_ALT', from: 1500, to: 2000, problem: null, warning: null },
+    { id: 'NOT_A_PARAM', from: null, to: 1, problem: 'not on this vehicle', warning: null },
   ],
   unchanged: 10,
   vehicleWarning: 'saved from a FIXED_WING (ARDUPILOTMEGA); this is a QUADROTOR (ARDUPILOTMEGA)',
+  notes: [],
 }
 
 afterEach(() => {
@@ -33,7 +34,11 @@ async function panelWithSpies() {
   const closeImport = vi.spyOn(handle.snapshots, 'close').mockImplementation(() => undefined)
   const wrapper = mount(SnapshotImport, withI18n)
   await flushPromises()
-  feed(handle, { importReview: review, connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  feed(handle, {
+    importReview: review,
+    connection: { state: 'connected', vehicle: { ...VEHICLE } },
+    telemetry: { ...telemetryAt(0), armed: false },
+  })
   await wrapper.vm.$nextTick()
 
   return { wrapper, handle, togglePick, applyImport, closeImport }
@@ -181,4 +186,38 @@ it('shows why a file could not be loaded, as text', async () => {
   expect(wrapper.get('#import .error').text()).toBe('Can\'t load it: <b>not JSON</b>.')
   expect(wrapper.find('#import b').exists()).toBe(false)
   expect(wrapper.get('#import-panel').attributes('hidden')).toBeUndefined()
+})
+
+it('heads a parameter file with its format, names its column, lists its notes, and warns of an unusual value', async () => {
+  const { wrapper, handle } = await panelWithSpies()
+  const file: Review = {
+    ...review,
+    source: { kind: 'file', format: 'parm' },
+    changes: [{ id: 'RTL_ALT', from: 1500, to: 900000, problem: null, warning: 'Outside the usual range 200–300000 cm' }],
+    vehicleWarning: null,
+    notes: ['WPNAV_SPEED is on lines 4, 5: the value on line 5 is used.'],
+  }
+
+  feed(handle, { importReview: file })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('.review-head h3').text()).toBe('Parameter file: MAVProxy .parm (NAME VALUE)')
+  expect(wrapper.findAll('thead th').map(cell => cell.text())[3]).toBe('In the file')
+  expect(wrapper.get('.review-notes').attributes('aria-label')).toBe('About the file')
+  expect(wrapper.get('.review-notes').text()).toBe('WPNAV_SPEED is on lines 4, 5: the value on line 5 is used.')
+  expect(wrapper.get('td.result').text()).toBe('Outside the usual range 200–300000 cm. Check it before you write it.')
+  // A warning does not stop a change from being ticked: the vehicle validates, and the read-back says what it kept.
+  expect(wrapper.get('input[data-pick="RTL_ALT"]').attributes('disabled')).toBeUndefined()
+})
+
+it('writes nothing while the vehicle is armed or may be, and says so at once', async () => {
+  const { wrapper, handle, applyImport } = await panelWithSpies()
+  feed(handle, { picked: ['RTL_ALT'], telemetry: null })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('.review-status[role="alert"]').text())
+    .toBe('Nothing is written while the vehicle is armed, or may be. Disarm it first.')
+  expect(wrapper.get('#apply').attributes('disabled')).toBeDefined()
+  await wrapper.get('#apply').trigger('click')
+  expect(applyImport).not.toHaveBeenCalled()
 })

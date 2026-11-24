@@ -434,7 +434,8 @@ class MockVehicle {
 
         return ok({ path: this.saved.path })
       }
-      case 'files.open': return ok(this.options.opens?.shift() ?? this.saved ?? {})
+      case 'files.open':
+      case 'files.openParams': return ok(this.options.opens?.shift() ?? this.saved ?? {})
       case 'files.read': {
         const { path } = e.p as { path: string }
         this.filesRead.push(path)

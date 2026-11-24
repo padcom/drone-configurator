@@ -1333,8 +1333,24 @@
     "load": "Wczytaj migawkę",
     "loadMetadata": "Wczytaj metadane"
   },
+  "paramFile": {
+    "format": {
+      "param": "ArduPilot .param (NAZWA,WARTOŚĆ)",
+      "parm": "MAVProxy .parm (NAZWA WARTOŚĆ)",
+      "qgc": "QGroundControl .params"
+    }
+  },
   "import": {
     "from": "Migawka z {savedAt}",
+    "fromFile": "Plik parametrów: {format}",
+    "notes": "O pliku",
+    "unusual": "{warning}. Sprawdź to przed zapisaniem.",
+    "armed": "Nic nie jest zapisywane, gdy pojazd jest uzbrojony lub może być. Najpierw go rozbrój.",
+    "note": {
+      "duplicate": "{id} jest w wierszach {lines}: używana jest wartość z wiersza {last}.",
+      "malformed": "Wiersz {line} nie jest parametrem, pominięto go: {text}",
+      "moreMalformed": "Jeszcze {count} wiersz nie jest parametrem. | Jeszcze {count} wiersze nie są parametrami. | Jeszcze {count} wierszy nie jest parametrami."
+    },
     "itWas": "To było: {warning}.",
     "summary": "Różni się: {differ}, już takie same: {same}. Zaznacz te do zapisania.",
     "noValue": "—",
@@ -1342,6 +1358,7 @@
       "apply": "Zastosuj",
       "vehicle": "W pojeździe",
       "snapshot": "W migawce",
+      "file": "W pliku",
       "result": "Wynik"
     },
     "verified": "✓ Zapisano i odczytano z powrotem: {detail}",
@@ -1458,10 +1475,13 @@
     "noParams": "nie ma parametrów",
     "snapshotVersion": "migawka w wersji {version} (ta aplikacja czyta wersję {supported})",
     "malformed": "jej parametry są nieprawidłowo zbudowane",
+    "noParamLines": "nie ma w nim wierszy parametrów (NAZWA,WARTOŚĆ lub NAZWA WARTOŚĆ, po jednym w wierszu)",
     "notSnapshot": "to nie jest migawka parametrów Drone Configurator"
   },
   "problem": {
     "notOnVehicle": "nie ma w tym pojeździe",
+    "readOnly": "tylko do odczytu: ustawia go sam pojazd",
+    "otherComponent": "w pliku dla komponentu {file}; autopilot to komponent {vehicle}",
     "otherType": "{snapshot} w migawce, {vehicle} w pojeździe",
     "otherVehicle": "zapisano z pojazdu {was} ({wasAutopilot}); ten pojazd to {now} ({nowAutopilot})",
     "notConfirmed": "pojazd zgłasza {reported}, a nie {written}"
@@ -1614,14 +1634,20 @@
         "keywords": "odczytaj odśwież wczytaj ponownie lista"
       }
     },
+    "paramFile": {
+      "param": "Zapisz parametry jako plik .param ArduPilota…",
+      "parm": "Zapisz parametry jako plik .parm MAVProxy…",
+      "qgc": "Zapisz parametry jako plik .params QGroundControl…",
+      "keywords": "eksport plik zapis param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Zapisz migawkę parametrów…",
         "keywords": "eksport kopia plik zapis"
       },
       "load": {
-        "label": "Wczytaj migawkę parametrów…",
-        "keywords": "import przywróć plik otwórz"
+        "label": "Wczytaj migawkę lub plik parametrów…",
+        "keywords": "import przywróć plik otwórz param parm params"
       }
     },
     "reason": {

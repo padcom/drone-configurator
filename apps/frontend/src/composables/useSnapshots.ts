@@ -1,13 +1,16 @@
-// Parameter snapshots: saving the parameters as a file, loading one for review, and writing the changes the user ticks.
-// Nothing is written without the user's ticks and one confirmation. It talks to the backend through the client
-// (docs/frontend-state.md).
+// Parameter snapshots and parameter files: saving the parameters as a snapshot (JSON) or as one of ArduPilot's plain-text
+// parameter files (`.param`, `.parm`, `.params`), loading either for review, and writing the changes the user ticks. Nothing
+// is written without the user's ticks and one confirmation, nothing while the vehicle is armed or may be (as a Setup write),
+// and every write is read back. It talks to the backend through the client (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
-import { includesGuarded } from '@/lib/logs/loggingSetup'
 import type { Connection, Param } from '@/generated/app'
 import { notConfirmedText, showNumber } from '@/lib/params/paramValue'
 import { type Change, type Review, parseSnapshot, review, saveSnapshot } from '@/lib/params/snapshot'
+import type { Metadata } from '@/lib/params/metadata'
+import { type ParamFileFormat, formatParamFile, looksLikeJson, parseParamFile } from '@/lib/params/paramFile'
+import { reviewFile } from '@/lib/params/paramFileReview'
 import type { AppliedChange } from '@/state/state'
 import type { WriteLock } from './writeLock'
 
@@ -23,8 +26,10 @@ export interface SnapshotsDeps {
   parameters: { params: ShallowRef<Param[]>, replace: (param: Param) => void, lock: WriteLock }
   /** The connection: the vehicle the snapshot is saved from, and whether writing is possible. */
   connection: ShallowRef<Connection>
-  /** Whether the vehicle is armed or may be (unknown counts as armed): a logging or notch parameter is not written then. */
+  /** Whether the vehicle is armed or may be (unknown counts as armed): nothing is written then. */
   mayBeArmed?: () => boolean
+  /** The parameter metadata, when loaded: its read-only parameters are not written, and its ranges give warnings. */
+  metadata?: () => Metadata
 }
 
 /** The snapshots, as refs and actions. */
@@ -43,11 +48,15 @@ export interface SnapshotsModel {
   readonly backup: ShallowRef<string | null>
   /** The parameters as a snapshot (JSON), to save. */
   snapshot: () => string
+  /** The parameters as a plain-text parameter file in `format`, to save. */
+  paramFile: (format: ParamFileFormat) => string
+  /** Whether the vehicle is armed or may be: the ticked changes are not written then. */
+  mayBeArmed: () => boolean
   /** Saves `text` where the user chooses; resolves to where it went, or null if the user cancelled. */
   saveFile: (name: string, text: string) => Promise<string | null>
-  /** Lets the user pick a snapshot file (the host's open dialog) and loads it for review. */
+  /** Lets the user pick a snapshot or parameter file (the host's open dialog) and loads it for review. */
   openFile: () => Promise<void>
-  /** Loads a snapshot for review: what it would change, with nothing picked yet. */
+  /** Loads a snapshot (JSON) or a parameter file (plain text) for review: what it would change, with nothing picked yet. */
   load: (text: string) => void
   /** Ticks or unticks a change (ones that can't be applied can't be ticked). */
   toggle: (id: string) => void
@@ -89,6 +98,10 @@ class Snapshots implements SnapshotsModel {
     return saveSnapshot(this.deps.parameters.params.value, this.deps.connection.value.vehicle)
   }
 
+  paramFile(format: ParamFileFormat): string {
+    return formatParamFile(this.deps.parameters.params.value, format, { vehicle: this.deps.connection.value.vehicle })
+  }
+
   async saveFile(name: string, text: string): Promise<string | null> {
     try {
       const { path } = await this.deps.client.call('files.save', { name, text })
@@ -103,7 +116,7 @@ class Snapshots implements SnapshotsModel {
 
   async openFile(): Promise<void> {
     try {
-      const { text } = await this.deps.client.call('files.open', null)
+      const { text } = await this.deps.client.call('files.openParams', null)
       if (text !== undefined) {
         this.load(text)
       }
@@ -119,17 +132,58 @@ class Snapshots implements SnapshotsModel {
   }
 
   load(text: string): void {
-    const snapshot = parseSnapshot(text)
+    const reviewed = looksLikeJson(text) ? this.reviewSnapshot(text) : this.reviewParamFile(text)
     this.clearPicks()
 
-    if (typeof snapshot === 'string') {
+    if (typeof reviewed === 'string') {
       this.importReview.value = null
-      this.importError.value = say('notice.snapshotLoad', { reason: snapshot })
+      this.importError.value = say('notice.snapshotLoad', { reason: reviewed })
 
       return
     }
-    this.importReview.value = review(snapshot, this.deps.parameters.params.value, this.deps.connection.value.vehicle)
+    this.importReview.value = reviewed
     this.importError.value = null
+  }
+
+  /**
+   * What a snapshot would change.
+   *
+   * @param text the snapshot's JSON
+   * @returns the review, or why it is not a snapshot
+   */
+  private reviewSnapshot(text: string): Review | string {
+    const snapshot = parseSnapshot(text)
+    const { params, vehicle, options } = this.against()
+
+    return typeof snapshot === 'string' ? snapshot : review(snapshot, params, vehicle, options)
+  }
+
+  /**
+   * What a plain-text parameter file would change.
+   *
+   * @param text the file's text
+   * @returns the review, or why it is not a parameter file (it has no parameter lines)
+   */
+  private reviewParamFile(text: string): Review | string {
+    const file = parseParamFile(text)
+    const { params, vehicle, options } = this.against()
+
+    return file.entries.length === 0 ? say('reason.noParamLines') : reviewFile(file, params, vehicle, options)
+  }
+
+  /**
+   * What a review compares with: the vehicle's parameters, the vehicle, and the metadata.
+   *
+   * @returns them
+   */
+  private against() {
+    const metadata = this.deps.metadata?.()
+
+    return {
+      params: this.deps.parameters.params.value,
+      vehicle: this.deps.connection.value.vehicle,
+      options: metadata ? { metadata } : {},
+    }
   }
 
   /**
@@ -180,31 +234,11 @@ class Snapshots implements SnapshotsModel {
     if (!param) {
       return Promise.resolve({ id: change.id, outcome: 'failed', detail: say('problem.notOnVehicle') })
     }
-    const refused = this.refusedWhileArmed(change.id)
 
-    return refused === null ? this.write(param, change) : Promise.resolve(refused)
+    return this.write(param, change)
   }
 
-  /**
-   * The result of a change that is not written because the vehicle is armed or may be (a logging or notch parameter).
-   *
-   * @param id the parameter
-   * @returns the result, or null when the parameter may be written
-   */
-  private refusedWhileArmed(id: string): AppliedChange | null {
-    if (!includesGuarded([id]) || !this.mayBeArmed()) {
-      return null
-    }
-
-    return { id, outcome: 'failed', detail: say('staged.armedGuarded') }
-  }
-
-  /**
-   * Whether the vehicle is armed or may be.
-   *
-   * @returns true if it may be
-   */
-  private mayBeArmed(): boolean {
+  mayBeArmed(): boolean {
     return this.deps.mayBeArmed?.() ?? false
   }
 
@@ -218,7 +252,8 @@ class Snapshots implements SnapshotsModel {
   private async write(param: Param, change: Change): Promise<AppliedChange> {
     try {
       const { id, kind, type } = param
-      const result = await this.deps.client.call('params.write', { id, kind, type, value: change.to })
+      // Guarded, as a Setup write: the backend refuses it too while the vehicle is armed or not known to be disarmed.
+      const result = await this.deps.client.call('params.write', { id, kind, type, value: change.to, guarded: true })
       this.deps.parameters.replace(result.param)
 
       return result.verified
@@ -248,13 +283,14 @@ class Snapshots implements SnapshotsModel {
   }
 
   /**
-   * Whether the ticked changes can be written now: there are some, a vehicle is connected, and nothing is being written.
+   * Whether the ticked changes can be written now: there are some, a vehicle is connected and known to be disarmed, and
+   * nothing is being written.
    *
    * @param changes the ticked changes
    * @returns true if they can
    */
   private applicable(changes: Change[]): boolean {
-    return changes.length > 0 && this.deps.connection.value.state === 'connected' && !this.applying.value
+    return changes.length > 0 && this.deps.connection.value.state === 'connected' && !this.applying.value && !this.mayBeArmed()
   }
 
   async apply(): Promise<void> {
@@ -264,7 +300,7 @@ class Snapshots implements SnapshotsModel {
     if (!this.applicable(changes) || !await this.deps.confirm(applyQuestion(changes))) {
       return
     }
-    const release = this.deps.parameters.lock.take()
+    const release = this.takeLock()
     if (!release) {
       return
     }
@@ -273,6 +309,16 @@ class Snapshots implements SnapshotsModel {
     } finally {
       release()
     }
+  }
+
+  /**
+   * Takes the write lock, unless the vehicle may have armed while the question was up: then nothing is written (the status line
+   * says why).
+   *
+   * @returns what releases the lock, or null when nothing is to be written
+   */
+  private takeLock(): (() => void) | null {
+    return this.mayBeArmed() ? null : this.deps.parameters.lock.take()
   }
 
   /**

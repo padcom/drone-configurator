@@ -1486,6 +1486,7 @@ export interface Services {
   "link.stats": { kind: 'subscription', params: null, value: LinkStats }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
+  "files.openParams": { kind: 'method', request: null, response: FileOpened }
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
   "metadata.fetch": { kind: 'method', request: MetadataAsk, response: MetadataFile }
   "metadata.progress": { kind: 'event', payload: MetadataProgress }
@@ -1749,6 +1750,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
     response: (value: any, path: string) => validateFileSavedInto(value, path),
   },
   "files.open": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateFileOpenedInto(value, path),
+  },
+  "files.openParams": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateFileOpenedInto(value, path),
   },

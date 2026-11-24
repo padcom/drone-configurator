@@ -1333,8 +1333,24 @@
     "load": "Завантажити знімок",
     "loadMetadata": "Завантажити метадані"
   },
+  "paramFile": {
+    "format": {
+      "param": "ArduPilot .param (ІМʼЯ,ЗНАЧЕННЯ)",
+      "parm": "MAVProxy .parm (ІМʼЯ ЗНАЧЕННЯ)",
+      "qgc": "QGroundControl .params"
+    }
+  },
   "import": {
     "from": "Знімок від {savedAt}",
+    "fromFile": "Файл параметрів: {format}",
+    "notes": "Про файл",
+    "unusual": "{warning}. Перевірте перед записом.",
+    "armed": "Нічого не записується, доки апарат заряджено або він може бути зарядженим. Спершу розрядіть його.",
+    "note": {
+      "duplicate": "{id} є в рядках {lines}: використовується значення з рядка {last}.",
+      "malformed": "Рядок {line} — не параметр, пропущено: {text}",
+      "moreMalformed": "Ще {count} рядок — не параметр. | Ще {count} рядки — не параметри. | Ще {count} рядків — не параметри."
+    },
     "itWas": "Він був {warning}.",
     "summary": "Відрізняються: {differ}, уже збігаються: {same}. Позначте ті, що потрібно записати.",
     "noValue": "—",
@@ -1342,6 +1358,7 @@
       "apply": "Застосувати",
       "vehicle": "В апараті",
       "snapshot": "У знімку",
+      "file": "У файлі",
       "result": "Результат"
     },
     "verified": "✓ Записано і прочитано назад: {detail}",
@@ -1458,10 +1475,13 @@
     "noParams": "у ньому немає params",
     "snapshotVersion": "версія знімка {version} (застосунок читає версію {supported})",
     "malformed": "його параметри пошкоджені",
+    "noParamLines": "у ньому немає рядків параметрів (ІМʼЯ,ЗНАЧЕННЯ або ІМʼЯ ЗНАЧЕННЯ, по одному в рядку)",
     "notSnapshot": "це не знімок параметрів Drone Configurator"
   },
   "problem": {
     "notOnVehicle": "немає в цьому апараті",
+    "readOnly": "лише для читання: апарат задає його сам",
+    "otherComponent": "у файлі для компонента {file}; автопілот — компонент {vehicle}",
     "otherType": "у знімку {snapshot}, в апараті {vehicle}",
     "otherVehicle": "збережено з апарата {was} ({wasAutopilot}); цей апарат — {now} ({nowAutopilot})",
     "notConfirmed": "апарат повідомляє {reported}, а не {written}"
@@ -1614,14 +1634,20 @@
         "keywords": "прочитати оновити перезавантажити список"
       }
     },
+    "paramFile": {
+      "param": "Зберегти параметри як файл .param ArduPilot…",
+      "parm": "Зберегти параметри як файл .parm MAVProxy…",
+      "qgc": "Зберегти параметри як файл .params QGroundControl…",
+      "keywords": "експорт файл запис param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Зберегти знімок параметрів…",
         "keywords": "експорт резервна копія файл запис"
       },
       "load": {
-        "label": "Завантажити знімок параметрів…",
-        "keywords": "імпорт відновити файл відкрити"
+        "label": "Завантажити знімок або файл параметрів…",
+        "keywords": "імпорт відновити файл відкрити param parm params"
       }
     },
     "reason": {

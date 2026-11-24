@@ -229,6 +229,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
     files: {
       loadMetadata: () => void fake.calls.metadata.push('load'),
       saveSnapshot: () => void fake.calls.snapshot.push('save'),
+      saveParamFile: format => void fake.calls.snapshot.push(`save.${format}`),
       loadSnapshot: () => void fake.calls.snapshot.push('load'),
       openLog: () => void fake.calls.snapshot.push('openLog'),
       logBusy: () => fake.facts.logBusy ?? false,
