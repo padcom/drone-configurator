@@ -50,12 +50,18 @@ function focusParamValue(_from: RunFrom, id: string): void {
   askForFocus('params.value', Date.now(), id)
 }
 
+/** Asks for the focus to go to the frame presets' search (FramePresets takes it once it is shown). */
+function focusPresetSearch(): void {
+  askForFocus('presets.search')
+}
+
 /** Where the focus goes for each place a command can name. Anything else leaves it where it is. */
 const PLACES: Record<FocusTarget, (from: RunFrom, id: string) => void> = {
   'restore': () => undefined,
   'main': focusScreen,
   'params.search': focusParamSearch,
   'params.value': focusParamValue,
+  'presets.search': focusPresetSearch,
 }
 
 /**

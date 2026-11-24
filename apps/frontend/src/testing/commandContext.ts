@@ -242,6 +242,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       value: id => fake.facts.parameterValues?.[id],
       listComplete: () => fake.facts.listComplete ?? true,
       compareDefaults: () => void fake.calls.snapshot.push('compareDefaults'),
+      framePresets: () => void fake.calls.snapshot.push('framePresets'),
     },
     dialogs: dialogsOf(fake),
   }

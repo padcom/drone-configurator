@@ -56,8 +56,22 @@ export interface DefaultsSource {
   kind: 'defaults'
 }
 
-/** Where the values under review come from: a snapshot (and when it was saved), a parameter file (its format), the defaults. */
-export type ReviewSource = { kind: 'snapshot', savedAt: string } | { kind: 'file', format: ParamFileFormat } | DefaultsSource
+/** A frame preset of ArduPilot's (#41): where in its tree it is, and at which git reference. */
+export interface PresetSource {
+  /** Always `preset`. */
+  kind: 'preset'
+  /** The git reference it was listed at: the vehicle's firmware tag (`Copter-4.7.3`) or `master`. */
+  ref: string
+  /** Its path under `Tools/Frame_params`. */
+  path: string
+}
+
+/**
+ * Where the values under review come from: a snapshot (and when it was saved), a parameter file (its format), the defaults, a
+ * frame preset.
+ */
+export type ReviewSource
+  = | { kind: 'snapshot', savedAt: string } | { kind: 'file', format: ParamFileFormat } | DefaultsSource | PresetSource
 
 /** What loading a snapshot or a parameter file would do. */
 export interface Review extends Diff {

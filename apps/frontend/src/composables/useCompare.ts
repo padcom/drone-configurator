@@ -16,7 +16,9 @@ import {
   defaultsSide,
   sideOfText,
 } from '@/lib/params/paramCompare'
+import { diffOptions } from '@/lib/params/paramDiff'
 import type { Review } from '@/lib/params/snapshot'
+import type { RenameSource } from './renameSource'
 import type { SnapshotsModel } from './useSnapshots'
 
 /** What the comparison needs from the rest of the interface. */
@@ -31,6 +33,8 @@ export interface CompareDeps {
   metadata: () => Metadata
   /** The review the rows copied across go to. */
   snapshots: Pick<SnapshotsModel, 'show'>
+  /** ArduPilot's renames: a name the vehicle's firmware renamed is compared under its new name, converted (#202). */
+  renames?: RenameSource
 }
 
 /** The filter the comparison opens with: only the differences, every group, no search. */
@@ -117,9 +121,13 @@ class Compare implements CompareModel {
    */
   private rowsNow(): CompareRow[] {
     const side = this.side.value
+    if (!side) {
+      return []
+    }
     const metadata = this.deps.metadata()
+    const options = diffOptions(metadata.size > 0 ? metadata : undefined, this.deps.renames?.now())
 
-    return side ? compareValues(side.wanted, this.deps.params.value, metadata.size > 0 ? { metadata } : {}) : []
+    return compareValues(side.wanted, this.deps.params.value, options)
   }
 
   /**
@@ -138,6 +146,7 @@ class Compare implements CompareModel {
     try {
       const { text } = await this.deps.client.call('files.openParams', null)
       if (text !== undefined) {
+        await this.deps.renames?.ready()
         this.loadText(text)
       }
     } catch (error) {

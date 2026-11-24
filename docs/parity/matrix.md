@@ -57,7 +57,7 @@ under the last table and are not counted.
 | Parameter download over MAVFTP, cached per vehicle | #38 | Done | FTP with list fallback; last complete list kept per vehicle and shown while the next download runs; same 1,370 values both ways and `paramDownloadFtp` budget in `sitl-param-speed.e2e.ts` |
 | Import and export parameter files | #39 | Partial | the app's snapshot format only; no plain `.param` file |
 | Compare against a file or the defaults | #40 | Partial | no comparison with firmware defaults or another vehicle |
-| Frame parameter presets | #41 | Not done | needs #39 |
+| Frame parameter presets | #41 | Done | ArduPilot's `Tools/Frame_params`, listed at the vehicle's firmware tag (else master, and said) with one GitHub API call, files from raw, both cached (a tag's for good, master's 7 days, stale when GitHub refuses); search, contents, "Review and apply" through the review, disarmed only; palette and Setup › Frame; `frame-presets.e2e.ts`, `sitl-frame-presets.e2e.ts` (local stand-in, every PR), `weekly-frame-presets.e2e.ts` (GitHub, weekly) |
 | Reboot-required tracking and reboot | #42 | Partial | no pending-reboot indicator from the metadata flag |
 | Curated view by user level | #44 | Partial | implemented; no grouped view with plain descriptions, no test with a real Copter metadata file |
 | User-defined parameter pages | #201 | Not done | favourites only |

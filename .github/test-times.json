@@ -34,6 +34,7 @@
     "mapsource.test.pi": 20,
     "maptiles.test.pi": 30,
     "metadata.test.pi": 45,
+    "presets.test.pi": 30,
     "messages.test.pi": 28,
     "missions.test.pi": 62,
     "motors.test.pi": 45,
@@ -61,6 +62,7 @@
     "analyse.e2e.ts": 1,
     "backend-crash.e2e.ts": 13,
     "bitmask.e2e.ts": 2,
+    "frame-presets.e2e.ts": 8,
     "budgets.e2e.ts": 42,
     "calibration.e2e.ts": 21,
     "combobox-scrollbar.e2e.ts": 2,
@@ -101,6 +103,7 @@
     "param-description.e2e.ts": 1,
     "param-grid.e2e.ts": 2,
     "param-keys.e2e.ts": 4,
+    "param-renamed.e2e.ts": 17,
     "param-search-speed.e2e.ts": 10,
     "param-table.e2e.ts": 13,
     "plan-keys.e2e.ts": 4,
@@ -127,6 +130,8 @@
   },
   "sitl": {
     "sitl-metadata.e2e.ts": 40,
+    "sitl-frame-presets.e2e.ts": 30,
+    "sitl-param-renamed.e2e.ts": 30,
     "sitl-params.e2e.ts": 60,
     "sitl-arming.e2e.ts": 70,
     "sitl-calibration.e2e.ts": 207,
@@ -136,12 +141,14 @@
     "sitl-guided.e2e.ts": 103,
     "sitl-harness.e2e.ts": 94,
     "sitl-landed.e2e.ts": 76,
+    "sitl-link-quality.e2e.ts": 26,
     "sitl-logs.e2e.ts": 141,
     "sitl-param-speed.e2e.ts": 15,
     "sitl-plan.e2e.ts": 32,
     "sitl-recording.e2e.ts": 90,
     "sitl-reconnect.e2e.ts": 22,
     "sitl-signing.e2e.ts": 20,
+    "sitl-telemetry.e2e.ts": 62,
     "sitl-transports.e2e.ts": 30,
     "sitl-serial-bridge.e2e.ts": 40,
     "sitl-vehicles.e2e.ts": 60,
@@ -149,6 +156,7 @@
   },
   "weekly": {
     "weekly-metadata-server.e2e.ts": 150,
+    "weekly-frame-presets.e2e.ts": 60,
     "weekly-params-metadata.e2e.ts": 60
   }
 }

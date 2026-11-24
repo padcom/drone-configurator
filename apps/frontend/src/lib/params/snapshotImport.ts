@@ -1,6 +1,6 @@
 // What the import panel (a snapshot or a parameter file under review) says and allows, from plain values (no DOM). Vue's
 // templates escape the text; the words come from the translations.
-import type { Change, ReviewSource } from './snapshot'
+import type { Change, PresetSource, ReviewSource } from './snapshot'
 import type { State } from '@/state/state'
 import type { Translate } from '@/lib/fly/telemetryCards'
 
@@ -177,7 +177,20 @@ export interface SourceWords {
 }
 
 /**
- * The heading and the column of a review, for a snapshot, a parameter file or the firmware's defaults.
+ * The heading and the column of a frame preset's review (#41): its name, and where it came from.
+ *
+ * @param source the preset
+ * @param translate looks up a message
+ * @returns the words
+ */
+function presetWords(source: PresetSource, translate: Translate): SourceWords {
+  const heading = translate('import.fromPreset', { path: source.path, ref: source.ref })
+
+  return { heading, column: translate('import.column.preset') }
+}
+
+/**
+ * The heading and the column of a review, for a snapshot, a parameter file, the firmware's defaults or a frame preset.
  *
  * @param source where the values come from
  * @param translate looks up a message
@@ -189,6 +202,9 @@ export function sourceWords(source: ReviewSource, translate: Translate): SourceW
   }
   if (source.kind === 'defaults') {
     return { heading: translate('import.fromDefaults'), column: translate('import.column.defaults') }
+  }
+  if (source.kind === 'preset') {
+    return presetWords(source, translate)
   }
 
   const format = translate(`paramFile.format.${source.format}`)

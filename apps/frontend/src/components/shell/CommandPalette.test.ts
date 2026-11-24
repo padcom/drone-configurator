@@ -218,6 +218,7 @@ const ALPHABETICAL = [
   'Download parameters',
   'Duplicate the item',
   ...FLIGHT_MODE_LABELS,
+  'Frame presets from ArduPilot…',
   'Go here',
   'Load parameter metadata…',
   'Load parameter snapshot or file…',
@@ -257,6 +258,7 @@ const GROUPS_OF_THE_FIRST = [
   'Parameters',
   'Plan',
   ...FLIGHT_MODE_LABELS.map(() => 'Vehicle'),
+  'Parameters',
   'Vehicle',
   'Parameters',
   'Parameters',
@@ -290,10 +292,10 @@ it('names the group of each command in its row', async () => {
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
   // (then the ways: as many as the screens have parts)
-  expect(groups.slice(0, 37)).toEqual(GROUPS_OF_THE_FIRST)
-  expect(groups.length).toBeGreaterThan(38)
+  expect(groups.slice(0, 38)).toEqual(GROUPS_OF_THE_FIRST)
+  expect(groups.length).toBeGreaterThan(39)
   // (Take off and Undo are the last two of the list by their names: a vehicle's command and the plan's)
-  expect(groups.slice(37, -2).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(38, -2).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-2)).toBe('Vehicle')
   expect(groups.at(-1)).toBe('Plan')
 })
@@ -327,7 +329,7 @@ it('filters by what is typed, and says so when nothing matches', async () => {
   await flushPromises()
   await type(wrapper, 'param')
 
-  // The same rank for all ten: alphabetical by label.
+  // The same rank for the ten whose labels match: alphabetical by label; then the one whose keywords do.
   expect(labels(wrapper)).toEqual([
     'Compare parameters with a file or snapshot…',
     'Compare parameters with the firmware defaults',
@@ -339,6 +341,7 @@ it('filters by what is typed, and says so when nothing matches', async () => {
     'Save parameters as a QGroundControl .params file…',
     'Save parameters as an ArduPilot .param file…',
     'Switch to Parameters',
+    'Frame presets from ArduPilot…',
   ])
   await type(wrapper, 'xyz')
 
@@ -522,7 +525,7 @@ it('says how many commands there are, a moment after the query changes (not on e
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
 
-  expect(status()).toBe('10 results')
+  expect(status()).toBe('11 results')
   await type(wrapper, 'xyz')
   await vi.advanceTimersByTimeAsync(500)
 

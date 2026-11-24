@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { type FlyCard, flyCards } from './flyCards'
-import type { Telemetry } from '@/generated/app'
+import type { LinkStats, Telemetry } from '@/generated/app'
 import { translate } from '@/testing/testing'
 import { useFormat } from '@/i18n/useFormat'
 
@@ -33,7 +33,7 @@ const FULL: Telemetry = {
  * @returns the cards by their id
  */
 function cardsOf(now: Telemetry | null, reconnecting = false): Record<string, FlyCard> {
-  return Object.fromEntries(flyCards(now, reconnecting, translate, format).map(card => [card.id, card]))
+  return Object.fromEntries(flyCards(now, { reconnecting }, translate, format).map(card => [card.id, card]))
 }
 
 /**
@@ -55,7 +55,7 @@ const texts = (cards: Record<string, FlyCard>, id: string) => [cards[id]?.value,
 
 describe('the cards of a live vehicle', () => {
   it('are the six of the design, in order', () => {
-    expect(flyCards(FULL, false, translate, format).map(card => card.label))
+    expect(flyCards(FULL, { reconnecting: false }, translate, format).map(card => card.label))
       .toEqual(['BATTERY', 'WIND', 'GPS', 'LINK', 'EKF', 'VIBRATION'])
   })
 
@@ -100,6 +100,87 @@ describe('the link card', () => {
   })
 })
 
+/** A link that loses nothing, with a quick ping. */
+const GOOD: LinkStats = {
+  windowMs: 5000, received: 500, lost: 1, rxRate: 100, txRate: 6, rxBytes: 4000, txBytes: 144, latencyMs: 68.4, silentMs: 10,
+  totalReceived: 3000, totalLost: 1,
+}
+
+/**
+ * The link card with some link stats.
+ *
+ * @param stats the stats
+ * @param now the telemetry, or null
+ * @param reconnecting whether the link is being brought back
+ * @returns the card
+ * @throws {Error} when there is none
+ */
+function linkCard(stats: LinkStats | null, now: Telemetry | null = FULL, reconnecting = false): FlyCard {
+  const card = flyCards(now, { reconnecting, stats }, translate, format).find(one => one.id === 'link')
+  if (!card) {
+    throw new Error('no link card')
+  }
+
+  return card
+}
+
+/**
+ * The value and the status of the link card with some stats.
+ *
+ * @param change what differs from a good link
+ * @returns the value, and the status
+ */
+function judged(change: Partial<LinkStats>): [string | undefined, FlyCard['status']] {
+  const card = linkCard({ ...GOOD, ...change })
+
+  return [card.value, card.status]
+}
+
+describe('the link card with the link\'s stats', () => {
+  it('says the share of the packets that arrived, and under it the round trip of the ping and the share lost', () => {
+    const card = linkCard(GOOD)
+
+    expect([card.value, card.help, card.state, card.status]).toEqual(['100%', '68\u00A0ms · 0.2% lost', 'live', undefined])
+  })
+
+  it.each([
+    ['weak, from 5 % lost', { lost: 30, received: 470 }, '94%', 'warn'],
+    ['poor, from 20 % lost', { lost: 100, received: 400 }, '80%', 'error'],
+    ['weak, from half a second of latency', { latencyMs: 640 }, '100%', 'warn'],
+    ['poor, from two seconds of latency', { latencyMs: 2000 }, '100%', 'error'],
+    ['weak, after two seconds without a packet', { silentMs: 2000 }, '100%', 'warn'],
+  ] as const)('says a link that is %s, with its level and the word', (_name, change, value, level) => {
+    expect(judged(change)).toEqual([value, { level, word: level === 'warn' ? 'weak' : 'poor' }])
+  })
+
+  it('gives the age of the heartbeat instead of the round trip when the vehicle answers no ping', () => {
+    const noPing = { ...GOOD, latencyMs: undefined }
+
+    expect(linkCard(noPing, { ...FULL, heartbeatAgeMs: 120 }).help).toBe('0.2% lost · heartbeat 120 ms ago')
+  })
+})
+
+describe('the link card of a link that is silent, or has no stats', () => {
+  it('keeps "last heard" for a silent link, whatever the stats said last', () => {
+    const quiet = linkCard({ ...GOOD, lost: 100, received: 400 }, { ...FULL, heartbeatAgeMs: 5200 })
+    const back = linkCard(GOOD, FULL, true)
+
+    expect([quiet.value, quiet.help, quiet.state, quiet.status])
+      .toEqual(['no heartbeat', 'last one 5,200 ms before it went quiet', 'last-heard', undefined])
+    expect([back.value, back.state]).toEqual(['no heartbeat', 'last-heard'])
+  })
+
+  it('says how long ago the heartbeat came without the stats (a backend that sends none)', () => {
+    const card = linkCard(null)
+
+    expect([card.value, card.help]).toEqual(['100 ms ago', 'last heartbeat'])
+  })
+
+  it('is never reported without a vehicle, whatever the stats', () => {
+    expect(linkCard(GOOD, null).state).toBe('never')
+  })
+})
+
 describe('the cards of a vehicle that has not said everything', () => {
   it('are never reported, with no value, for a group that did not come', () => {
     const { wind, gps } = cardsOf({ ...FULL, wind: undefined, gps: undefined })
@@ -109,7 +190,7 @@ describe('the cards of a vehicle that has not said everything', () => {
   })
 
   it('are all never reported without a vehicle', () => {
-    const cards = flyCards(null, false, translate, format)
+    const cards = flyCards(null, { reconnecting: false }, translate, format)
 
     expect(cards.map(card => card.state)).toEqual(Array(6).fill('never'))
     expect(cards.map(card => card.value)).toEqual(Array(6).fill(undefined))

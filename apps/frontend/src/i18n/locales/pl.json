@@ -813,6 +813,8 @@
     "heartbeatAge": "{ms} ms temu",
     "noHeartbeat": "brak heartbeatu",
     "lastHeartbeat": "ostatni {ms} ms przed ucichnięciem",
+    "latencyLost": "{latency} · {percent}% utracono",
+    "lostHeartbeat": "{percent}% utracono · heartbeat {ms} ms temu",
     "ekf": {
       "healthy": "Sprawny",
       "degraded": "Pogorszony",
@@ -1352,6 +1354,7 @@
     }
   },
   "compare": {
+    "renamed": "{value} (było {from} {old}, nowa nazwa od {since})",
     "file": "Porównaj z plikiem",
     "defaults": "Porównaj z domyślnymi",
     "region": "Porównanie",
@@ -1382,6 +1385,44 @@
     "pickSome": "Zaznacz wartości do skopiowania.",
     "review": "Przejrzyj zaznaczone: {count}"
   },
+  "presets": {
+    "open": "Ustawienia ram",
+    "region": "Ustawienia ram",
+    "title": "Ustawienia ram od ArduPilota",
+    "refresh": "Pobierz listę ponownie",
+    "close": "Zamknij",
+    "loading": "Pobieranie listy ustawień z GitHuba ArduPilota…",
+    "search": "Szukaj",
+    "count": "{shown} z {all} ustawień",
+    "table": "Ustawienia ram",
+    "help": "Strzałki w górę i w dół wybierają ustawienie i pokazują jego zawartość.",
+    "contents": "Zawartość ustawienia",
+    "fetching": "Pobieranie ustawienia…",
+    "text": "Zawartość ustawienia",
+    "pick": "Wybierz ustawienie, aby zobaczyć, co ustawia.",
+    "armed": "Ustawienie zmienia sposób, w jaki pojazd lata: stosuje się je tylko przy rozbrojonym pojeździe. Najpierw go rozbrój.",
+    "safety": "Ustawienie zmienia sposób, w jaki pojazd lata. Każda zmiana jest pokazana do przeglądu; nic nie zostanie zapisane, dopóki nie potwierdzisz.",
+    "review": "Przejrzyj i zastosuj",
+    "column": {
+      "name": "Ustawienie",
+      "folder": "Folder",
+      "size": "Bajty"
+    },
+    "ref": {
+      "pinned": "Z ArduPilota {ref}, oprogramowania pojazdu.",
+      "unreleased": "Z ArduPilota {ref}: pojazd nie podał wydanej wersji oprogramowania.",
+      "untagged": "Z ArduPilota {ref}: ArduPilot nie ma tagu dla oprogramowania {version} pojazdu."
+    },
+    "stale": "Zachowana na tym komputerze: nie udało się zapytać GitHuba o nowszą listę.",
+    "fromCache": "Zachowana na tym komputerze.",
+    "error": {
+      "limited": "GitHub na razie odrzuca kolejne zapytania z tego komputera (60 na godzinę bez konta). Spróbuj później.",
+      "limitedUntil": "GitHub odrzuca kolejne zapytania z tego komputera do {time} (60 na godzinę bez konta). Spróbuj wtedy.",
+      "notConnected": "Najpierw połącz się z pojazdem.",
+      "unsupported": "ArduPilot publikuje ustawienia ram tylko dla pojazdów z ArduPilotem.",
+      "failed": "Nie udało się pobrać z GitHuba ArduPilota: {error}. Sprawdź połączenie z internetem i spróbuj ponownie."
+    }
+  },
   "import": {
     "fromDefaults": "Domyślne wartości firmware",
     "from": "Migawka z {savedAt}",
@@ -1397,13 +1438,16 @@
     "itWas": "To było: {warning}.",
     "summary": "Różni się: {differ}, już takie same: {same}. Zaznacz te do zapisania.",
     "noValue": "—",
+    "renamed": "{from} → {to} (nowa nazwa od {since})",
+    "converted": "Przeliczono: {from} → {to}",
     "column": {
       "defaults": "Domyślna",
       "apply": "Zastosuj",
       "vehicle": "W pojeździe",
       "snapshot": "W migawce",
       "file": "W pliku",
-      "result": "Wynik"
+      "result": "Wynik",
+      "preset": "W ustawieniu"
     },
     "verified": "✓ Zapisano i odczytano z powrotem: {detail}",
     "notVerified": "✕ {detail}",
@@ -1416,7 +1460,8 @@
     "apply": "Zastosuj {id}",
     "write": "Zapisz zaznaczone: {count}",
     "backup": "Zapisz kopię zapasową",
-    "close": "Zamknij"
+    "close": "Zamknij",
+    "fromPreset": "Ustawienie ramy: {path} (ArduPilot {ref})"
   },
   "staged": {
     "tuning": {
@@ -1797,6 +1842,10 @@
         "what": "Uruchamia kontroler lotu od nowa. Łącze zniknie na kilka sekund i wróci samo. Parametry nie są zmieniane. Tylko przy rozbrojonym pojeździe.",
         "button": "Przytrzymaj, aby uruchomić ponownie"
       }
+    },
+    "presets": {
+      "label": "Ustawienia ram od ArduPilota…",
+      "keywords": "rama ramy ustawienie preset plik parametrów ardupilot szablon"
     }
   },
   "setup": {
@@ -2235,7 +2284,8 @@
       "drawingKey": "Przód jest u góry. Numer to numer silnika w teście silników, a nie wyjście, do którego jest podłączony; strzałka to kierunek obrotów.",
       "motor": "Silnik {number} pod kątem {angle} stopni, obraca się {spin}",
       "cw": "zgodnie z ruchem wskazówek zegara",
-      "ccw": "przeciwnie do ruchu wskazówek zegara"
+      "ccw": "przeciwnie do ruchu wskazówek zegara",
+      "presets": "ArduPilot publikuje pliki parametrów dla znanych mu ram. Każda zmiana jest przeglądana przed zapisaniem."
     },
     "bridge": {
       "summary": "Połącz się z urządzeniem za autopilotem, takim jak GPS lub radio, z innego programu na tym komputerze. Program łączy się z lokalnym portem TCP, a port pojazdu jest zablokowany dla mostu, dopóki go nie zatrzymasz.",

@@ -1,9 +1,11 @@
 // The commands of the Parameters toolbar: download the list again, save a snapshot, save a parameter file (one command per
-// format), load a snapshot or a parameter file, compare the parameters with a file or with the firmware's defaults. The buttons
-// run these through the registry, as the palette does. (Load metadata is `metadata.load`, in metadata.ts.)
+// format), load a snapshot or a parameter file, compare the parameters with a file or with the firmware's defaults, and show
+// ArduPilot's frame presets. The buttons run these through the registry, as the palette does. (Load metadata is
+// `metadata.load`, in metadata.ts.)
 import type { Availability, Command, CommandContext, CommandOutcome } from './command'
 import { PARAMETERS_GROUP } from './metadata'
 import { PARAM_FILE_FORMATS, type ParamFileFormat } from '@/lib/params/paramFile'
+import { PRODUCT_SCREENS } from '@/screens/registry'
 
 /**
  * A reason a command may not run.
@@ -266,15 +268,65 @@ export class CompareWithDefaults implements Command {
   }
 }
 
+/** Where the Parameters screen is, from the list of the screens (the route is not written out twice). */
+const PARAMETERS_PATH = PRODUCT_SCREENS.find(screen => screen.id === 'parameters')?.path ?? '/parameters'
+
+/**
+ * Shows ArduPilot's frame presets (#41) on the Parameters screen: the list, a search, a preset's contents, and "Review and
+ * apply". In the palette (the toolbar has no room for another button) and in Setup › Frame. It writes nothing: a preset's
+ * changes go to the review, and only while the vehicle is known to be disarmed.
+ */
+export class ShowFramePresets implements Command {
+  readonly id = 'params.presets'
+
+  readonly labelKey = 'palette.presets.label'
+
+  readonly buttonLabelKey = 'presets.open'
+
+  readonly groupKey = PARAMETERS_GROUP
+
+  readonly icon = 'folder'
+
+  readonly keywordKeys = ['palette.presets.keywords']
+
+  /**
+   * Only from a connected vehicle whose parameters are there: the list is for its kind and firmware, and a preset is reviewed
+   * against its parameters.
+   *
+   * @param ctx the context
+   * @returns whether it may, and if not why
+   */
+  isEnabled(ctx: CommandContext): Availability {
+    if (ctx.vehicle.connection().state !== 'connected') {
+      return no('palette.reason.notConnected')
+    }
+
+    return ctx.params.count() === 0 ? no('palette.reason.noParameters') : { enabled: true }
+  }
+
+  /**
+   * Goes to the Parameters screen and shows the presets.
+   *
+   * @param ctx the context
+   * @returns the focus goes to the presets' search
+   */
+  async execute(ctx: CommandContext): Promise<CommandOutcome> {
+    await ctx.navigate(PARAMETERS_PATH)
+    ctx.params.framePresets()
+
+    return { focus: 'presets.search' }
+  }
+}
+
 /**
  * The commands of the Parameters toolbar, in the order they are registered.
  *
- * @returns download, save a snapshot, load a snapshot or file, save a parameter file in each format, and compare
+ * @returns download, save a snapshot, load a snapshot or file, save a parameter file in each format, compare, and frame presets
  */
 export function parameterCommands(): Command[] {
   const saves = PARAM_FILE_FORMATS.map(format => new SaveParamFile(format))
 
   const compares = [new CompareWithFile(), new CompareWithDefaults()]
 
-  return [new DownloadParameters(), new SaveSnapshot(), new LoadSnapshot(), ...saves, ...compares]
+  return [new DownloadParameters(), new SaveSnapshot(), new LoadSnapshot(), ...saves, ...compares, new ShowFramePresets()]
 }

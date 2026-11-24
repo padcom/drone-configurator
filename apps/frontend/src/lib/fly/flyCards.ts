@@ -1,7 +1,8 @@
-// The six cards of the Fly aside (BATTERY, WIND, GPS, LINK, EKF, VIBRATION), from a Telemetry alone (no DOM). Each says which of
-// the truth states its value is in (the groups carry their own age); a group the vehicle has not sent is "never reported",
-// never a made-up zero.
-import type { Telemetry } from '@/generated/app'
+// The six cards of the Fly aside (BATTERY, WIND, GPS, LINK, EKF, VIBRATION), from a Telemetry alone (no DOM), and the LINK card
+// from the link's stats too (`link.stats`, #29). Each says which of the truth states its value is in (the groups carry their own
+// age); a group the vehicle has not sent is "never reported", never a made-up zero.
+import type { LinkStats, Telemetry } from '@/generated/app'
+import { type LinkLevel, levelOf, linkValue, lossPercent } from './linkQuality'
 import { isStale } from './telemetryCards'
 import type { Translate } from './telemetryCards'
 import type { Format } from '@/i18n/useFormat'
@@ -23,6 +24,16 @@ export interface FlyCard {
   ageMs?: number
   /** What the value is: live, stale, the last that was heard, or never reported. */
   state: CardState
+  /** A value that is not good, said with an icon and a word (the LINK card's weak or poor link). */
+  status?: CardStatus
+}
+
+/** A value that is not good: how bad, and the word for it. */
+export interface CardStatus {
+  /** Weak (warn) or poor (error). */
+  level: Exclude<LinkLevel, 'ok'>
+  /** The word. */
+  word: string
 }
 
 /** What a card needs to be drawn from a group. */
@@ -33,10 +44,20 @@ interface Reading {
   help?: string
   /** How long ago the group arrived. */
   ageMs?: number
+  /** A value that is not good. */
+  status?: CardStatus
 }
 
 /** Reads one card from the telemetry: undefined when the vehicle sent nothing for it. */
 type Reader = (now: Telemetry, t: Translate, f: Format, silent: boolean) => Reading | undefined
+
+/** The link as the cards see it: whether it is being brought back, and its quality as the backend measures it. */
+export interface LinkState {
+  /** Whether the link is being brought back. */
+  reconnecting: boolean
+  /** The link's stats (`link.stats`), or null when the backend has sent none for this vehicle. */
+  stats?: LinkStats | null
+}
 
 /** The names of MAVLink's GPS_FIX_TYPE values, in order. */
 const FIX_NAMES = ['nogps', 'nofix', 'fix2d', 'fix3d', 'dgps', 'rtkfloat', 'rtkfixed', 'static', 'ppp']
@@ -201,30 +222,74 @@ const vibrationReader: Reader = (now, t, f) => {
 }
 
 /**
- * The link card: how long ago the last heartbeat came. (Nothing measures the quality of the link itself yet.)
+ * Whether a link is weak or poor, in words.
  *
- * @param now the telemetry
+ * @param stats the link's stats
  * @param t looks up a message
- * @param f formats numbers
- * @param silent whether the vehicle is not heard from (the age is then frozen at the cut, so it is not shown as current)
- * @returns the age of the heartbeat; without a number while the vehicle is silent
+ * @returns the status, or undefined for a good link
  */
-const linkReader: Reader = (now, t, f, silent) => {
-  const ms = f.number(now.heartbeatAgeMs)
+function linkStatus(stats: LinkStats, t: Translate): CardStatus | undefined {
+  const level = levelOf(stats)
 
-  return silent
-    ? { value: t('flyCards.noHeartbeat'), help: t('flyCards.lastHeartbeat', { ms }) }
-    : { value: t('flyCards.heartbeatAge', { ms }), help: t('flyCards.heartbeat') }
+  return level === 'ok' ? undefined : { level, word: t(`topBar.link.level.${level}`) }
 }
 
-const READERS: [FlyCard['id'], Reader][] = [
-  ['battery', batteryReader],
-  ['wind', windReader],
-  ['gps', gpsReader],
-  ['link', linkReader],
-  ['ekf', ekfReader],
-  ['vibration', vibrationReader],
-]
+/**
+ * The link card from the link's stats: the share of the packets that arrived, and under it the round trip of the ping and the
+ * share lost; when the vehicle answers no ping, how long ago its heartbeat came instead.
+ *
+ * @param now the telemetry
+ * @param stats the link's stats
+ * @param t looks up a message
+ * @param f formats numbers
+ * @returns the reading, with the status of a weak or poor link
+ */
+function linkQualityReading(now: Telemetry, stats: LinkStats, t: Translate, f: Format): Reading {
+  const lost = f.number(lossPercent(stats), 1)
+  const help = stats.latencyMs === undefined
+    ? t('flyCards.lostHeartbeat', { percent: lost, ms: f.number(now.heartbeatAgeMs) })
+    : t('flyCards.latencyLost', { latency: f.quantity(stats.latencyMs, 'ms', 0), percent: lost })
+
+  return { value: linkValue(stats, f), help, status: linkStatus(stats, t) }
+}
+
+/**
+ * The link card: the link's quality as the backend measures it; without its stats (an older backend), how long ago the last
+ * heartbeat came. A vehicle that is silent is that, whatever the stats said last.
+ *
+ * @param stats the link's stats, if the backend sent any
+ * @returns the reader: the quality, or the age of the heartbeat; without a number while the vehicle is silent (the age is then
+ * frozen at the cut, so it is not shown as current)
+ */
+function linkReader(stats: LinkStats | null | undefined): Reader {
+  return (now, t, f, silent) => {
+    const ms = f.number(now.heartbeatAgeMs)
+    if (silent) {
+      return { value: t('flyCards.noHeartbeat'), help: t('flyCards.lastHeartbeat', { ms }) }
+    }
+
+    const heartbeat = { value: t('flyCards.heartbeatAge', { ms }), help: t('flyCards.heartbeat') }
+
+    return stats ? linkQualityReading(now, stats, t, f) : heartbeat
+  }
+}
+
+/**
+ * The readers of the six cards, in order.
+ *
+ * @param stats the link's stats, for the LINK card
+ * @returns each card's name and reader
+ */
+function readers(stats: LinkStats | null | undefined): [FlyCard['id'], Reader][] {
+  return [
+    ['battery', batteryReader],
+    ['wind', windReader],
+    ['gps', gpsReader],
+    ['link', linkReader(stats)],
+    ['ekf', ekfReader],
+    ['vibration', vibrationReader],
+  ]
+}
 
 /**
  * Whether a value that arrived `ageMs` ago is still live.
@@ -252,21 +317,36 @@ function stateOf(reading: Reading | undefined, silent: boolean): CardState {
 }
 
 /**
+ * A card with its reading.
+ *
+ * @param card the card's name and state
+ * @param reading what it reads, if anything
+ * @returns the card
+ */
+function withReading(card: FlyCard, reading: Reading | undefined): FlyCard {
+  if (!reading) {
+    return card
+  }
+  const status = reading.status ? { status: reading.status } : {}
+
+  return { ...card, value: reading.value, help: reading.help, ageMs: reading.ageMs, ...status }
+}
+
+/**
  * The six cards.
  *
  * @param now the telemetry, or null without a vehicle (every card is then never reported)
- * @param reconnecting whether the link is being brought back
+ * @param link whether the link is being brought back, and its stats
  * @param t looks up a message
  * @param f formats numbers
  * @returns the cards, in order
  */
-export function flyCards(now: Telemetry | null, reconnecting: boolean, t: Translate, f: Format): FlyCard[] {
-  const silent = now !== null && (reconnecting || isStale(now.heartbeatAgeMs))
+export function flyCards(now: Telemetry | null, link: LinkState, t: Translate, f: Format): FlyCard[] {
+  const silent = now !== null && (link.reconnecting || isStale(now.heartbeatAgeMs))
 
-  return READERS.map(([id, read]) => {
+  return readers(link.stats).map(([id, read]) => {
     const reading = now ? read(now, t, f, silent) : undefined
-    const card: FlyCard = { id, label: t(`flyCards.label.${id}`), state: stateOf(reading, silent) }
 
-    return reading ? { ...card, value: reading.value, help: reading.help, ageMs: reading.ageMs } : card
+    return withReading({ id, label: t(`flyCards.label.${id}`), state: stateOf(reading, silent) }, reading)
   })
 }

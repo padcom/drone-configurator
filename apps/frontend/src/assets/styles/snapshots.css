@@ -111,6 +111,13 @@
   color: var(--color-accent);
 }
 
+/* A value the firmware converts with its new name (#202): the value before and after, under the new value, in words. */
+.review-converted {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .review-table input[type='checkbox'] {
   width: 20px;
   height: 20px;
@@ -295,4 +302,90 @@
 /* The list's place while the comparison is not open: as if the list were in the pane itself (it is hidden while it is). */
 .param-list-slot {
   display: contents;
+}
+
+/*
+ * ArduPilot's frame presets (FramePresets.vue, #41): the list's place in the Parameters screen while they are open, as the
+ * comparison (whose head, filters and table they share). The presets on the left, the selected one's contents on the right, the
+ * button under them; below 1000 px they stack.
+ */
+.presets-head-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.presets-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.presets-list,
+.presets-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.presets-preview {
+  padding: var(--space-3) var(--space-4) 0;
+  border-left: 1px solid var(--color-border);
+}
+
+.presets-preview h4 {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+.presets-count,
+.presets-path,
+.presets-pick {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.presets-path {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.presets-text {
+  flex: 1 1 auto;
+  min-height: 120px;
+  padding: var(--space-3);
+  margin: var(--space-2) 0 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  scrollbar-width: thin;
+}
+
+.presets-text:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.presets-preview .compare-loading,
+.presets-preview .compare-error {
+  padding: var(--space-2) 0;
+}
+
+.presets .review-status.warn {
+  color: var(--color-warn);
+}
+
+@media (width < 1000px) {
+  .presets-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .presets-preview {
+    border-left: 0;
+  }
 }

@@ -18,7 +18,7 @@ export type Availability
     | { enabled: false, reasonKey: string, reasonParams?: Record<string, unknown> }
 
 /** Where the focus can be sent after a command: a place of the application, by name (the command does not touch the page). */
-export type FocusTarget = 'restore' | 'main' | 'params.search' | 'params.value'
+export type FocusTarget = 'restore' | 'main' | 'params.search' | 'params.value' | 'presets.search'
 
 /** What became of an arm: what the vehicle answered, or that the backend would not send it. */
 export type ArmAnswer = ArmingResult['result'] | 'not-sent'
@@ -117,6 +117,8 @@ export interface ParamsFacts {
   listComplete(): boolean
   /** Reads the firmware's defaults from the vehicle and compares the parameters with them. */
   compareDefaults(): void
+  /** Shows ArduPilot's frame presets on the Parameters screen (#41). */
+  framePresets(): void
 }
 
 /** The parts of the page that open on a command: the dialogs that are not a screen. */

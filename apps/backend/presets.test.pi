@@ -1,0 +1,390 @@
+// `presets.list` and `presets.fetch` (#41) against a LOCAL stand-in for GitHub (never GitHub itself), serving presets made up here
+// (ArduPilot's own are GPL and never part of the repository): the list is asked for once at the vehicle's firmware tag and kept for
+// good, master's is used when there is no released version or no tag (and said why), master's is asked for again after 7 days and
+// given stale when GitHub is gone or refuses, a refusal for the number of requests with nothing kept says when to ask again, only
+// plain paths of parameter files are listed, a preset comes from the raw files by a path its list has and is kept by its hash, and
+// a page that is not a preset is never kept.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { serve, HttpServer } from "std/http"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  MetadataVehicle,
+  PresetAsk,
+  PresetFile,
+  PresetsAsk,
+  PresetsList,
+  PresetsListFallback,
+  decodePresetFile,
+  decodePresetsList,
+  encodeConnectRequest,
+  encodePresetAsk,
+  encodePresetsAsk,
+} from "./generated/app"
+import { clockForTests } from "./metadata"
+import { fileUrl, isHash, isParamFileName, isPlainPath, isRef, listUrl, looksLikeParams, useServerForTests } from "./presets"
+import { restartForTests as restartSettings, useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const QUAD: string = "# A made-up quad of this test\r\nFRAME_CLASS,1\r\nFRAME_TYPE,1\r\nATC_RAT_RLL_P,0.135\r\n"
+const PLUS: string = "FRAME_CLASS,1\nFRAME_TYPE,0\n"
+const SUB: string = "1\t1\tFRAME_CONFIG\t1\t2\n"
+const HASH_QUAD: string = "1111111111111111111111111111111111111111"
+const HASH_PLUS: string = "2222222222222222222222222222222222222222"
+const HASH_SUB: string = "3333333333333333333333333333333333333333"
+
+/// What the stand-in does, and what it saw.
+class Fake {
+  public hits: string[] = []
+  public accept: string = ""
+  public userAgent: string = ""
+  /// "ok", "down" (503), "limited" (GitHub's 403 with no requests left), "html" (a page for every file).
+  public mode: string = "ok"
+  /// The tags GitHub has.
+  public tags: string[] = ["Copter-4.6.2"]
+}
+
+const fake = new Fake()
+
+/// GitHub's tree of the folder: presets, a folder, files that are not presets, a path that is not plain, and one too big.
+function tree(): string {
+  const items = [
+    `{"path": "Quad-Test.param", "mode": "100644", "type": "blob", "sha": "${HASH_QUAD}", "size": ${QUAD.length}}`,
+    `{"path": "Sub", "mode": "040000", "type": "tree", "sha": "4444444444444444444444444444444444444444"}`,
+    `{"path": "Sub/sub-test.params", "mode": "100644", "type": "blob", "sha": "${HASH_SUB}", "size": ${SUB.length}}`,
+    `{"path": "Sub/README.md", "mode": "100644", "type": "blob", "sha": "5555555555555555555555555555555555555555", "size": 10}`,
+    `{"path": "Plus+Test.parm", "mode": "100644", "type": "blob", "sha": "${HASH_PLUS}", "size": ${PLUS.length}}`,
+    `{"path": "bad name.param", "mode": "100644", "type": "blob", "sha": "6666666666666666666666666666666666666666", "size": 4}`,
+    `{"path": "Huge.param", "mode": "100644", "type": "blob", "sha": "7777777777777777777777777777777777777777", "size": 900000}`,
+  ]
+  return `{"sha": "8888888888888888888888888888888888888888", "url": "x", "tree": [${items.join(", ")}], "truncated": false}`
+}
+
+/// The answer to a request for a tree at a reference: 404 for a tag GitHub has not.
+function treeAnswer(ref: string): Response {
+  if (ref != "master" && !fake.tags.includes(ref)) {
+    return new Response("{\"message\": \"Not Found\"}", { status: 404 })
+  }
+  return new Response(tree(), { status: 200 })
+}
+
+/// The raw file at a path of the folder.
+function rawAnswer(path: string): Response {
+  if (fake.mode == "html") {
+    return new Response("<html><body>maintenance</body></html>", { status: 200 })
+  }
+  if (path.endsWith("/Tools/Frame_params/Quad-Test.param")) {
+    return new Response(QUAD, { status: 200 })
+  }
+  if (path.endsWith("/Tools/Frame_params/Plus%2BTest.parm")) {
+    return new Response(PLUS, { status: 200 })
+  }
+  if (path.endsWith("/Tools/Frame_params/Sub/sub-test.params")) {
+    return new Response(SUB, { status: 200 })
+  }
+  return new Response("404: Not Found", { status: 404 })
+}
+
+/// GitHub's refusal of an anonymous request over the limit.
+function limited(): Response {
+  const headers = new Map<string, string>()
+  headers.set("x-ratelimit-remaining", "0")
+  headers.set("x-ratelimit-reset", "1900000000")
+  return new Response("{\"message\": \"API rate limit exceeded\"}", { status: 403, headers: headers })
+}
+
+async function handle(req: Request): Promise<Response> {
+  const rest = if (req.url.startsWith("/")) req.url else req.url.slice(req.url.indexOf("//") + 2)
+  const path = rest.slice(rest.indexOf("/"))
+  fake.hits.push(path)
+  fake.userAgent = req.headers.get("user-agent") ?? ""
+  if (path.startsWith("/api/")) {
+    fake.accept = req.headers.get("accept") ?? ""
+  }
+  if (fake.mode == "down") {
+    return new Response("busy", { status: 503 })
+  }
+  if (fake.mode == "limited") {
+    return limited()
+  }
+  const prefix = "/api/git/trees/"
+  const suffix = ":Tools/Frame_params?recursive=1"
+  if (path.startsWith(prefix) && path.endsWith(suffix)) {
+    return treeAnswer(path.slice(prefix.length, path.length - suffix.length))
+  }
+  if (path.startsWith("/raw/")) {
+    return rawAnswer(path)
+  }
+  return new Response("not found", { status: 404 })
+}
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  public readonly server: HttpServer
+
+  constructor(f: Frontend, root: string, server: HttpServer) {
+    this.f = f
+    this.root = root
+    this.server = server
+  }
+}
+
+/// A backend over a fresh directory, and a stand-in it asks.
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-presets-${pid}-${Date.now() as int}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  restartSettings()
+  clockForTests(0)
+  fake.hits = []
+  fake.mode = "ok"
+  fake.tags = ["Copter-4.6.2"]
+  const server = await serve({ port: 0 }, handle)
+  useServerForTests(`http://127.0.0.1:${server.addr.port}`)
+  return new Rig(await start(), root, server)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await r.server.shutdown()
+  useServerForTests(null)
+  clockForTests(0)
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+function messageOf(e: Envelope): string {
+  if (e.err != null) e.err!.message else ""
+}
+
+async function listAsked(r: Rig, a: PresetsAsk): Promise<Envelope> throws Error {
+  return await r.f.call("presets.list", encodePresetsAsk(a))
+}
+
+async function list(r: Rig, a: PresetsAsk): Promise<PresetsList> throws Error {
+  const e = await listAsked(r, a)
+  if (e.err != null) {
+    panic(`presets.list failed: ${e.err!.code} ${e.err!.message}`)
+  }
+  return decodePresetsList(e.p ?? Cbor.Null, "$")
+}
+
+async function fetchAsked(r: Rig, ref: string, path: string): Promise<Envelope> throws Error {
+  return await r.f.call("presets.fetch", encodePresetAsk(PresetAsk { ref: ref, path: path }))
+}
+
+async function fetchOne(r: Rig, ref: string, path: string): Promise<PresetFile> throws Error {
+  const e = await fetchAsked(r, ref, path)
+  if (e.err != null) {
+    panic(`presets.fetch failed: ${e.err!.code} ${e.err!.message}`)
+  }
+  return decodePresetFile(e.p ?? Cbor.Null, "$")
+}
+
+function copter(version: string?): PresetsAsk {
+  return PresetsAsk { vehicle: MetadataVehicle.Copter, version: version }
+}
+
+function pathsOf(l: PresetsList): string {
+  const out: string[] = []
+  for (const p of l.presets) {
+    out.push(`${p.path}:${p.size}`)
+  }
+  return out.join(" ")
+}
+
+function checksTheNamesItMakesAndTakes(): void {
+  expect(isRef("master")).toBe(true)
+  expect(isRef("Copter-4.7.3")).toBe(true)
+  expect(isRef("Sub-4.5.7")).toBe(true)
+  expect(isRef("Copter-4.7")).toBe(false)
+  expect(isRef("Blimp-1.0.0")).toBe(false)
+  expect(isRef("../master")).toBe(false)
+  expect(isPlainPath("QuadPlanes/Mugin_EV350.param")).toBe(true)
+  expect(isPlainPath("3DR_Iris+_AC34.param")).toBe(true)
+  expect(isPlainPath("../secrets.param")).toBe(false)
+  expect(isPlainPath("a//b.param")).toBe(false)
+  expect(isPlainPath("bad name.param")).toBe(false)
+  expect(isParamFileName("x.PARAM")).toBe(true)
+  expect(isParamFileName("x.parm")).toBe(true)
+  expect(isParamFileName("x.params")).toBe(true)
+  expect(isParamFileName("x.sh")).toBe(false)
+  expect(isHash(HASH_QUAD)).toBe(true)
+  expect(isHash("1234")).toBe(false)
+  expect(isHash("../../../../../../../../../../../../etc/pw")).toBe(false)
+  expect(looksLikeParams(QUAD)).toBe(true)
+  expect(looksLikeParams("<html></html>")).toBe(false)
+  expect(looksLikeParams("{\"message\": \"Not Found\"}")).toBe(false)
+  expect(looksLikeParams("  \r\n")).toBe(false)
+  useServerForTests(null)
+  expect(listUrl("Copter-4.7.3")).toBe("https://api.github.com/repos/ArduPilot/ardupilot/git/trees/Copter-4.7.3:Tools/Frame_params?recursive=1")
+  expect(fileUrl("master", "3DR_Iris+_AC34.param"))
+    .toBe("https://raw.githubusercontent.com/ArduPilot/ardupilot/master/Tools/Frame_params/3DR_Iris%2B_AC34.param")
+}
+
+async function listsAtTheVehiclesTagOnceAndKeepsItForGood(): Promise<void> throws Error {
+  const r = await rig()
+  const first = await list(r, copter("4.6.2"))
+  expect(first.ref).toBe("Copter-4.6.2")
+  expect(first.pinned).toBe(true)
+  expect(first.fallback == null).toBe(true)
+  expect(first.version ?? "").toBe("4.6.2")
+  expect(first.fromCache).toBe(false)
+  // Only the plain paths of parameter files that are not too big, in GitHub's order.
+  expect(pathsOf(first)).toBe(`Quad-Test.param:${QUAD.length} Sub/sub-test.params:${SUB.length} Plus+Test.parm:${PLUS.length}`)
+  expect(fake.hits.join(" ")).toBe("/api/git/trees/Copter-4.6.2:Tools/Frame_params?recursive=1")
+  expect(fake.accept).toBe("application/vnd.github+json")
+  expect(fake.userAgent.startsWith("DroneConfigurator/")).toBe(true)
+  // A tag never changes: a year later it is still the disk's, without asking GitHub.
+  clockForTests(365 * 86400000)
+  const again = await list(r, copter("4.6.2"))
+  expect(again.fromCache).toBe(true)
+  expect(again.stale).toBe(false)
+  expect(pathsOf(again)).toBe(pathsOf(first))
+  expect(fake.hits.length).toBe(1)
+  await done(r)
+}
+
+async function usesMasterAndSaysWhyWithoutTheVehiclesTag(): Promise<void> throws Error {
+  const r = await rig()
+  // No released version: master, without asking for a tag.
+  const unreleased = await list(r, copter(null))
+  expect(unreleased.ref).toBe("master")
+  expect(unreleased.pinned).toBe(false)
+  expect(unreleased.fallback == PresetsListFallback.Unreleased).toBe(true)
+  expect(fake.hits.join(" ")).toBe("/api/git/trees/master:Tools/Frame_params?recursive=1")
+  // A version ArduPilot has no tag for: the tag is asked for, then master (kept: not asked again).
+  const untagged = await list(r, copter("4.9.9"))
+  expect(untagged.ref).toBe("master")
+  expect(untagged.fallback == PresetsListFallback.Untagged).toBe(true)
+  expect(untagged.fromCache).toBe(true)
+  expect(fake.hits.length).toBe(2)
+  expect(fake.hits[1]).toBe("/api/git/trees/Copter-4.9.9:Tools/Frame_params?recursive=1")
+  // Blimp has no tags.
+  const blimp = await list(r, PresetsAsk { vehicle: MetadataVehicle.Blimp, version: "1.0.0" })
+  expect(blimp.ref).toBe("master")
+  expect(blimp.fallback == PresetsListFallback.Unreleased).toBe(true)
+  await done(r)
+}
+
+async function asksForMastersAgainAfterSevenDaysAndIsStaleWhenGitHubIsGone(): Promise<void> throws Error {
+  const r = await rig()
+  await list(r, copter(null))
+  clockForTests(6 * 86400000)
+  expect((await list(r, copter(null))).fromCache).toBe(true)
+  expect(fake.hits.length).toBe(1)
+  clockForTests(8 * 86400000)
+  fake.mode = "down"
+  const stale = await list(r, copter(null))
+  expect(stale.fromCache).toBe(true)
+  expect(stale.stale).toBe(true)
+  expect(fake.hits.length).toBe(2)
+  // Refused for the number of requests: still the stale list.
+  fake.mode = "limited"
+  expect((await list(r, copter(null))).stale).toBe(true)
+  // Back: asked for, and fresh.
+  fake.mode = "ok"
+  const fresh = await list(r, copter(null))
+  expect(fresh.fromCache).toBe(false)
+  expect(fresh.stale).toBe(false)
+  await done(r)
+}
+
+async function saysWhenToAskAgainWhenRefusedWithNothingKept(): Promise<void> throws Error {
+  const r = await rig()
+  fake.mode = "limited"
+  const e = await listAsked(r, copter("4.6.2"))
+  expect(codeOf(e)).toBe("RATE_LIMITED")
+  expect(messageOf(e)).toBe("1900000000")
+  fake.mode = "down"
+  expect(codeOf(await listAsked(r, copter(null)))).toBe("UNAVAILABLE")
+  // Nothing was kept: a refusal or an error page is never a list.
+  fake.mode = "ok"
+  expect((await list(r, copter(null))).fromCache).toBe(false)
+  await done(r)
+}
+
+async function fetchesAPresetByItsListAndKeepsItByItsHash(): Promise<void> throws Error {
+  const r = await rig()
+  await list(r, copter("4.6.2"))
+  const quad = await fetchOne(r, "Copter-4.6.2", "Quad-Test.param")
+  // As ArduPilot publishes it, CRLF and all.
+  expect(quad.text).toBe(QUAD)
+  expect(quad.fromCache).toBe(false)
+  expect(fake.hits[1]).toBe("/raw/Copter-4.6.2/Tools/Frame_params/Quad-Test.param")
+  const plus = await fetchOne(r, "Copter-4.6.2", "Plus+Test.parm")
+  expect(plus.text).toBe(PLUS)
+  expect(fake.hits[2]).toBe("/raw/Copter-4.6.2/Tools/Frame_params/Plus%2BTest.parm")
+  expect((await fetchOne(r, "Copter-4.6.2", "Sub/sub-test.params")).text).toBe(SUB)
+  // Kept: offline, it is the disk's.
+  fake.mode = "down"
+  const kept = await fetchOne(r, "Copter-4.6.2", "Quad-Test.param")
+  expect(kept.fromCache).toBe(true)
+  expect(kept.text).toBe(QUAD)
+  expect(fake.hits.length).toBe(4)
+  await done(r)
+}
+
+async function refusesWhatItsListHasNot(): Promise<void> throws Error {
+  const r = await rig()
+  // Nothing listed yet.
+  expect(codeOf(await fetchAsked(r, "master", "Quad-Test.param"))).toBe("NOT_FOUND")
+  await list(r, copter(null))
+  expect(codeOf(await fetchAsked(r, "master", "Sub/README.md"))).toBe("NOT_FOUND")
+  expect(codeOf(await fetchAsked(r, "master", "Huge.param"))).toBe("NOT_FOUND")
+  expect(codeOf(await fetchAsked(r, "master", "../../etc/passwd"))).toBe("BAD_REQUEST")
+  expect(codeOf(await fetchAsked(r, "evil/../master", "Quad-Test.param"))).toBe("BAD_REQUEST")
+  expect(codeOf(await listAsked(r, PresetsAsk { vehicle: MetadataVehicle.Copter, version: "4.6" }))).toBe("BAD_REQUEST")
+  // Not one request for any of these but the list.
+  expect(fake.hits.length).toBe(1)
+  await done(r)
+}
+
+async function neverKeepsAPageThatIsNotAPreset(): Promise<void> throws Error {
+  const r = await rig()
+  await list(r, copter(null))
+  fake.mode = "html"
+  expect(codeOf(await fetchAsked(r, "master", "Quad-Test.param"))).toBe("UNAVAILABLE")
+  fake.mode = "limited"
+  const e = await fetchAsked(r, "master", "Quad-Test.param")
+  expect(codeOf(e)).toBe("RATE_LIMITED")
+  fake.mode = "ok"
+  expect((await fetchOne(r, "master", "Quad-Test.param")).fromCache).toBe(false)
+  await done(r)
+}
+
+async function isTheConnectedVehiclesWithNoVehicleNamed(): Promise<void> throws Error {
+  const r = await rig()
+  expect(codeOf(await listAsked(r, PresetsAsk {}))).toBe("NOT_CONNECTED")
+  await r.f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  // The simulator is a quadrotor of a build that is no release: master, and said why.
+  const l = await list(r, PresetsAsk {})
+  expect(l.vehicle == MetadataVehicle.Copter).toBe(true)
+  expect(l.ref).toBe("master")
+  expect(l.fallback == PresetsListFallback.Unreleased).toBe(true)
+  // Nothing about the presets went to the frontend as metadata download progress.
+  for (const heard of r.f.heard) {
+    expect(heard.n == "metadata.progress").toBe(false)
+  }
+  await r.f.call("vehicle.disconnect")
+  await done(r)
+}
+
+describe("presets", () => {
+  it("checks the names it makes and takes", checksTheNamesItMakesAndTakes)
+  it("lists at the vehicle's tag once, and keeps it for good", listsAtTheVehiclesTagOnceAndKeepsItForGood)
+  it("uses master and says why without the vehicle's tag", usesMasterAndSaysWhyWithoutTheVehiclesTag)
+  it("asks for master's again after 7 days, and is stale when GitHub is gone or refuses", asksForMastersAgainAfterSevenDaysAndIsStaleWhenGitHubIsGone)
+  it("says when to ask again when GitHub refuses and nothing is kept", saysWhenToAskAgainWhenRefusedWithNothingKept)
+  it("fetches a preset by its list, and keeps it by its hash", fetchesAPresetByItsListAndKeepsItByItsHash)
+  it("refuses what its list has not", refusesWhatItsListHasNot)
+  it("never keeps a page that is not a preset", neverKeepsAPageThatIsNotAPreset)
+  it("is the connected vehicle's kind and version when no vehicle is named", isTheConnectedVehiclesWithNoVehicleNamed)
+})
