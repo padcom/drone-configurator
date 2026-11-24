@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, showGroups, showScreen } from './click'
+import { clickConnect, showFilters, showGroups, showScreen } from './click'
 
 const PDEF = {
   json: { version: 0 },
@@ -73,9 +73,11 @@ describe('a new list, from a group and from a view', () => {
   it('starts at the top, with its first row selected, when the view changes', async () => {
     writeFileSync(join(files, 'open.json'), JSON.stringify(PDEF))
     await app.click('#metadata-button')
+    await showFilters(app)
     await app.waitFor(`document.querySelector('#param-view') !== null`)
     await scrollDown()
 
+    await showFilters(app)
     await app.click('#param-view .segment:first-child')
 
     await app.waitFor(`document.querySelector('.param-scroll').scrollTop === 0`)

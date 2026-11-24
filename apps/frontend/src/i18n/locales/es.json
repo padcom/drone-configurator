@@ -1276,7 +1276,7 @@
     },
     "modified": {
       "label": "Cambiados del valor por defecto",
-      "unknown": "No se conocen los valores por defecto del firmware: llegan con una descarga por transferencia de archivos, de un vehículo que los tenga.",
+      "unknown": "Valores por defecto desconocidos: solo llegan por transferencia de archivos.",
       "noMatch": "Ningún parámetro cambiado coincide con «{query}»",
       "noneHere": "Aquí no hay ningún parámetro cambiado",
       "hiddenHelp": "«Cambiados del valor por defecto» está activado, así que el resto de la lista está oculto.",
@@ -1290,6 +1290,9 @@
     "guide": {
       "setup": "Configurar en {section}",
       "tune": "Ajustar en {section}"
+    },
+    "filters": {
+      "label": "Filtros"
     }
   },
   "snapshot": {

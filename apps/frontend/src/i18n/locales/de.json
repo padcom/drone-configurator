@@ -1276,7 +1276,7 @@
     },
     "modified": {
       "label": "Vom Standard geändert",
-      "unknown": "Die Standardwerte der Firmware sind nicht bekannt: Sie kommen mit einem Download per Dateiübertragung von einem Fahrzeug, das sie hat.",
+      "unknown": "Standardwerte unbekannt: Sie kommen nur per Dateiübertragung.",
       "noMatch": "Kein geänderter Parameter passt zu „{query}“",
       "noneHere": "Hier ist kein Parameter geändert",
       "hiddenHelp": "„Vom Standard geändert“ ist an, darum ist der Rest der Liste ausgeblendet.",
@@ -1290,6 +1290,9 @@
     "guide": {
       "setup": "In der Einrichtung: {section}",
       "tune": "Im Tuning: {section}"
+    },
+    "filters": {
+      "label": "Filter"
     }
   },
   "snapshot": {

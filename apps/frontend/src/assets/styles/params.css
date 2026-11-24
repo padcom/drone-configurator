@@ -71,6 +71,31 @@
   flex: 999 1 460px;
   flex-direction: column;
   min-width: 0;
+  container: params-list / inline-size;
+}
+
+/* A narrow list (1000 px wide with the groups shown): the toolbar keeps one row with closer controls, the Filters button shows
+   its icon alone (its words stay its name, for a screen reader) and the search gives up more of its width. */
+@container params-list (max-width: 480px) {
+  /* (Doubled class: this comes before the toolbar's own rule, and must win over it.) */
+  .params .toolbar.toolbar {
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+
+  .params .toolbar .param-search {
+    flex-basis: 6rem;
+    min-width: 6rem;
+  }
+
+  .params .toolbar .kit-drop-panel .trigger .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .params .toolbar {
@@ -82,9 +107,11 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+/* The search takes what the row leaves, down to 9rem (its text field has no width of its own), so that the toolbar is one row. */
 .param-search {
   display: flex;
-  flex: 1 1 220px;
+  flex: 1 1 160px;
+  min-width: 9rem;
   gap: var(--space-2);
   align-items: center;
   min-height: 44px;
@@ -102,6 +129,7 @@
 
 .param-search input {
   flex: 1;
+  width: 0;
   min-width: 0;
   font: inherit;
   color: var(--color-text);

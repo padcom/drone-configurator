@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { type E2eApp, launchApp } from './launch'
-import { clickConnect, showGroups, showScreen } from './click'
+import { clickConnect, showFilters, showGroups, showScreen } from './click'
 
 /** The metadata loaded from a file, in the app's own format: descriptions, who each is for, and ArduPilot's groups. */
 const METADATA = {
@@ -149,6 +149,7 @@ describe('the search of the parameter table', () => {
 describe('"Modified from default"', () => {
   it('lists the parameters away from the firmware\'s default, and narrows a search too', async () => {
     await window().click('button[data-group=""]')
+    await showFilters(window())
     await window().click('#modified-only')
 
     await waitRows(['BATT_CAPACITY', 'FS_THR_ENABLE'])
@@ -160,6 +161,7 @@ describe('"Modified from default"', () => {
     await window().waitForText('.param-scroll', /No modified parameter matches "rtl alt"/u)
 
     await window().click('#show-unmodified')
+    await showFilters(window())
 
     await waitRows(['RTL_ALT'])
     expect(await window().evaluate<boolean>(`document.getElementById('modified-only').checked`)).toBe(false)
@@ -191,6 +193,46 @@ describe('the groups, the detail and the header', () => {
   it('keep the column headers in view while the table scrolls', async () => {
     expect(await window().evaluate<string>(`getComputedStyle(document.querySelector('.param-scroll thead th')).position`))
       .toBe('sticky')
+  })
+})
+
+/** Runs in the page: whether the toolbar above the list is one row (every control on the first row) and nothing spills out. */
+const ONE_ROW = `(() => {
+  const toolbar = document.querySelector('.params .toolbar')
+  const boxes = [...toolbar.children].map(child => child.getBoundingClientRect())
+  // A control on a second row starts below the bottom of the first row's (a pixel apart in height is still one row).
+  const firstBottom = Math.min(...boxes.map(box => box.bottom))
+  const below = boxes.filter(box => box.top >= firstBottom - 1).length
+
+  return { rows: below === 0 ? 1 : 2, spills: toolbar.scrollWidth > toolbar.clientWidth }
+})()`
+
+/**
+ * Sets the size of the window's page.
+ *
+ * @param size the size, or nothing for the window's own
+ * @param size.width its width
+ * @param size.height its height
+ */
+async function resize(size?: { width: number, height: number }): Promise<void> {
+  await (size
+    ? window().devtools('Emulation.setDeviceMetricsOverride', { ...size, deviceScaleFactor: 1, mobile: false })
+    : window().devtools('Emulation.clearDeviceMetricsOverride'))
+  await window().evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+}
+
+describe('the toolbar above the list', () => {
+  it('is one row at 1000x700 and 1280x800, with the groups shown (the list at its narrowest)', async () => {
+    const found: Record<string, unknown> = {}
+    for (const size of [{ width: 1000, height: 700 }, { width: 1280, height: 800 }]) {
+      // eslint-disable-next-line no-await-in-loop -- one size after the other
+      await resize(size)
+      // eslint-disable-next-line no-await-in-loop -- one size after the other
+      found[`${size.width}x${size.height}`] = await window().evaluate(ONE_ROW)
+    }
+    await resize()
+
+    expect(found).toEqual({ '1000x700': { rows: 1, spills: false }, '1280x800': { rows: 1, spills: false } })
   })
 })
 

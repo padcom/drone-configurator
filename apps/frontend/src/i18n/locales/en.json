@@ -1276,7 +1276,7 @@
     },
     "modified": {
       "label": "Modified from default",
-      "unknown": "The firmware's defaults are not known: they come with a download by file transfer, from a vehicle that has them.",
+      "unknown": "Defaults unknown: they come only with a download by file transfer.",
       "noMatch": "No modified parameter matches \"{query}\"",
       "noneHere": "No modified parameter here",
       "hiddenHelp": "Modified from default is on, so the rest of the list is hidden.",
@@ -1290,6 +1290,9 @@
     "guide": {
       "setup": "Set up in {section}",
       "tune": "Tune in {section}"
+    },
+    "filters": {
+      "label": "Filters"
     }
   },
   "snapshot": {

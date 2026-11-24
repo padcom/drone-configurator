@@ -1276,7 +1276,7 @@
     },
     "modified": {
       "label": "Zmienione względem domyślnych",
-      "unknown": "Wartości domyślne oprogramowania nie są znane: przychodzą z pobraniem przez transfer plików, z pojazdu, który je ma.",
+      "unknown": "Domyślne nieznane: przychodzą tylko z pobraniem przez transfer plików.",
       "noMatch": "Żaden zmieniony parametr nie pasuje do „{query}”",
       "noneHere": "Nie ma tu zmienionych parametrów",
       "hiddenHelp": "Filtr „Zmienione względem domyślnych” jest włączony, więc reszta listy jest ukryta.",
@@ -1290,6 +1290,9 @@
     "guide": {
       "setup": "Ustaw w: {section}",
       "tune": "Dostrój w: {section}"
+    },
+    "filters": {
+      "label": "Filtry"
     }
   },
   "snapshot": {

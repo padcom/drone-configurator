@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, showGroups, showScreen } from './click'
+import { clickConnect, showFilters, showGroups, showScreen } from './click'
 
 const PDEF = {
   json: { version: 0 },
@@ -20,7 +20,16 @@ let files = ''
 
 // The parameters the list shows, the switch's state, and the count of a group.
 const rows = () => app.evaluate<string[]>(`[...document.querySelectorAll('#rows tr[data-id]')].map(r => r.dataset.id)`)
-const switchShown = () => app.evaluate<boolean>(`document.querySelector('#param-view') !== null`)
+/**
+ * Whether the View switch is there (in the Filters panel, which is opened for it).
+ *
+ * @returns true if it is
+ */
+async function switchShown(): Promise<boolean> {
+  await showFilters(app)
+
+  return app.evaluate<boolean>(`document.querySelector('#param-view') !== null`)
+}
 const countOf = (group: string) => app.text(`.param-group[data-group="${group}"] .count`)
 
 beforeAll(async () => {
@@ -50,6 +59,7 @@ describe('the View switch before and after the metadata', () => {
   it('appears with metadata that has a User, with Full chosen', async () => {
     writeFileSync(join(files, 'open.json'), JSON.stringify(PDEF))
     await app.click('#metadata-button')
+    await showFilters(app)
     await app.waitFor(`document.querySelector('#param-view') !== null`)
 
     expect(await app.evaluate<boolean>(`document.querySelector('#param-view input[value="full"]').checked`)).toBe(true)
@@ -59,6 +69,7 @@ describe('the View switch before and after the metadata', () => {
 
 describe('the View switch in use', () => {
   it('leaves out the advanced parameters in Standard, and the counts follow', async () => {
+    await showFilters(app)
     await app.click('#param-view .segment:first-child')
     await app.waitForText('#list-status', '11 of 12 parameters')
 
@@ -71,6 +82,7 @@ describe('the View switch in use', () => {
     await app.fill('#filter', 'BATT_CAPACITY')
     await app.waitFor(`document.querySelector('#rows tr[data-id="BATT_CAPACITY"]') !== null`)
     await app.fill('#filter', '')
+    await showFilters(app)
     await app.click('#param-view .segment:last-child')
     await app.waitForText('#list-status', '12 parameters')
 

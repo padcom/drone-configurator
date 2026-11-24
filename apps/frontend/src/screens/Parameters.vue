@@ -5,8 +5,7 @@
       <template #top>
         <div class="toolbar">
           <ParamFilter />
-          <ModifiedFilter />
-          <ParamView />
+          <ParamFilters />
           <SnapshotToolbar />
         </div>
         <SnapshotImport />
@@ -26,12 +25,11 @@ import { useRecentParams } from '@/composables/recentParams'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamShortcuts } from '@/lib/params/paramShortcuts'
 import { useConfigurator } from '@/composables/useConfigurator'
-import ModifiedFilter from '@/components/params/ModifiedFilter.vue'
 import ParamEditor from '@/components/params/ParamEditor.vue'
 import ParamFilter from '@/components/params/ParamFilter.vue'
+import ParamFilters from '@/components/params/ParamFilters.vue'
 import ParamGroups from '@/components/params/ParamGroups.vue'
 import ParamTable from '@/components/params/ParamTable.vue'
-import ParamView from '@/components/params/ParamView.vue'
 import SnapshotImport from '@/components/params/SnapshotImport.vue'
 import SnapshotToolbar from '@/components/params/SnapshotToolbar.vue'
 import PageSplit from '@/components/ui/PageSplit.vue'

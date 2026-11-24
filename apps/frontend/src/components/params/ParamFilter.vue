@@ -24,7 +24,7 @@
       <Icon name="close" />
     </button>
   </div>
-  <CommandButton id="refresh" command="params.download" icon-position="left" />
+  <CommandButton id="refresh" command="params.download" icon-position="left" icon-only />
 </template>
 
 <script setup lang="ts">

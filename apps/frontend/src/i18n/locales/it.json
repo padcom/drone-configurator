@@ -1276,7 +1276,7 @@
     },
     "modified": {
       "label": "Modificati rispetto al predefinito",
-      "unknown": "I valori predefiniti del firmware non sono noti: arrivano con uno scaricamento via trasferimento file, da un veicolo che li ha.",
+      "unknown": "Predefiniti sconosciuti: arrivano solo col trasferimento file.",
       "noMatch": "Nessun parametro modificato corrisponde a «{query}»",
       "noneHere": "Nessun parametro modificato qui",
       "hiddenHelp": "«Modificati rispetto al predefinito» è attivo, quindi il resto dell’elenco è nascosto.",
@@ -1290,6 +1290,9 @@
     "guide": {
       "setup": "Configura in {section}",
       "tune": "Regola in {section}"
+    },
+    "filters": {
+      "label": "Filtri"
     }
   },
   "snapshot": {

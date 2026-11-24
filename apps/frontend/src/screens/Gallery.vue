@@ -85,6 +85,10 @@
           <template #trigger>{{ t('gallery.feedback.popover') }}</template>
           <p>{{ t('gallery.feedback.popoverBody') }}</p>
         </Popover>
+        <!-- The DropPanel, with the words of the other demos (the gallery is for development: no strings of its own here). -->
+        <DropPanel :label="t('gallery.feedback.menu')" :title="t('gallery.feedback.popoverTitle')" :count="trail ? 1 : 0">
+          <Checkbox v-model="trail">{{ t('gallery.feedback.tip') }}</Checkbox>
+        </DropPanel>
       </div>
       <ToastHost :queue="toasts" />
     </section>
@@ -286,6 +290,7 @@ import HoldButton from '@/components/ui/HoldButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Menu from '@/components/ui/Menu.vue'
 import Popover from '@/components/ui/Popover.vue'
+import DropPanel from '@/components/ui/DropPanel.vue'
 import { ICONS, type IconName } from '@/lib/ui/icons'
 import Panel from '@/components/ui/Panel.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
@@ -523,6 +528,8 @@ function changed(id: string, to: FormValue): void {
 const option = ref('one')
 const segment = ref('one')
 const check = ref(true)
+// The DropPanel's demo: one setting under the button, its badge on while it is on.
+const trail = ref(false)
 const toggle = ref(true)
 const tab = ref('one')
 const size = ref(50)

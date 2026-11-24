@@ -109,7 +109,7 @@ it('offers "Modified from default" only when the defaults are known, and says wh
   const box = s.modified.get<HTMLInputElement>('#modified-only')
 
   expect(box.element.disabled).toBe(true)
-  expect(box.attributes('aria-description')).toContain('defaults are not known')
+  expect(box.attributes('aria-description')).toContain('Defaults unknown')
 })
 
 it('searches every parameter, whatever the group and the Standard view, which hide them when nothing is typed', async () => {

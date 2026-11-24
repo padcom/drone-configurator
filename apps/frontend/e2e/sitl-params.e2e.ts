@@ -9,7 +9,7 @@
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { expectWithinBudget } from './budgets'
 import { typeQueries } from './param-typing'
-import { chooseConnection, clickConnect, showScreen } from './click'
+import { chooseConnection, clickConnect, showFilters, showScreen } from './click'
 import { type E2eApp, launchApp, presetSettings } from './launch'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
@@ -126,6 +126,8 @@ async function marksATypo(): Promise<void> {
  * @param view `standard` or `full`
  */
 async function chooseView(view: string): Promise<void> {
+  await showFilters(window())
+
   if (await window().evaluate<boolean>(`document.querySelector('#param-view') !== null`)) {
     await window().click(`#param-view input[value="${view}"]`)
   }
@@ -147,6 +149,7 @@ async function searchesEverywhere(): Promise<void> {
 
 /** "Modified from default" lists some of the parameters, from the defaults the vehicle's parameter file gives. */
 async function listsTheModified(): Promise<void> {
+  await showFilters(window())
   await window().waitFor(`document.getElementById('modified-only')?.disabled === false`)
   const { total } = await counts()
 
@@ -156,6 +159,7 @@ async function listsTheModified(): Promise<void> {
 
   expect(modified.shown).toBeGreaterThan(0)
   expect(modified.shown).toBeLessThan(total)
+  await showFilters(window())
   await window().click('#modified-only')
   await window().waitForText('#list-status', /^\d+ parameters/u)
 }
