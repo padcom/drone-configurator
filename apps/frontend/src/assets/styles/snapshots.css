@@ -1,6 +1,6 @@
 /*
  * The snapshot tools of the Parameters screen (SnapshotToolbar.vue, SnapshotImport.vue): tokens only. The review is a table of
- * what a snapshot would change, with the result of each write beside it and the buttons under it.
+ * what a snapshot or a parameter file would change, with the result of each write beside it and the buttons under it.
  */
 
 .review {
@@ -37,6 +37,16 @@
   font-weight: 500;
   color: var(--color-warn);
   background: var(--color-warn-soft);
+}
+
+/* What a parameter file has that is not a change (a name more than once, a line that is not a parameter): text, not colour. */
+.review-notes {
+  max-height: 6rem;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-8);
+  margin: 0;
+  overflow: auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 .review-scroll {

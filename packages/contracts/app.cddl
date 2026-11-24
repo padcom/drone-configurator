@@ -250,6 +250,9 @@ services = {
   "link.stats": ["subscription", null, link-stats],
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
+  ; Like `files.open`, for a parameter snapshot or file: the dialog offers a snapshot (`.json`) and ArduPilot's plain-text
+  ; parameter files (`.param`, `.parm`, QGroundControl's `.params`, `.txt`). The page reads the text and tells the formats apart.
+  "files.openParams": ["method", null, file-opened],
   ; The text of the JSON file at a path the user named (the metadata file kept in the settings), without a dialog. Refused, with
   ; a code that names the rule, for a path that is not absolute or has a `..`, is not a regular file once resolved, does not
   ; end in `.json`, is over 16 MiB, or cannot be read: "INVALID_PATH", "NOT_FOUND", "NOT_A_FILE", "NOT_JSON", "TOO_LARGE",

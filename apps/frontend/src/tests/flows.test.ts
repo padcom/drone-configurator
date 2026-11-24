@@ -211,8 +211,11 @@ describe('snapshot files', () => {
     app.loadSnapshot(edited(app, { FENCE_ENABLE: 300 }))
     app.togglePick('FENCE_ENABLE')
     expect(app.state.picked).toEqual([])
-    app.loadSnapshot('nonsense')
+    app.loadSnapshot('{ nonsense')
     expect(app.state.importError).toBe('Can\'t load it: not JSON.')
+    // Not JSON: read as a plain-text parameter file, which this is not either.
+    app.loadSnapshot('nonsense')
+    expect(app.state.importError).toBe('Can\'t load it: no parameter lines in it (NAME,VALUE or NAME VALUE, one per line).')
   })
 })
 

@@ -1,2 +1,4 @@
 # The lint baseline is read line by line by the ESLint config and a test: LF on every system.
 apps/frontend/eslint-baseline.txt text eol=lf
+# Parameter files written for the tests, byte for byte (CRLF and all): never converted.
+apps/frontend/src/lib/params/samples/** -text

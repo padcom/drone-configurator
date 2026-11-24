@@ -217,7 +217,7 @@ const ALPHABETICAL = [
   ...FLIGHT_MODE_LABELS,
   'Go here',
   'Load parameter metadata…',
-  'Load parameter snapshot…',
+  'Load parameter snapshot or file…',
   'Move the item down',
   'Move the item up',
   'Open log file…',
@@ -225,6 +225,9 @@ const ALPHABETICAL = [
   'Redo',
   'Review before arming',
   'Save parameter snapshot…',
+  'Save parameters as a MAVProxy .parm file…',
+  'Save parameters as a QGroundControl .params file…',
+  'Save parameters as an ArduPilot .param file…',
   'Set home here',
   'Show the keyboard shortcuts',
   ...SWITCH_LABELS,
@@ -259,6 +262,9 @@ const GROUPS_OF_THE_FIRST = [
   'Plan',
   'Vehicle',
   'Parameters',
+  'Parameters',
+  'Parameters',
+  'Parameters',
   'Vehicle',
   'Application',
 ]
@@ -279,10 +285,10 @@ it('names the group of each command in its row', async () => {
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
   // (then the ways: as many as the screens have parts)
-  expect(groups.slice(0, 32)).toEqual(GROUPS_OF_THE_FIRST)
-  expect(groups.length).toBeGreaterThan(33)
+  expect(groups.slice(0, 35)).toEqual(GROUPS_OF_THE_FIRST)
+  expect(groups.length).toBeGreaterThan(36)
   // (Take off and Undo are the last two of the list by their names: a vehicle's command and the plan's)
-  expect(groups.slice(32, -2).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(35, -2).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-2)).toBe('Vehicle')
   expect(groups.at(-1)).toBe('Plan')
 })
@@ -316,12 +322,15 @@ it('filters by what is typed, and says so when nothing matches', async () => {
   await flushPromises()
   await type(wrapper, 'param')
 
-  // The same rank for all five: alphabetical by label.
+  // The same rank for all eight: alphabetical by label.
   expect(labels(wrapper)).toEqual([
     'Download parameters',
     'Load parameter metadata…',
-    'Load parameter snapshot…',
+    'Load parameter snapshot or file…',
     'Save parameter snapshot…',
+    'Save parameters as a MAVProxy .parm file…',
+    'Save parameters as a QGroundControl .params file…',
+    'Save parameters as an ArduPilot .param file…',
     'Switch to Parameters',
   ])
   await type(wrapper, 'xyz')
@@ -482,7 +491,7 @@ it('says how many commands there are, a moment after the query changes (not on e
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
 
-  expect(status()).toBe('5 results')
+  expect(status()).toBe('8 results')
   await type(wrapper, 'xyz')
   await vi.advanceTimersByTimeAsync(500)
 

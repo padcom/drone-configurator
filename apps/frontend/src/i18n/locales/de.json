@@ -1307,8 +1307,24 @@
     "load": "Snapshot laden",
     "loadMetadata": "Metadaten laden"
   },
+  "paramFile": {
+    "format": {
+      "param": "ArduPilot .param (NAME,WERT)",
+      "parm": "MAVProxy .parm (NAME WERT)",
+      "qgc": "QGroundControl .params"
+    }
+  },
   "import": {
     "from": "Snapshot vom {savedAt}",
+    "fromFile": "Parameterdatei: {format}",
+    "notes": "Zur Datei",
+    "unusual": "{warning}. Prüfe den Wert, bevor du ihn schreibst.",
+    "armed": "Nichts wird geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Zuerst entschärfen.",
+    "note": {
+      "duplicate": "{id} steht in den Zeilen {lines}: der Wert aus Zeile {last} gilt.",
+      "malformed": "Zeile {line} ist kein Parameter und wird ausgelassen: {text}",
+      "moreMalformed": "{count} weitere Zeile ist kein Parameter. | {count} weitere Zeilen sind keine Parameter."
+    },
     "itWas": "Es war {warning}.",
     "summary": "Abweichend: {differ}; schon gleich: {same}. Hake die zu schreibenden an.",
     "noValue": "—",
@@ -1316,6 +1332,7 @@
       "apply": "Anwenden",
       "vehicle": "Am Fahrzeug",
       "snapshot": "Im Snapshot",
+      "file": "In der Datei",
       "result": "Ergebnis"
     },
     "verified": "✓ Geschrieben und zurückgelesen: {detail}",
@@ -1432,10 +1449,13 @@
     "noParams": "sie hat keine Parameter",
     "snapshotVersion": "Snapshot-Version {version} (diese App liest Version {supported})",
     "malformed": "ihre Parameter sind fehlerhaft aufgebaut",
+    "noParamLines": "keine Parameterzeilen darin (NAME,WERT oder NAME WERT, einer pro Zeile)",
     "notSnapshot": "kein Drone-Configurator-Parameter-Snapshot"
   },
   "problem": {
     "notOnVehicle": "nicht an diesem Fahrzeug",
+    "readOnly": "schreibgeschützt: das Fahrzeug setzt ihn selbst",
+    "otherComponent": "in der Datei für Komponente {file}; der Autopilot ist Komponente {vehicle}",
     "otherType": "{snapshot} im Snapshot, {vehicle} am Fahrzeug",
     "otherVehicle": "gespeichert von einem {was} ({wasAutopilot}); dies ist ein {now} ({nowAutopilot})",
     "notConfirmed": "das Fahrzeug meldet {reported}, nicht {written}"
@@ -1588,14 +1608,20 @@
         "keywords": "lesen aktualisieren neu laden abrufen liste"
       }
     },
+    "paramFile": {
+      "param": "Parameter als ArduPilot-.param-Datei speichern …",
+      "parm": "Parameter als MAVProxy-.parm-Datei speichern …",
+      "qgc": "Parameter als QGroundControl-.params-Datei speichern …",
+      "keywords": "exportieren datei schreiben param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Parameter-Snapshot speichern …",
         "keywords": "exportieren sicherung datei schreiben"
       },
       "load": {
-        "label": "Parameter-Snapshot laden …",
-        "keywords": "importieren wiederherstellen datei öffnen"
+        "label": "Parameter-Snapshot oder -Datei laden …",
+        "keywords": "importieren wiederherstellen datei öffnen param parm params"
       }
     },
     "reason": {

@@ -537,15 +537,18 @@ function logModels(
   }
 }
 
+/** What the snapshots take from the rest of the interface, besides the vehicle. */
+type SnapshotsFrom = Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters' | 'metadata'>
+
 /**
- * The snapshots: the parameters are written from them one after the other, and not a logging or notch parameter while the
- * vehicle may be armed.
+ * The snapshots and parameter files: the parameters are written from them one after the other, and nothing while the vehicle
+ * may be armed.
  *
- * @param deps the link to the backend, how a failure is recorded, the questions, and the parameters
+ * @param deps the link to the backend, how a failure is recorded, the questions, the parameters and the metadata
  * @param vehicle the vehicle link
  * @returns the snapshots
  */
-function snapshotsFor(deps: Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters'>, vehicle: Vehicle): SnapshotsModel {
+function snapshotsFor(deps: SnapshotsFrom, vehicle: Vehicle): SnapshotsModel {
   const { connection } = vehicle
 
   return useSnapshots({ ...deps, connection, mayBeArmed: () => mayBeArmed(vehicle) })
@@ -640,7 +643,7 @@ export function createConfigurator(
   const metadata = useMetadata({ client, rememberPath: path => keepMetadataPath(settings, path) })
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
-  const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)
+  const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters, metadata: () => metadata.metadata.value }, vehicle)
   const messages = startMessages(client, vehicle)
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   const staged = stagedFor(client, parameters, vehicle, { confirm: askUser, confirmHold: holdOf(confirmWith, vehicle) })
