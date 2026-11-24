@@ -134,7 +134,7 @@ describe('ArduPilot definition files, recognised and refused', () => {
   })
 
   it('say why a file is not metadata: an XML file, JSON of another kind, text', () => {
-    expect(parseMetadata('<?xml version="1.0"?><paramfile/>')).toMatch(/^an XML file: only JSON is read/u)
+    expect(parseMetadata('<?xml version="1.0"?><paramfile/>')).toBe('an XML file that is not ArduPilot\'s apm.pdef.xml')
     expect(parseMetadata('{"vehicles":[]}')).toMatch(/^not a parameter metadata file: expected ArduPilot's apm\.pdef\.json/u)
     expect(parseMetadata('hello')).toBe('not JSON')
   })

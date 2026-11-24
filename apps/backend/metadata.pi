@@ -1,0 +1,497 @@
+// ArduPilot's parameter metadata (#35): `metadata.fetch` downloads the definitions of a kind of vehicle and firmware version from
+// ArduPilot's server, keeps them on disk, and gives the page their text (the page reads them: lib/params/metadata.ts). The data set is
+// GPL, so it is never part of the application: it is fetched at run time, and kept only in the user's cache folder.
+//
+// The server (autotest.ardupilot.org/Parameters/) has, for each kind of vehicle, the latest definitions as `apm.pdef.json`
+// (`ArduCopter/`, `ArduPlane/`, `APMrover2/`, `ArduSub/`, `AntennaTracker/`, `Blimp/`) and, for each released version, the
+// definitions of that version as `apm.pdef.xml` (`versioned/Copter/stable-4.7.1/`; Blimp has none). The exact version is preferred;
+// a version the server has no file for gives the latest, and the answer says so (`exact` false).
+//
+// The cache is `<cache>/metadata/<kind>-<version>.xml` or `<kind>-latest.json`, each with a `.meta` (when it came, and its size in
+// bytes). A name is made ONLY from the kind (an enum) and a version that was checked (three numbers), so nothing from outside becomes
+// part of a path. A released version's file never changes and is kept for good; the latest is asked for again after 7 days, and a
+// stale one is given when the server cannot be reached. An entry whose size is not what its `.meta` says, or that is not a whole
+// definition file, is removed and fetched again. Writes go to a temporary file and are renamed, so an entry is whole or not there.
+//
+// A file is fetched in parts (HTTP ranges), so that a slow link that makes progress gets it: see `PART_BYTES`.
+//
+// The server is `DRONE_CONFIGURATOR_METADATA_URL` when it is set (the end-to-end tests point it at a server of their own).
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { AutopilotVersionRead, MavAutopilot } from "padcom/pico-mavlink"
+import { exists, mkdir, readText, remove, rename, stat, writeText } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import {
+  MetadataFile,
+  MetadataFileFormat,
+  MetadataProgress,
+  MetadataVehicle,
+  decodeMetadataAsk,
+  encodeMetadataFile,
+  encodeMetadataProgress,
+} from "./generated/app"
+import { USER_AGENT } from "./maptiles"
+import { connectedLink, link } from "./session"
+import { cacheDirectory } from "./settings"
+import { releaseOf, versionText } from "./vehicleinfo"
+
+/// ArduPilot's server of parameter definitions.
+const DEFAULT_SERVER: string = "https://autotest.ardupilot.org/Parameters/"
+
+/// How long the latest definitions are used before they are asked for again (7 days, in ms).
+const LATEST_KEEP_MS: int = 7 * 86400000
+
+/// The most a definition file may be (bytes): ArduPilot's are 1.5 to 3 MB.
+const MAX_BYTES: int = 16777216
+
+/// A file is fetched in parts (HTTP ranges) of this many bytes, each of which may take `PART_MS`: a slow link that makes progress
+/// gets the file, and one that cannot move a part in that time (under about 35 kbit/s) is "cannot be reached". ArduPilot's files
+/// are 1.4 to 2.8 MB (Plane's JSON 2.33 MB, its XML 2.8 MB): 12 to 22 parts. The whole download may take `TOTAL_MS` (the page
+/// waits longer for the answer), and the connection `CONNECT_MS`.
+const PART_BYTES: int = 131072
+const PART_MS: int = 30000
+const TOTAL_MS: int = 1200000
+const CONNECT_MS: int = 10000
+
+/// What can be changed by the tests: the server, the clock, and the size and the time of a part.
+class Config {
+  public server: string? = null
+  public clockOffsetMs: int = 0
+  public partBytes: int = PART_BYTES
+  public partMs: int = PART_MS
+  /// Where `metadata.progress` goes (set by `register`).
+  public c: Communicator? = null
+}
+
+/// For tests: the size of a part, and how long one may take.
+export function partsForTests(bytes: int, ms: int): void {
+  config.partBytes = bytes
+  config.partMs = ms
+}
+
+const config = new Config()
+
+/// For tests: the server to ask (null: the default, or the environment's).
+export function useServerForTests(url: string?): void {
+  config.server = url
+}
+
+/// For tests: moves the clock `ms` ahead (a cached latest file goes stale).
+export function clockForTests(ms: int): void {
+  config.clockOffsetMs = ms
+}
+
+function now(): int {
+  return (Date.now() as int) + config.clockOffsetMs
+}
+
+/// The server's address, ending in `/`.
+function server(): string {
+  const wanted = config.server ?? env.get("DRONE_CONFIGURATOR_METADATA_URL") ?? DEFAULT_SERVER
+  if (wanted.endsWith("/")) wanted else `${wanted}/`
+}
+
+/// Registers the service's method on `c`.
+export function register(c: Communicator): void {
+  config.c = c
+  c.handle("metadata.fetch", fetchMetadata)
+}
+
+/// The name of a kind of vehicle, as the contract and the cache names say it.
+export function nameOfKind(kind: MetadataVehicle): string {
+  match (kind) {
+    Copter => "copter",
+    Plane => "plane",
+    Rover => "rover",
+    Sub => "sub",
+    Tracker => "tracker",
+    Blimp => "blimp",
+  }
+}
+
+/// The folder of the latest definitions of a kind on the server.
+export function latestFolder(kind: MetadataVehicle): string {
+  match (kind) {
+    Copter => "ArduCopter",
+    Plane => "ArduPlane",
+    Rover => "APMrover2",
+    Sub => "ArduSub",
+    Tracker => "AntennaTracker",
+    Blimp => "Blimp",
+  }
+}
+
+/// The folder of the released versions of a kind on the server ("" when the server keeps none: Blimp).
+export function versionedFolder(kind: MetadataVehicle): string {
+  match (kind) {
+    Copter => "Copter",
+    Plane => "Plane",
+    Rover => "Rover",
+    Sub => "Sub",
+    Tracker => "Tracker",
+    Blimp => "",
+  }
+}
+
+/// The kind of vehicle the heartbeat's type names, or null for one the server has no definitions for.
+export function kindOfType(type: string): MetadataVehicle? {
+  if (["QUADROTOR", "HEXAROTOR", "OCTOROTOR", "TRICOPTER", "COAXIAL", "HELICOPTER", "DECAROTOR", "DODECAROTOR"].includes(type)) {
+    return MetadataVehicle.Copter
+  }
+  if (type == "FIXED_WING" || type.startsWith("VTOL")) {
+    return MetadataVehicle.Plane
+  }
+  if (type == "GROUND_ROVER" || type == "SURFACE_BOAT") {
+    return MetadataVehicle.Rover
+  }
+  if (type == "SUBMARINE") {
+    return MetadataVehicle.Sub
+  }
+  if (type == "ANTENNA_TRACKER") {
+    return MetadataVehicle.Tracker
+  }
+  if (type == "AIRSHIP") MetadataVehicle.Blimp else null
+}
+
+/// Whether a text is only digits (at least one, at most `most`).
+function digitsOnly(text: string, most: int): bool {
+  if (text.length == 0 || text.length > most) {
+    return false
+  }
+  for (let i = 0; i < text.length; i++) {
+    const c = text.slice(i, i + 1)
+    if (c < "0" || c > "9") {
+      return false
+    }
+  }
+  return true
+}
+
+/// A whole number written in digits, or null for anything else (a `.meta` that was damaged).
+function countOf(text: string): int? {
+  if (digitsOnly(text, 18)) parseInt(text) else null
+}
+
+/// Whether a text is a version as the server names them: three numbers of at most three digits, with dots between.
+export function isVersion(text: string): bool {
+  const parts = text.split(".")
+  if (parts.length != 3) {
+    return false
+  }
+  for (const p of parts) {
+    if (!digitsOnly(p, 3)) {
+      return false
+    }
+  }
+  return true
+}
+
+/// The address of the definitions of `kind` at `version` (null: the latest), or "" when the server keeps none for it.
+export function urlOf(base: string, kind: MetadataVehicle, version: string?): string {
+  if (version == null) {
+    return `${base}${latestFolder(kind)}/apm.pdef.json`
+  }
+  const folder = versionedFolder(kind)
+  if (folder == "") "" else `${base}versioned/${folder}/stable-${version!}/apm.pdef.xml`
+}
+
+/// Whether a text is a whole definition file of its format: the latest's JSON (an object with ArduPilot's `"json"` header), or a
+/// version's XML (`<paramfile>` to its end). A page of the server's errors, or a file cut short, is not.
+export function isWhole(text: string, format: MetadataFileFormat): bool {
+  const t = text.trim()
+  match (format) {
+    Json => t.startsWith("{") && t.endsWith("}") && t.includes("\"json\""),
+    Xml => t.includes("<paramfile>") && t.endsWith("</paramfile>"),
+  }
+}
+
+/// One entry of the cache, as it was read.
+class Entry {
+  public text: string = ""
+  public fetchedAt: int = 0
+}
+
+/// What a download came to: the text, or why there is none (`missing`: the server has no such file).
+class Download {
+  public text: string? = null
+  public missing: bool = false
+  public reason: string = ""
+}
+
+/// The kind and version a request is for.
+class Wanted {
+  public kind: MetadataVehicle = MetadataVehicle.Copter
+  public version: string? = null
+}
+
+/// The folder of the cache.
+async function folder(): Promise<string> throws Error {
+  const dir = join(await cacheDirectory(), "metadata")
+  await mkdir(dir, true)
+  return dir
+}
+
+/// The name of an entry (without its extension).
+function entryName(kind: MetadataVehicle, version: string?): string {
+  return `${nameOfKind(kind)}-${version ?? "latest"}`
+}
+
+function extensionOf(format: MetadataFileFormat): string {
+  match (format) {
+    Json => "json",
+    Xml => "xml",
+  }
+}
+
+/// Removes an entry and its `.meta` (what is not there is not missed).
+async function drop(path: string): Promise<void> {
+  for (const p of [path, `${path}.meta`]) {
+    try {
+      await remove(p)
+    } catch (e: Error) {
+      // Not there.
+    }
+  }
+}
+
+/// The entry at `path`, or null when there is none or it is not whole (it is then removed, so that it is fetched again).
+async function readEntry(path: string, format: MetadataFileFormat): Promise<Entry?> {
+  try {
+    if (!(await exists(path)) || !(await exists(`${path}.meta`))) {
+      return null
+    }
+    const meta = (await readText(`${path}.meta`)).trim().split("\n")
+    const fetchedAt = if (meta.length == 2) countOf(meta[0]) else null
+    const size = if (meta.length == 2) countOf(meta[1]) else null
+    const text = await readText(path)
+    if (fetchedAt != null && size != null && (await stat(path)).size == size! && isWhole(text, format)) {
+      const e = new Entry()
+      e.text = text
+      e.fetchedAt = fetchedAt!
+      return e
+    }
+  } catch (e: Error) {
+    // Unreadable: as good as corrupt.
+  }
+  await drop(path)
+  return null
+}
+
+/// Keeps a file the server gave: written beside the entry and renamed, then its `.meta`.
+async function writeEntry(path: string, text: string, fetchedAt: int): Promise<void> {
+  try {
+    const temporary = `${path}.${pid}.tmp`
+    await writeText(temporary, text)
+    const size = (await stat(temporary)).size
+    await rename(temporary, path)
+    await writeText(`${path}.meta`, `${fetchedAt}\n${size}\n`)
+  } catch (e: Error) {
+    // A cache that cannot be written is no reason not to give the file: it is fetched again next time.
+    await drop(path)
+  }
+}
+
+/// One answer of the server to a request for a part.
+class Part {
+  public status: int = 0
+  public bytes: Uint8Array = new Uint8Array(0)
+  /// The size of the whole file, from `Content-Range` (-1 when it does not say).
+  public total: int = -1
+  public etag: string = ""
+}
+
+/// The size of the whole file in a `Content-Range` ("bytes 0-131071/2329019"), or -1.
+export function totalOfRange(header: string): int {
+  const slash = header.lastIndexOf("/")
+  const n = if (slash < 0) null else countOf(header.slice(slash + 1).trim())
+  return n ?? -1
+}
+
+/// Asks the server for the part of the file from `from` (an `If-Range` with the file's ETag: a file that changed in between comes
+/// whole, with 200).
+async function askPart(url: string, from: int, etag: string): Promise<Part> throws Error {
+  const headers = new Map<string, string>()
+  headers.set("user-agent", USER_AGENT)
+  headers.set("range", `bytes=${from}-${from + config.partBytes - 1}`)
+  if (etag != "") {
+    headers.set("if-range", etag)
+  }
+  const res = await fetch(url, { headers: headers, timeout: config.partMs, connectTimeout: CONNECT_MS, maxBodyBytes: MAX_BYTES })
+  const p = new Part()
+  p.status = res.status
+  p.etag = res.headers.get("etag") ?? ""
+  p.total = totalOfRange(res.headers.get("content-range") ?? "")
+  if (p.status == 200 || p.status == 206) {
+    p.bytes = await res.bytes()
+  }
+  return p
+}
+
+/// Says how far a download is.
+function progress(received: int, total: int): void {
+  const c = config.c
+  if (c != null) {
+    c!.emit("metadata.progress", encodeMetadataProgress(MetadataProgress { received: received as u32, total: total as u32 }))
+  }
+}
+
+/// The rest of a file whose first part came (206): part after part until it is whole. Null, with why in `d`, when it cannot be.
+async function rest(url: string, first: Part, d: Download): Promise<Uint8Array[]?> throws Error {
+  const started = Date.now() as int
+  const parts: Uint8Array[] = [first.bytes]
+  let got = first.bytes.length
+  while (got < first.total) {
+    progress(got, first.total)
+    if ((Date.now() as int) - started > TOTAL_MS) {
+      d.reason = `the download took more than ${TOTAL_MS / 60000} minutes`
+      return null
+    }
+    const next = await askPart(url, got, first.etag)
+    if (next.status == 200) {
+      // The file changed on the server since the first part: this is all of the new one.
+      return [next.bytes]
+    }
+    if (next.status != 206 || next.bytes.length == 0) {
+      d.reason = `the server answered ${next.status} in the middle of the file`
+      return null
+    }
+    parts.push(next.bytes)
+    got += next.bytes.length
+  }
+  progress(got, first.total)
+  return parts
+}
+
+/// The bytes of a file: what the first answer had, and the rest of it when the server sent a part. Null, with why in `d`.
+async function bytesOf(url: string, d: Download): Promise<Uint8Array[]?> throws Error {
+  const first = await askPart(url, 0, "")
+  if (first.status == 404) {
+    d.missing = true
+    d.reason = "the server has no such file"
+    return null
+  }
+  if (first.status == 200) {
+    return [first.bytes]
+  }
+  if (first.status != 206 || first.total < 0) {
+    d.reason = `the server answered ${first.status}`
+    return null
+  }
+  if (first.total > MAX_BYTES) {
+    d.reason = `the file is ${first.total} bytes, more than ${MAX_BYTES}`
+    return null
+  }
+  return await rest(url, first, d)
+}
+
+/// Asks the server for one file, in parts.
+async function download(url: string, format: MetadataFileFormat): Promise<Download> {
+  const d = new Download()
+  try {
+    const parts = await bytesOf(url, d)
+    if (parts == null) {
+      return d
+    }
+    const text = await new Response(ReadableStream.from<Uint8Array>(parts!)).text()
+    if (isWhole(text, format)) {
+      d.text = text
+    } else {
+      d.reason = "the server sent something that is not a definition file"
+    }
+  } catch (e: Error) {
+    d.reason = `the server cannot be reached (${e.message})`
+  }
+  return d
+}
+
+/// The answer for a file.
+function fileOf(w: Wanted, exact: bool, format: MetadataFileFormat, text: string, fromCache: bool, stale: bool, fetchedAt: int): MetadataFile {
+  return MetadataFile {
+    vehicle: w.kind,
+    version: w.version,
+    exact: exact,
+    format: format,
+    text: text,
+    fromCache: fromCache,
+    stale: stale,
+    fetchedAt: fetchedAt as u64,
+  }
+}
+
+/// The definitions of the exact version: from the cache, else the server (and kept). Null when there are none: the server keeps
+/// none for the kind or the version, or cannot be reached.
+async function exactFile(w: Wanted, refresh: bool, why: string[]): Promise<MetadataFile?> throws Error {
+  const url = urlOf(server(), w.kind, w.version)
+  if (w.version == null || url == "") {
+    return null
+  }
+  const path = join(await folder(), `${entryName(w.kind, w.version)}.xml`)
+  const kept = if (refresh) null else await readEntry(path, MetadataFileFormat.Xml)
+  if (kept != null) {
+    return fileOf(w, true, MetadataFileFormat.Xml, kept!.text, true, false, kept!.fetchedAt)
+  }
+  const got = await download(url, MetadataFileFormat.Xml)
+  if (got.text == null) {
+    why.push(got.reason)
+    return null
+  }
+  const at = now()
+  await writeEntry(path, got.text!, at)
+  fileOf(w, true, MetadataFileFormat.Xml, got.text!, false, false, at)
+}
+
+/// The latest definitions: from the cache while they are fresh, else the server (and kept), else what the cache has, stale.
+async function latestFile(w: Wanted, refresh: bool, why: string[]): Promise<MetadataFile> throws Error {
+  const path = join(await folder(), `${entryName(w.kind, null)}.json`)
+  const kept = if (refresh) null else await readEntry(path, MetadataFileFormat.Json)
+  if (kept != null && now() - kept!.fetchedAt < LATEST_KEEP_MS) {
+    return fileOf(w, false, MetadataFileFormat.Json, kept!.text, true, false, kept!.fetchedAt)
+  }
+  const got = await download(urlOf(server(), w.kind, null), MetadataFileFormat.Json)
+  if (got.text != null) {
+    const at = now()
+    await writeEntry(path, got.text!, at)
+    return fileOf(w, false, MetadataFileFormat.Json, got.text!, false, false, at)
+  }
+  if (kept != null) {
+    return fileOf(w, false, MetadataFileFormat.Json, kept!.text, true, true, kept!.fetchedAt)
+  }
+  why.push(got.reason)
+  throw new CommunicatorError("UNAVAILABLE", `no parameter definitions for ${nameOfKind(w.kind)}: ${why.join("; ")}`)
+}
+
+/// The kind and version of the connected vehicle: its heartbeat's type, and the version it says in AUTOPILOT_VERSION when it is a
+/// released one (a beta or a build of its own has no file of its own on the server).
+async function connectedVehicle(): Promise<Wanted> throws Error {
+  const conn = connectedLink()
+  const shown = link.state.vehicle
+  const kind = if (shown == null || link.autopilot != MavAutopilot.ARDUPILOTMEGA) null else kindOfType(shown!.type)
+  if (kind == null) {
+    throw new CommunicatorError("UNSUPPORTED_VEHICLE", "the connected vehicle is not an ArduPilot that ArduPilot's server has parameter definitions for")
+  }
+  const w = new Wanted()
+  w.kind = kind!
+  const v = await new AutopilotVersionRead(conn, { system: link.sysid, component: link.compid }, { timeoutMs: 800, retries: 1 }).run()
+  const sw = if (v == null) 0 else v!.flightSwVersion as int
+  if (sw != 0 && releaseOf(sw) == "official") {
+    w.version = versionText(sw)
+  }
+  return w
+}
+
+async function fetchMetadata(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeMetadataAsk(payload ?? Cbor.Null, "$")
+  const asked = ask.vehicle
+  const w = if (asked == null) await connectedVehicle() else new Wanted()
+  if (asked != null) {
+    w.kind = asked!
+    w.version = ask.version
+  }
+  if (w.version != null && !isVersion(w.version!)) {
+    throw new CommunicatorError("BAD_REQUEST", "a version is three numbers, as 4.7.1")
+  }
+  const refresh = ask.refresh ?? false
+  const why: string[] = []
+  const exact = await exactFile(w, refresh, why)
+  encodeMetadataFile(exact ?? await latestFile(w, refresh, why))
+}

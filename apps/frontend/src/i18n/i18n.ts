@@ -1,14 +1,10 @@
 // Internationalization: the messages are in src/i18n/locales, precompiled to functions at build time by
 // @intlify/unplugin-vue-i18n (see vite.config.ts), so the runtime has no message compiler and needs no `eval` or
 // `new Function`, which the production CSP forbids.
+// Only English (the fallback of every message) is in the start-up bundle; another language is a chunk of its own, loaded when it
+// is chosen (seven languages of ~140 kB each were most of the initial JavaScript).
 import { createI18n } from 'vue-i18n'
-import de from '@/i18n/locales/de.json'
 import en from '@/i18n/locales/en.json'
-import es from '@/i18n/locales/es.json'
-import it from '@/i18n/locales/it.json'
-import pl from '@/i18n/locales/pl.json'
-import ru from '@/i18n/locales/ru.json'
-import uk from '@/i18n/locales/uk.json'
 
 /**
  * The languages of the interface: ONE table. A new language is a locale file in `locales/`, a row here (its code, its name in
@@ -16,13 +12,13 @@ import uk from '@/i18n/locales/uk.json'
  * The plural rules are `Intl.PluralRules` of the code (see `pluralIndex`); every locale file is checked against `en.json`.
  */
 const TABLE = {
-  en: { name: 'English', messages: en },
-  de: { name: 'Deutsch', messages: de },
-  pl: { name: 'Polski', messages: pl },
-  it: { name: 'Italiano', messages: it },
-  es: { name: 'Español', messages: es },
-  uk: { name: 'Українська', messages: uk },
-  ru: { name: 'Русский', messages: ru },
+  en: { name: 'English', load: () => Promise.resolve({ default: en }) },
+  de: { name: 'Deutsch', load: () => import('@/i18n/locales/de.json') },
+  pl: { name: 'Polski', load: () => import('@/i18n/locales/pl.json') },
+  it: { name: 'Italiano', load: () => import('@/i18n/locales/it.json') },
+  es: { name: 'Español', load: () => import('@/i18n/locales/es.json') },
+  uk: { name: 'Українська', load: () => import('@/i18n/locales/uk.json') },
+  ru: { name: 'Русский', load: () => import('@/i18n/locales/ru.json') },
 }
 
 /** One of the languages in the table. */
@@ -148,7 +144,8 @@ export const i18n = createI18n({
   legacy: false,
   locale: DEFAULT_LANGUAGE,
   fallbackLocale: DEFAULT_LANGUAGE,
-  messages: Object.fromEntries(LANGUAGES.map(code => [code, TABLE[code].messages])),
+  // (the other languages are added when they are loaded: `loadLanguage`)
+  messages: { en } as Record<Language, typeof en>,
   pluralRules: Object.fromEntries(LANGUAGES.map(code => [code, (n: number, forms: number) => pluralIndex(code, n, forms)])),
 })
 
@@ -170,19 +167,61 @@ export function rememberLanguage(storage: Pick<Storage, 'setItem'> | null, langu
   }
 }
 
+/** The languages whose messages are in the i18n instance (English always). */
+const loaded = new Set<Language>([DEFAULT_LANGUAGE])
+/** The language asked for last: one that is still loading is not shown if another was asked for meanwhile. */
+let wanted: Language = DEFAULT_LANGUAGE
+
 /**
- * Switches the interface language, and the `lang` of the page (for the browser's hyphenation, quotes and screen readers).
- * (Keeping the choice is the settings' business: useSettings.)
+ * Loads the messages of a language, once.
  *
  * @param language one of `LANGUAGES`
  */
-export function setLanguage(language: Language): void {
+export async function loadLanguage(language: Language): Promise<void> {
+  if (loaded.has(language)) {
+    return
+  }
+  const messages = await TABLE[language].load()
+  i18n.global.setLocaleMessage(language, messages.default as typeof en)
+  loaded.add(language)
+}
+
+/** Loads every language (the tests, which switch languages without waiting). */
+export async function loadAllLanguages(): Promise<void> {
+  await Promise.all(LANGUAGES.map(loadLanguage))
+}
+
+/**
+ * Shows a loaded language.
+ *
+ * @param language one of `LANGUAGES`
+ */
+function show(language: Language): void {
   i18n.global.locale.value = language
 
   if (typeof document !== 'undefined') {
     document.documentElement.lang = language
   }
   rememberLanguage(typeof window === 'undefined' ? null : storageOf(window), language)
+}
+
+/**
+ * Switches the interface language, and the `lang` of the page (for the browser's hyphenation, quotes and screen readers):
+ * at once for a language that is loaded, else once it is (English, the fallback, is shown meanwhile, and a language asked for
+ * later wins). (Keeping the choice is the settings' business: useSettings.)
+ *
+ * @param language one of `LANGUAGES`
+ * @returns when the language is shown
+ */
+export async function setLanguage(language: Language): Promise<void> {
+  wanted = language
+
+  if (!loaded.has(language)) {
+    await loadLanguage(language)
+  }
+  if (wanted === language) {
+    show(language)
+  }
 }
 
 /**

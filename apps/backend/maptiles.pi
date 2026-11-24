@@ -36,7 +36,7 @@ import { cacheDirectory, settingsAreDefaults, uiValue } from "./settings"
 
 /// The version of the app in the User-Agent (the version of the project).
 const APP_VERSION: string = "0.1.0"
-const USER_AGENT: string = `DroneConfigurator/${APP_VERSION} (+https://github.com/padcom/drone-configurator)`
+export const USER_AGENT: string = `DroneConfigurator/${APP_VERSION} (+https://github.com/padcom/drone-configurator)`
 
 /// A day, in milliseconds, and how long an answer is kept at least and at most.
 const DAY_MS: int = 86400000

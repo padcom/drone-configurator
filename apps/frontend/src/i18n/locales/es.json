@@ -30,7 +30,38 @@
       "udp": "Comprueba que el vehículo o el simulador envíe a este host y a este puerto, y vuelve a conectar.",
       "tcp": "Comprueba que el vehículo escuche en esta dirección y que nada más la esté usando, y vuelve a conectar.",
       "serial": "Comprueba el cable, que ningún otro programa tenga el puerto abierto y la velocidad en baudios, y vuelve a conectar.",
-      "simulator": "Cierra el cuadro de diálogo e inténtalo de nuevo; si sigue fallando, reinicia la aplicación."
+      "simulator": "Cierra el cuadro de diálogo e inténtalo de nuevo; si sigue fallando, reinicia la aplicación.",
+      "udp-client": "Comprueba que el vehículo escucha en este host y puerto, y que ningún cortafuegos bloquea sus respuestas, y vuelve a conectar.",
+      "tcp-server": "Comprueba que el vehículo o el reenviador se conecta a este puerto, y que nada más lo usa, y vuelve a conectar."
+    },
+    "role": {
+      "label": "Quién inicia el enlace",
+      "udp": "Escuchar al vehículo",
+      "udp-client": "Enviar al vehículo",
+      "tcp": "Conectar con el vehículo",
+      "tcp-server": "Dejar que el vehículo se conecte",
+      "note": {
+        "udp": "El vehículo o el simulador envía a este ordenador.",
+        "udp-client": "Este ordenador envía primero al vehículo y recibe sus respuestas: para un vehículo, un ordenador de a bordo o un router que escucha.",
+        "tcp": "Este ordenador se conecta al vehículo, que escucha en el puerto.",
+        "tcp-server": "Este ordenador escucha en el puerto, y el vehículo o un reenviador se conecta a él. Espera hasta 30 segundos."
+      }
+    },
+    "everywhere": "Escuchar en todas las interfaces de red",
+    "loopback": "Solo los programas de este ordenador pueden llegar al puerto {port}.",
+    "exposed": "Otros ordenadores de tu red pueden llegar al puerto {port}. Elígelo solo en una red de confianza.",
+    "found": {
+      "label": "Vehículos en la red",
+      "again": "Buscar de nuevo",
+      "looking": "Buscando en la red…",
+      "none": "Nada en la red anunció un servicio MAVLink. Comprueba que el vehículo está en esta red, o conéctate por dirección.",
+      "failed": "No se pudo buscar en la red: {error}. Comprueba la conexión de red, o conéctate por dirección.",
+      "count": "Se encontró {count} servicio. | Se encontraron {count} servicios.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -937,7 +968,30 @@
       "pathHelp": "Dónde está el archivo de metadatos de parámetros. Un archivo que cargue a mano se guarda aquí y se vuelve a cargar al iniciar si el interruptor de abajo está activado.",
       "choose": "Elegir archivo…",
       "autoload": "Cargar los metadatos de parámetros al iniciar la aplicación",
-      "autoloadHelp": "Desactivado, no se carga nada al iniciar y la ruta de arriba se conserva."
+      "autoloadHelp": "Desactivado, no se carga nada al iniciar y la ruta de arriba se conserva.",
+      "download": "Descargar los metadatos de parámetros del vehículo conectado",
+      "downloadHelp": "Desde el servidor de ArduPilot, según el tipo de vehículo y la versión del firmware, y se guardan en este equipo para la próxima vez. Si cargas un archivo, se usa ese.",
+      "refresh": "Descargar de nuevo",
+      "status": {
+        "downloading": "Descargando los metadatos de parámetros…",
+        "downloadingPart": "Descargando los metadatos de parámetros: {received} de {total} MB…",
+        "file": "Se usa un archivo que cargaste. Mientras tanto no se descarga nada.",
+        "none": "Aún no se ha descargado nada. Se descarga al conectar un vehículo.",
+        "failed": "No descargados: {error}. Los parámetros se muestran sin descripciones.",
+        "exact": "Metadatos de {vehicle} {version} de ArduPilot, descargados el {date}.",
+        "latest": "Últimos metadatos de {vehicle} de ArduPilot, descargados el {date}: el vehículo no indicó una versión de firmware publicada.",
+        "latestFor": "Últimos metadatos de {vehicle} de ArduPilot, descargados el {date}: ArduPilot no tiene para {version}.",
+        "fromCache": "Cargados desde este equipo en {seconds} s.",
+        "stale": "No se pudo contactar con el servidor de ArduPilot, así que pueden estar desactualizados."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Cerrar",
     "title": "Ajustes",
@@ -1051,7 +1105,8 @@
       "simulator": "Simulador",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Serie"
+      "serial": "Serie",
+      "found": "Encontrados"
     },
     "host": "Host",
     "port": "Puerto",
@@ -1387,7 +1442,7 @@
   },
   "reason": {
     "notJson": "no es JSON",
-    "xml": "un archivo XML: solo se lee JSON (el apm.pdef.json de ArduPilot o nuestro propio formato)",
+    "xml": "un archivo XML que no es el apm.pdef.xml de ArduPilot",
     "notMetadata": "no es un archivo de metadatos de parámetros: se esperaba el apm.pdef.json de ArduPilot o nuestro formato",
     "metadataVersion": "metadatos versión {version} (esta app lee la versión 1)",
     "noParameters": "no describe ningún parámetro",
@@ -1409,6 +1464,9 @@
     "metadataLoad": "No se pueden cargar los metadatos: {reason}.",
     "metadataLoadFrom": "No se pueden cargar los metadatos de {path}: {reason}.",
     "metadataReadFrom": "No se pueden cargar los metadatos de {path}: {error}",
+    "metadataLatest": "El vehículo no indicó una versión de firmware publicada, así que se usan los últimos metadatos de {vehicle} de ArduPilot. Algunos parámetros pueden diferir.",
+    "metadataLatestFor": "ArduPilot no tiene metadatos para {vehicle} {version}, así que se usan los últimos. Algunos parámetros pueden diferir.",
+    "metadataRefresh": "No se pueden descargar de nuevo los metadatos: {error}. Se conservan los que están en uso.",
     "metadataPathNotKept": "No se guardó la ruta de {path}: al iniciar la aplicación solo se carga un archivo .json.",
     "open": "No se pudo abrir: {error}",
     "settingsUnavailable": "Los ajustes no están disponibles: {error}",

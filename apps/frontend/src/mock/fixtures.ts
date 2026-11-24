@@ -17,6 +17,12 @@ export const SERIAL_PORTS = [
   { path: '/dev/ttyAMA0' },
 ]
 
+/** What the mock network advertises (#197): a BlueOS vehicle over UDP and a companion computer over TCP. */
+export const DISCOVERED = [
+  { name: 'BlueOS', transport: 'udp-client' as const, host: '192.168.2.2', port: 14550 },
+  { name: 'Companion', transport: 'tcp' as const, host: '192.168.2.10', port: 5760 },
+]
+
 const p = (id: string, kind: Param['kind'], type: string, value: number): Omit<Param, 'index'> => ({ id, kind, type, value })
 
 export const PARAMS: Param[] = [

@@ -126,9 +126,10 @@ async function passesBytesBothWays(): Promise<void> {
   const pong = 'PONG from the device at the far end of SERIAL1'
   theDevice().socket.write(pong)
   await program.reads(pong, 10_000)
+  // The page's counts come with the backend's status, at most four times a second: the status that says 150 bytes went out may be
+  // the one from before the answer came back, so the count of what came back is waited for in its own right (#549's flake).
   await window().waitForText('#setup-bridge-to', /^150$/u, 5000)
-  const from = Number(await window().text('#setup-bridge-from'))
-  expect(from).toBeGreaterThanOrEqual(pong.length)
+  await window().waitFor(`Number(document.querySelector('#setup-bridge-from')?.textContent) >= ${pong.length}`, 5000)
 }
 
 async function givesSerial1BackOnStop(): Promise<void> {

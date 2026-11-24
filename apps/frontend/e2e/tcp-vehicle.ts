@@ -1,4 +1,5 @@
-// The simulated vehicle behind a real TCP port (apps/backend/e2e/tcp-vehicle.pi), for E2E tests.
+// The simulated vehicle behind a real TCP port (apps/backend/e2e/tcp-vehicle.pi), for E2E tests; or on a UDP port, or connecting
+// to a TCP port of the app's (#197).
 import { type ChildProcessByStdio, execFile, spawn } from 'node:child_process'
 import type { Readable, Writable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
@@ -76,6 +77,26 @@ export class TcpVehicle {
    */
   static startDisarmed(): Promise<TcpVehicle> {
     return TcpVehicle.#launch({ ...environment(false, false, '', false), VEHICLE_DISARMED: '1' })
+  }
+
+  /**
+   * Builds and starts one that listens on a UDP port instead, and answers whoever sent to it last (#197: the app's "udp-client").
+   *
+   * @returns the running vehicle, with its UDP port known
+   */
+  static startOverUdp(): Promise<TcpVehicle> {
+    return TcpVehicle.#launch({ ...environment(false, false, '', false), VEHICLE_UDP: '1' })
+  }
+
+  /**
+   * Builds and starts one that connects to a TCP port of 127.0.0.1, again whenever the connection ends (#197: the app's
+   * "tcp-server"). It resolves once it has connected the first time.
+   *
+   * @param port the port it connects to
+   * @returns the running vehicle (its `port` is that one)
+   */
+  static connectingTo(port: number): Promise<TcpVehicle> {
+    return TcpVehicle.#launch({ ...environment(false, false, '', false), VEHICLE_CONNECT_TO: String(port) })
   }
 
   /**
