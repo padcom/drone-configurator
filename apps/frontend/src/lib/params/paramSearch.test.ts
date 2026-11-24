@@ -14,6 +14,7 @@ const META = new Map<string, ParamMeta>([
   ['SERIAL0_BAUD', {}],
 ])
 const IDS = [...META.keys()]
+// The search by the name and the description alone (no everyday words): the tests of the everyday words give their own.
 const index = buildIndex(IDS, META)
 const found = (query: string) => search(index, query).map(hit => hit.id)
 
@@ -59,8 +60,8 @@ describe('the search by what a parameter does', () => {
     expect(search(index, 'fence breached').map(hit => hit.reason)).toEqual(['description'])
   })
 
-  it('searches the names only when there are no descriptions, and looks for no typo', () => {
-    const bare = buildIndex(['RTL_ALT', 'RTL_SPEED'], new Map())
+  it('searches the names only when there are no descriptions, and a word of three letters is no typo', () => {
+    const bare = buildIndex(['RTL_ALT', 'RTL_SPEED'], new Map(), {})
 
     expect(bare.described).toBe(false)
     expect(search(bare, 'return height')).toEqual([])

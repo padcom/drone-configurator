@@ -209,6 +209,34 @@ function toParam(id: string, index: int, v: TypedParamValue): Param {
   }
 }
 
+/// A value as the contract has it: what `toParam` makes of it.
+function numberOf(v: TypedParamValue): f64 {
+  match (v) {
+    Int { value, type: _type } => value as f64,
+    Real { value, type: _type } => (value as f32) as f64,
+  }
+}
+
+/// The firmware's defaults that came with a download, by name (only those that differ from the value).
+function defaultsOf(r: ParamDownloadResult): Map<string, f64> {
+  const out = new Map<string, f64>()
+  for (const d of r.defaults) {
+    out.set(d.id, numberOf(d.value))
+  }
+  return out
+}
+
+/// The parameters of a download as the contract has them, each with its firmware default where it differs from its value.
+function paramsOf(r: ParamDownloadResult, defaults: Map<string, f64>): Param[] {
+  const out: Param[] = []
+  for (const p of r.params) {
+    const q = toParam(p.id, p.index, p.value)
+    q.default = defaults.get(p.id)
+    out.push(q)
+  }
+  return out
+}
+
 /// Stops the download that is running, if any: it fails with `ABORTED`, and the link and the session stay.
 async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   announced.stopDownload()
@@ -259,13 +287,14 @@ function remember(plan: Plan, source: string, fallback: string?): void {
   }
 }
 
-/// The options of a download: the capabilities only when they were read at connect (else `ParamDownload` asks).
+/// The options of a download: the capabilities only when they were read at connect (else `ParamDownload` asks). The firmware's
+/// defaults are always asked for (the parameter file carries them; the list cannot).
 function optionsFor(plan: Plan, signal: AbortSignal): ParamDownloadOptions {
   if (link.capabilities < 0) {
-    const asking: ParamDownloadOptions = { method: plan.method, signal: signal }
+    const asking: ParamDownloadOptions = { method: plan.method, withDefaults: true, signal: signal }
     return asking
   }
-  const known: ParamDownloadOptions = { method: plan.method, capabilities: link.capabilities, signal: signal }
+  const known: ParamDownloadOptions = { method: plan.method, withDefaults: true, capabilities: link.capabilities, signal: signal }
   return known
 }
 
@@ -286,14 +315,19 @@ function listOf(r: ParamDownloadResult, plan: Plan): ParamList {
   const source = if (r.source == "ftp") ParamListSource.Ftp else ParamListSource.List
   // A download that skipped the file transfer says why (what it remembered), not that the list was asked for.
   const why = if (plan.skipped != "") plan.skipped else r.fallback ?? ""
+  // The defaults are known when the parameter file brought some: a vehicle that has none to give (an older firmware) gives an
+  // empty list, which must not read as "everything is at its default".
+  const defaults = defaultsOf(r)
+  const known = r.source == "ftp" && defaults.size > 0
   return ParamList {
-    params: r.params.map((p) => toParam(p.id, p.index, p.value)),
+    params: paramsOf(r, defaults),
     count: r.count as u16,
     complete: r.complete,
     missing: r.missing.map((i: int) => i as u16),
     source: source,
     fallback: if (why == "") null else why,
     elapsedMs: r.elapsedMs as u32,
+    defaults: if (known) true else null,
   }
 }
 

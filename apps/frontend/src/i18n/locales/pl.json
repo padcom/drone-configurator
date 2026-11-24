@@ -1267,7 +1267,30 @@
     "metadata": "Metadane dla parametrów: {count}",
     "metadataLoaded": "Wczytano opisy dla {described} z {total} parametrów",
     "metadataSome": "Dopasowano {matched} z {total} parametrów; z opisem: {described}",
-    "metadataNone": "Dopasowano 0 z {total} parametrów. Parametry opisane w pliku: {known}, żaden z tego pojazdu."
+    "metadataNone": "Dopasowano 0 z {total} parametrów. Parametry opisane w pliku: {known}, żaden z tego pojazdu.",
+    "also": "Także: {words}",
+    "recent": {
+      "group": "Ostatnio używane",
+      "emptyTitle": "Nic jeszcze nie użyto",
+      "emptyHelp": "Parametry, które otwierasz lub zmieniasz, są tutaj, najnowsze na początku."
+    },
+    "modified": {
+      "label": "Zmienione względem domyślnych",
+      "unknown": "Wartości domyślne oprogramowania nie są znane: przychodzą z pobraniem przez transfer plików, z pojazdu, który je ma.",
+      "noMatch": "Żaden zmieniony parametr nie pasuje do „{query}”",
+      "noneHere": "Nie ma tu zmienionych parametrów",
+      "hiddenHelp": "Filtr „Zmienione względem domyślnych” jest włączony, więc reszta listy jest ukryta.",
+      "showAll": "Pokaż wszystkie parametry"
+    },
+    "groupBy": {
+      "label": "Grupuj według",
+      "name": "Nazwy",
+      "metadata": "Metadanych"
+    },
+    "guide": {
+      "setup": "Ustaw w: {section}",
+      "tune": "Dostrój w: {section}"
+    }
   },
   "snapshot": {
     "save": "Zapisz migawkę",

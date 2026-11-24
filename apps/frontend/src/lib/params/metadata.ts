@@ -48,6 +48,11 @@ export interface ParamMeta {
   volatile?: boolean
   /** Who it is for: `standard` is what everybody sets, `advanced` is what only an expert touches (ArduPilot's `User`). */
   user?: 'standard' | 'advanced'
+  /**
+   * The group ArduPilot's definitions have it in: the library (`BATT_`, `INS_HNTCH_`, `SERIAL`) or the vehicle's own parameters
+   * (`ArduCopter`), as the file writes it. Our own format may give one too.
+   */
+  group?: string
 }
 
 export type Metadata = Map<string, ParamMeta>
@@ -140,6 +145,7 @@ function ownParam(raw: Raw): ParamMeta {
     readOnly: typeof raw.readOnly === 'boolean' ? raw.readOnly : undefined,
     volatile: typeof raw.volatile === 'boolean' ? raw.volatile : undefined,
     user: userOf(raw.user),
+    group: textOf(raw.group),
   })
 }
 
@@ -210,6 +216,17 @@ function fromOwn(params: Raw): Metadata {
 }
 
 /**
+ * A parameter with the group the file has it in.
+ *
+ * @param meta what is known of it
+ * @param group the group's name, as the file writes it (none when it is empty)
+ * @returns the same, with the group
+ */
+export function withGroup(meta: ParamMeta, group: string | null | undefined): ParamMeta {
+  return group ? { ...meta, group } : meta
+}
+
+/**
  * The parameters of an ArduPilot definition file: one object of parameters for each vehicle and library.
  *
  * @param file the whole file
@@ -221,7 +238,7 @@ function fromArduPilot(file: Raw): Metadata {
     for (const [id, raw] of group === 'json' ? [] : Object.entries(objectOf(params) ?? {})) {
       const param = objectOf(raw)
       if (param && !out.has(id)) {
-        out.set(id, ardupilotParam(param))
+        out.set(id, withGroup(ardupilotParam(param), group))
       }
     }
   }

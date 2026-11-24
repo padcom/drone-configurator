@@ -1267,7 +1267,30 @@
     "metadata": "Metadaten für {count} Parameter",
     "metadataLoaded": "Beschreibungen für {described} von {total} Parametern geladen",
     "metadataSome": "{matched} von {total} Parametern zugeordnet; mit Beschreibung: {described}",
-    "metadataNone": "0 von {total} Parametern zugeordnet. Von der Datei beschriebene Parameter: {known}, keiner davon an diesem Fahrzeug."
+    "metadataNone": "0 von {total} Parametern zugeordnet. Von der Datei beschriebene Parameter: {known}, keiner davon an diesem Fahrzeug.",
+    "also": "Auch: {words}",
+    "recent": {
+      "group": "Zuletzt verwendet",
+      "emptyTitle": "Noch nichts verwendet",
+      "emptyHelp": "Die Parameter, die Sie öffnen oder ändern, stehen hier, die neuesten zuerst."
+    },
+    "modified": {
+      "label": "Vom Standard geändert",
+      "unknown": "Die Standardwerte der Firmware sind nicht bekannt: Sie kommen mit einem Download per Dateiübertragung von einem Fahrzeug, das sie hat.",
+      "noMatch": "Kein geänderter Parameter passt zu „{query}“",
+      "noneHere": "Hier ist kein Parameter geändert",
+      "hiddenHelp": "„Vom Standard geändert“ ist an, darum ist der Rest der Liste ausgeblendet.",
+      "showAll": "Alle Parameter zeigen"
+    },
+    "groupBy": {
+      "label": "Gruppieren nach",
+      "name": "Name",
+      "metadata": "Metadaten"
+    },
+    "guide": {
+      "setup": "In der Einrichtung: {section}",
+      "tune": "Im Tuning: {section}"
+    }
   },
   "snapshot": {
     "save": "Snapshot speichern",

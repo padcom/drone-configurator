@@ -133,8 +133,9 @@ describe('the search by what a parameter does', () => {
     expect(await app.evaluate<string[]>(ids)).toEqual(['RTL_ALT'])
     expect(await app.evaluate<string[]>(marks)).toEqual(['return', 'altitude'])
 
+    // BATT_LOW_VOLT too, by its everyday words ("low battery warning", everydayWords.ts), a typo away.
     await app.fill('#filter', 'batery')
-    await app.waitForText('#list-status', '1 of 12 parameters')
+    await app.waitForText('#list-status', '2 of 12 parameters')
     expect(await app.text('tr[data-id="BATT_CAPACITY"] .why')).toMatch(/close match/iu)
     await app.fill('#filter', '')
     await app.waitForText('#list-status', '12 parameters')

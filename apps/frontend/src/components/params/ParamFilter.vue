@@ -11,6 +11,7 @@
       autocomplete="off"
       @input="parameters.setFilter(($event.target as HTMLInputElement).value)"
       @keydown.enter="focusList"
+      @keydown.esc="clearSearch"
       @keydown="moveSelection"
     >
     <button
@@ -35,10 +36,12 @@ import { moveListSelection } from '@/lib/params/paramListNav'
 import { focusSearch } from '@/lib/params/paramShortcuts'
 import { takeFocus } from '@/composables/useFocusIntent'
 import { useConfigurator } from '@/composables/useConfigurator'
+import { useRecentParams } from '@/composables/recentParams'
 
 // The search by name, with a way to clear it, and the button that downloads the list again.
 const { t } = useI18n()
 const { parameters, fields } = useConfigurator()
+const recent = useRecentParams()
 
 /** A command that went to this screen asked for the focus to be in the search box: it goes there once the box is shown. */
 async function takeAskedFocus(): Promise<void> {
@@ -69,15 +72,39 @@ function moveSelection(event: KeyboardEvent): void {
   }
 }
 
+/** The result the search opened is one of the recently used (an Enter with nothing typed opens nothing). */
+function openSelected(): void {
+  const opened = fields.selected.value
+  if (opened !== null && fields.filter.value.trim() !== '') {
+    void recent.touch(opened)
+  }
+}
+
 /**
- * Enter in the search goes to the list (which selects its first row when none is selected). The Enter that ends an input
- * method's composition (Japanese, Chinese, Korean) and the repeats of a key held down are not it.
+ * Enter in the search opens the selected result (the top one, unless the arrows moved): the focus goes to the list on it (which
+ * selects its first row when none is selected), and it is one of the recently used. The Enter that ends an input method's
+ * composition (Japanese, Chinese, Korean) and the repeats of a key held down are not it.
  *
  * @param event the key press
  */
 function focusList(event: KeyboardEvent): void {
   if (!event.isComposing && !event.repeat) {
     document.getElementById('param-list')?.focus()
+    openSelected()
+  }
+}
+
+/**
+ * Escape in the search clears it (the whole list comes back, the focus stays). With nothing typed the key is left to the rest of
+ * the page.
+ *
+ * @param event the key press
+ */
+function clearSearch(event: KeyboardEvent): void {
+  if (fields.filter.value !== '' && !event.isComposing) {
+    event.preventDefault()
+    event.stopPropagation()
+    parameters.setFilter('')
   }
 }
 </script>

@@ -8,7 +8,7 @@ import { FAVOURITES_KEY } from '@/composables/favourites'
 import { mockBackend } from '@/mock/mock-backend'
 import ParamGroups from './ParamGroups.vue'
 import ParamTable from './ParamTable.vue'
-import { FAVOURITES_GROUP } from '@/lib/params/paramGroups'
+import { FAVOURITES_GROUP, RECENT_GROUP } from '@/lib/params/paramGroups'
 import { feed, withI18n } from '@/testing/testing'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { GROUPS_KEY } from '@/composables/useGroupsSetting'
@@ -204,12 +204,12 @@ it('says nothing of a star that the settings could not keep: the star goes back,
   expect(table.get('tr[data-id="RTL_ALT"] td.star button').attributes('aria-pressed')).toBe('false')
 })
 
-it('has a Favourites group after All, with the count of the starred parameters the vehicle has', async () => {
+it('has a Favourites group after All, then Recently used, with the count of the starred parameters the vehicle has', async () => {
   const { groups } = await screen(['RTL_ALT', 'BATT_CAPACITY', 'NOT_ON_THIS_VEHICLE'])
   const buttons = groups.findAll('button').map(button => button.attributes('data-group'))
   const favourites = groups.get(`button[data-group="${FAVOURITES_GROUP}"]`)
 
-  expect(buttons.slice(0, 3)).toEqual(['', FAVOURITES_GROUP, 'ARMING'])
+  expect(buttons.slice(0, 4)).toEqual(['', FAVOURITES_GROUP, RECENT_GROUP, 'ARMING'])
   expect(favourites.text()).toBe('Favourites2')
   expect(favourites.attributes('title')).toBe('1 of your favourites is not on this vehicle.')
   expect(favourites.attributes('aria-description')).toBe('1 of your favourites is not on this vehicle.')

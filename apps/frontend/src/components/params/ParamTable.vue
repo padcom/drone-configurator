@@ -77,6 +77,11 @@
           <td v-if="meaning" class="meaning" :title="row.title || undefined">
             <span v-if="row.hit?.reason === 'close'" class="why">{{ t('params.closeMatch') }}</span>
             <Marked :text="row.shownMeaning" :tokens="tokens" />
+            <!-- A result found by the everyday words says which of them (everydayWords.ts), after what the metadata says. -->
+            <span v-if="row.hit?.also" class="also">
+              <span v-if="row.shownMeaning" aria-hidden="true"> · </span>
+              <Marked :text="t('params.also', { words: row.hit.also })" :tokens="tokens" />
+            </span>
           </td>
         </tr>
         <tr v-if="to < rows.length" class="spacer" aria-hidden="true">
@@ -85,6 +90,14 @@
       </tbody>
     </table>
     <EmptyState v-else-if="params.length === 0" :title="t('params.empty.title')" :help="t(emptyHelp)" />
+    <!-- "Modified from default" hides every match (of the search, or of the group): said, with the way to turn it off. -->
+    <EmptyState
+      v-else-if="hiddenByModified"
+      :title="modifiedTitle"
+      :help="t('params.modified.hiddenHelp')"
+    >
+      <Button id="show-unmodified" @click="modifiedFilter.set(false)">{{ t('params.modified.showAll') }}</Button>
+    </EmptyState>
     <!-- A group whose parameters are all advanced, in Standard: said, with the way to see them. -->
     <EmptyState
       v-else-if="hiddenByView"
@@ -95,8 +108,8 @@
     </EmptyState>
     <EmptyState
       v-else
-      :title="t(onlyFavourites ? 'params.favourites.emptyTitle' : 'params.noMatch.title')"
-      :help="t(onlyFavourites ? 'params.favourites.emptyHelp' : 'params.noMatch.help')"
+      :title="t(empty.title)"
+      :help="t(empty.help)"
     >
       <Button id="clear-search" @click="clear">{{ t('params.noMatch.clear') }}</Button>
     </EmptyState>
@@ -142,12 +155,15 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch
 import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { FAVOURITES_GROUP, effectiveGroup, splitName } from '@/lib/params/paramGroups'
+import { FAVOURITES_GROUP, RECENT_GROUP, effectiveGroup, isOwnGroup, splitName } from '@/lib/params/paramGroups'
 import { listStatusText, visibleParams } from '@/lib/params/paramList'
 import { isBookkeeping } from '@/lib/params/calibrationParams'
 import { clockText, initialIfChanged, resetTargets } from '@/lib/params/initialValues'
 import Icon from '@/components/ui/Icon.vue'
 import { useFavourites } from '@/composables/favourites'
+import { useModifiedFilter } from '@/composables/useModifiedFilter'
+import { useParamGrouping } from '@/composables/useParamGrouping'
+import { useRecentParams } from '@/composables/recentParams'
 import { useToasts } from '@/composables/toasts'
 import { registerListNav } from '@/lib/params/paramListNav'
 import { type SearchHit, search, tokensOf } from '@/lib/params/paramSearch'
@@ -176,10 +192,17 @@ const params = computed(() => fields.params.value)
 const downloadText = useDownloadText()
 // Without the groups (the setting "Show parameter groups" is off) there is no group to be in, and no star: the scope is All.
 const { shown: stars } = useGroupsSetting()
-const group = computed(() => stars.value ? effectiveGroup(params.value, choice.chosen.value) : '')
-// The starred parameters: kept in the settings, and listed by the Favourites group (the ones the vehicle has).
+// By the name or by the metadata (the group list offers the choice when the metadata has groups).
+const { grouping } = useParamGrouping()
+const group = computed(() => stars.value ? effectiveGroup(params.value, choice.chosen.value, grouping.value) : '')
+// The starred parameters: kept in the settings, and listed by the Favourites group (the ones the vehicle has). The recently used
+// ones likewise, newest first, in the Recently used group.
 const favourites = useFavourites()
+const recent = useRecentParams()
 const onlyFavourites = computed(() => group.value === FAVOURITES_GROUP)
+const onlyOwn = computed(() => isOwnGroup(group.value))
+// "Modified from default": the one filter that narrows a search too.
+const modifiedFilter = useModifiedFilter()
 // What the polite status says of the last star.
 const favouriteSaid = ref('')
 
@@ -262,9 +285,26 @@ const searchIndexNow = useParamSearchIndex()
 // What the chosen group lists: its parameters that the view lists (Standard leaves out the advanced ones), or the starred ones
 // that the vehicle has (a star is a choice of the user's: the view does not hide it). A search is over all, whatever the view.
 const { listed, view, choose: chooseView } = useParamView()
-const inGroup = computed(() => onlyFavourites.value
-  ? params.value.filter(param => favourites.set.value.has(param.id))
-  : visibleParams(listed.value, '', group.value))
+const byId = computed(() => new Map(params.value.map(param => [param.id, param])))
+
+/**
+ * The parameters of a list of names that the vehicle has, in the list's order.
+ *
+ * @param names the names
+ * @returns the parameters
+ */
+const onVehicleOf = (names: readonly string[]): Param[] => names
+  .map(name => byId.value.get(name))
+  .filter(param => param !== undefined)
+
+const inGroup = computed(() => {
+  const own: Record<string, () => Param[]> = {
+    [FAVOURITES_GROUP]: () => params.value.filter(param => favourites.set.value.has(param.id)),
+    [RECENT_GROUP]: () => onVehicleOf(recent.names.value),
+  }
+
+  return own[group.value]?.() ?? visibleParams(listed.value, '', group.value, grouping.value)
+})
 const tokens = computed(() => tokensOf(fields.filter.value))
 const hits = computed(() => {
   if (tokens.value.length === 0) {
@@ -273,20 +313,32 @@ const hits = computed(() => {
 
   return search(searchIndexNow(), fields.filter.value)
 })
+// What is listed before "Modified from default": the results of the search (over every parameter, whatever the group and the
+// view), or the chosen group.
+const unfiltered = computed(() => hits.value ? onVehicleOf(hits.value.map(hit => hit.id)) : inGroup.value)
 const visible = computed(() => {
-  const found = hits.value
-  const byId = found && new Map(params.value.map(param => [param.id, param]))
+  const { modified } = modifiedFilter
 
-  return found && byId
-    ? found.map(hit => byId.get(hit.id)).filter(param => param !== undefined)
-    : inGroup.value
+  return modifiedFilter.on.value ? unfiltered.value.filter(param => modified.value.has(param.id)) : unfiltered.value
 })
+// Nothing to list, and "Modified from default" is why (without it there would be rows).
+const hiddenByModified = computed(() => modifiedFilter.on.value && unfiltered.value.length > 0)
+const modifiedTitle = computed(() => (hits.value
+  ? t('params.modified.noMatch', { query: fields.filter.value.trim() })
+  : t('params.modified.noneHere')))
+// What an empty list of the user's own groups says (none starred, none used), else that nothing matches.
+const OWN_EMPTY: Record<string, { title: string, help: string }> = {
+  [FAVOURITES_GROUP]: { title: 'params.favourites.emptyTitle', help: 'params.favourites.emptyHelp' },
+  [RECENT_GROUP]: { title: 'params.recent.emptyTitle', help: 'params.recent.emptyHelp' },
+}
+const NO_MATCH = { title: 'params.noMatch.title', help: 'params.noMatch.help' }
+const empty = computed(() => (hits.value ? NO_MATCH : OWN_EMPTY[group.value] ?? NO_MATCH))
 // Nothing to list in the chosen group, and Standard is why (the group has parameters, all of them advanced; no search is typed).
 const hiddenByView = computed(() => [
   view.value === 'standard',
-  !onlyFavourites.value,
+  !onlyOwn.value,
   fields.filter.value.trim() === '',
-  visibleParams(params.value, '', group.value).length > 0,
+  visibleParams(params.value, '', group.value, grouping.value).length > 0,
 ].every(Boolean))
 const meaning = computed(() => fields.metadata.value.size > 0)
 const columns = computed(() => (meaning.value ? 3 : 2) + (stars.value ? 1 : 0))
@@ -483,6 +535,13 @@ function onFocus(): void {
   }
 }
 
+/** The selected parameter is opened (Enter goes to its value): it is one of the recently used. */
+function useSelected(): void {
+  if (fields.selected.value !== null) {
+    void recent.touch(fields.selected.value)
+  }
+}
+
 /**
  * Enter in the list: the focus goes to the Value field, with its text selected. A key that is held down repeats, and the
  * repeats do nothing (the first one has moved the focus: the next would be typed into the field).
@@ -493,6 +552,7 @@ function focusValue(event: KeyboardEvent): void {
   event.preventDefault()
 
   if (!event.repeat) {
+    useSelected()
     const field = document.getElementById('draft') as HTMLInputElement | null
     field?.focus()
     field?.select()
@@ -590,6 +650,7 @@ let clicked = ''
 function onRowClick(id: string): void {
   clicked = fields.selected.value === id ? '' : id
   parameters.select(id)
+  void recent.touch(id)
 }
 
 /** The parameter whose row the list has been scrolled to (or that the user clicked, so that it is in view). */
@@ -653,7 +714,7 @@ function toTop(): void {
 }
 // What is searched, which group is chosen, and which view: a change of any of them is a new list, from its top. The focus stays
 // where it is (the typing in the search goes on).
-watch([() => fields.filter.value, () => choice.chosen.value, view], toTop)
+watch([() => fields.filter.value, () => choice.chosen.value, view, grouping, modifiedFilter.on], toTop)
 
 let frame = 0
 /** Follows the scroll, once a frame at most (the scroll event comes more often than that). */

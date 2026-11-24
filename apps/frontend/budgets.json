@@ -77,6 +77,13 @@
       "noise": 2,
       "what": "A cached load of the connected vehicle's parameter metadata (#35): from asking the backend to the metadata in use, the file (the size of ArduPilot's Copter file) read from this computer's cache and parsed, as the line in Settings says it",
       "measuredBy": "e2e/metadata-download.e2e.ts"
+    },
+    "paramFilterKeystroke": {
+      "unit": "ms",
+      "budget": 16,
+      "noise": 2,
+      "what": "From a keystroke in the Parameters screen's search to the table's rows being in the page (the next task), with about 1,500 parameters and their descriptions loaded, typos (the close matches) included (#36)",
+      "measuredBy": "e2e/param-search-speed.e2e.ts, e2e/sitl-params.e2e.ts"
     }
   }
 }

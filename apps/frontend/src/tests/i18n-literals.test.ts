@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import { HOVER_LEARN } from '@/lib/tune/autotune'
 import { NOTCH_ENABLE, NOTCH_MODES, NOTCH_OPTIONS } from '@/lib/tune/filters'
 import { TUNE_FUNCTIONS } from '@/lib/tune/table'
+import { EVERYDAY_WORDS } from '@/lib/params/everydayWords'
 
 const SRC = fileURLToPath(new URL('..', import.meta.url))
 const FOLDERS = ['composables', 'lib', 'state', 'backend']
@@ -33,6 +34,9 @@ const ALLOWED: [string, string][] = [
   ...[
     'Scripting Matrix', 'Dynamic Scripting Matrix', 'Custom 4.1 and older',
   ].map((name): [string, string] => ['lib/setup/frame.ts', name]),
+  // The everyday words of the parameters (#36): what the search looks in, in English as ArduPilot's descriptions are (the search
+  // is over them both), not a message.
+  ...Object.values(EVERYDAY_WORDS).map((words): [string, string] => ['lib/params/everydayWords.ts', words]),
   // What the radio knob can tune (ArduPilot's own `@Values` of TUNE).
   ...TUNE_FUNCTIONS.map((one): [string, string] => ['lib/tune/table.ts', one.label]),
   // The names ArduPilot gives the values and the bits of the harmonic notch's parameters (`@Values` and `@Bitmask`).

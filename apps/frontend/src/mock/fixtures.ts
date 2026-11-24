@@ -34,6 +34,23 @@ export const PARAMS: Param[] = [
   p('WPNAV_SPEED', 'real', 'REAL32', 1000),
 ].map((param, index) => ({ ...param, index }))
 
+/** The firmware's defaults of the parameters the mock vehicle has away from them (the backend's simulated vehicle has these). */
+export const FIRMWARE_DEFAULTS: Readonly<Record<string, number>> = { BATT_CAPACITY: 3300, FS_THR_ENABLE: 0 }
+
+/**
+ * A list as a download by file transfer gives it: each parameter that is away from its firmware default carries the default.
+ *
+ * @param params the parameters
+ * @returns the same, with their defaults
+ */
+export function withDefaults(params: Param[]): Param[] {
+  return params.map(param => {
+    const value = FIRMWARE_DEFAULTS[param.id]
+
+    return value === undefined || value === param.value ? param : { ...param, default: value }
+  })
+}
+
 /**
  * A Copter that was set up, as far as the Setup pages can see: the usual parameters and those of its frame, accelerometer,
  * compass, radio, flight modes, failsafes and battery (the values of a vehicle that was calibrated, a mode switch on channel 5).

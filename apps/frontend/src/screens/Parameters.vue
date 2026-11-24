@@ -5,6 +5,7 @@
       <template #top>
         <div class="toolbar">
           <ParamFilter />
+          <ModifiedFilter />
           <ParamView />
           <SnapshotToolbar />
         </div>
@@ -19,10 +20,13 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRecentParams } from '@/composables/recentParams'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamShortcuts } from '@/lib/params/paramShortcuts'
 import { useConfigurator } from '@/composables/useConfigurator'
+import ModifiedFilter from '@/components/params/ModifiedFilter.vue'
 import ParamEditor from '@/components/params/ParamEditor.vue'
 import ParamFilter from '@/components/params/ParamFilter.vue'
 import ParamGroups from '@/components/params/ParamGroups.vue'
@@ -44,4 +48,13 @@ const { staged } = useConfigurator()
 // The group list is there unless the setting "Show parameter groups" is off (in the Settings screen alone).
 const { shown: groups } = useGroupsSetting()
 useParamShortcuts({ sync: () => staged.sync() })
+// A value queued for one parameter makes it one of the recently used (a reset of many, or a snapshot, does not).
+const recent = useRecentParams()
+watch(staged.changes, (now, before) => {
+  const known = new Set(before.map(change => change.id))
+  const added = now.filter(change => !known.has(change.id))
+  if (added.length === 1 && added[0]) {
+    void recent.touch(added[0].id)
+  }
+})
 </script>

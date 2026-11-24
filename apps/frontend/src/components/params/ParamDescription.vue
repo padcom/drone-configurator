@@ -20,7 +20,7 @@
         <h3 class="related-label">{{ t('editor.related') }}</h3>
         <ul class="related-list">
           <li v-for="item in related" :key="item.id" class="related-line">
-            <button type="button" class="related-item" @click="parameters.select(item.id)">{{ item.id }}</button>
+            <button type="button" class="related-item" @click="open(item.id)">{{ item.id }}</button>
             <span class="related-text" :title="item.text || undefined">{{ item.text }}</span>
           </li>
         </ul>
@@ -36,6 +36,8 @@ import SectionLabel from '@/components/ui/SectionLabel.vue'
 import { descriptionOf } from '@/lib/params/paramDescription'
 import { relatedTo } from '@/lib/params/paramEditor'
 import { useConfigurator } from '@/composables/useConfigurator'
+import { useParamGrouping } from '@/composables/useParamGrouping'
+import { useRecentParams } from '@/composables/recentParams'
 
 // The Description block of the parameter detail: what the loaded metadata says about the selected parameter in full (the long
 // text, the range and the rest; its name and short description are at the top of the detail) and, as the last part, the other
@@ -50,11 +52,23 @@ const block = computed(() => descriptionOf(
   fields.metadata.value.size > 0,
   t,
 ))
+const { grouping } = useParamGrouping()
+const recent = useRecentParams()
 const related = computed(() => {
-  const ids = param.value ? relatedTo(fields.params.value, param.value.id) : []
+  const ids = param.value ? relatedTo(fields.params.value, param.value.id, grouping.value) : []
 
   return ids.map(id => ({ id, text: fields.metadata.value.get(id)?.description ?? '' }))
 })
+/**
+ * Opens a related parameter: it is selected, and is one of the recently used.
+ *
+ * @param id the parameter
+ */
+function open(id: string): void {
+  parameters.select(id)
+  void recent.touch(id)
+}
+
 // The box that scrolls is there when there is anything to put in it.
 const hasBody = computed(() => Boolean(block.value.text) || block.value.rows.length > 0 || related.value.length > 0)
 </script>

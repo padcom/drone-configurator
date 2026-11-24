@@ -1,5 +1,16 @@
 <template>
   <nav class="param-groups" :aria-label="t('params.groups')" @keydown="move" @keydown.esc="leave">
+    <!-- By the name or by the metadata's groups, when the metadata has groups. The arrows choose in it (radio buttons); the keys
+         of the list of groups below are for the groups' buttons alone. -->
+    <SegmentedControl
+      v-if="grouping.available.value"
+      id="param-group-by"
+      class="group-by"
+      :model-value="grouping.by.value"
+      :label="t('params.groupBy.label')"
+      :options="byOptions"
+      @update:model-value="grouping.choose($event as GroupBy)"
+    />
     <button
       v-for="group in all"
       :key="group.id"
@@ -25,7 +36,10 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { edge, step } from '@/lib/ui/menuKeys'
 import { useFavourites } from '@/composables/favourites'
-import { FAVOURITES_GROUP, effectiveGroup, groupsOf } from '@/lib/params/paramGroups'
+import { FAVOURITES_GROUP, RECENT_GROUP, effectiveGroup, groupsOf } from '@/lib/params/paramGroups'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
+import { type GroupBy, useParamGrouping } from '@/composables/useParamGrouping'
+import { useRecentParams } from '@/composables/recentParams'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamGroup } from '@/composables/useParamGroup'
 import { useParamView } from '@/composables/useParamView'
@@ -39,14 +53,24 @@ const { fields, parameters } = useConfigurator()
 const choice = useParamGroup()
 // The counts are of what the view lists (Standard leaves out the advanced ones); the groups are all of them.
 const { listed } = useParamView()
-const groups = computed(() => groupsOf(fields.params.value, listed.value))
+const grouping = useParamGrouping()
+const byOptions = computed(() => [
+  { value: 'name', label: t('params.groupBy.name') },
+  { value: 'metadata', label: t('params.groupBy.metadata') },
+])
+const groups = computed(() => groupsOf(fields.params.value, listed.value, grouping.grouping.value))
 // The favourites the vehicle has, and how many it does not (the group's count is the first, its tooltip says the second).
 const favourites = useFavourites()
 const present = computed(() => fields.params.value.filter(param => favourites.set.value.has(param.id)).length)
 const missing = computed(() => favourites.names.value.length - present.value)
+// The recently used that the vehicle has.
+const recent = useRecentParams()
+const onVehicle = computed(() => new Set(fields.params.value.map(param => param.id)))
+const recentCount = computed(() => recent.names.value.filter(name => onVehicle.value.has(name)).length)
 const all = computed(() => [
   { id: '', count: listed.value.length },
   { id: FAVOURITES_GROUP, count: present.value },
+  { id: RECENT_GROUP, count: recentCount.value },
   ...groups.value,
 ])
 
@@ -65,14 +89,18 @@ function noteOf(id: string): string | undefined {
  * What a group is called in the list.
  *
  * @param id the group
- * @returns All, Favourites, or the group's own name
+ * @returns All, Favourites, Recently used, or the group's own name
  */
 function labelOf(id: string): string {
-  const named: Record<string, string> = { '': t('params.allGroups'), [FAVOURITES_GROUP]: t('params.favourites.group') }
+  const named: Record<string, string> = {
+    '': t('params.allGroups'),
+    [FAVOURITES_GROUP]: t('params.favourites.group'),
+    [RECENT_GROUP]: t('params.recent.group'),
+  }
 
   return named[id] ?? id
 }
-const current = computed(() => effectiveGroup(fields.params.value, choice.chosen.value))
+const current = computed(() => effectiveGroup(fields.params.value, choice.chosen.value, grouping.grouping.value))
 // The group the arrows moved the focus to; the one Tab stops at is that, else the chosen one (when it is in the list).
 const focused = ref<string | null>(null)
 const stop = computed(() => all.value.some(group => group.id === focused.value) ? focused.value : current.value)
@@ -127,7 +155,7 @@ function leave(event: KeyboardEvent): void {
  * @param event the key press
  */
 function move(event: KeyboardEvent): void {
-  const buttons = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('button')]
+  const buttons = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('button.param-group')]
   const from = buttons.indexOf(event.target as HTMLElement)
   if (!KEYS.has(event.key) || from < 0) {
     return

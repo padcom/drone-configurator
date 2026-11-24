@@ -95,6 +95,8 @@
     "param-description.e2e.ts": 1,
     "param-grid.e2e.ts": 2,
     "param-keys.e2e.ts": 4,
+    "param-search-speed.e2e.ts": 10,
+    "param-table.e2e.ts": 13,
     "plan-keys.e2e.ts": 4,
     "plan.e2e.ts": 8,
     "radio.e2e.ts": 20,
@@ -117,6 +119,7 @@
   },
   "sitl": {
     "sitl-metadata.e2e.ts": 90,
+    "sitl-params.e2e.ts": 40,
     "sitl-arming.e2e.ts": 70,
     "sitl-calibration.e2e.ts": 207,
     "sitl-flight-map.e2e.ts": 76,

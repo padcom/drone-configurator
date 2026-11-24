@@ -55,6 +55,17 @@
   font-size: var(--font-size-value-sm);
 }
 
+/* "Modified from default" in the toolbar: on one line, whatever room is left beside it. */
+.params .toolbar .modified-filter {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* The choice of grouping (by the name, by the metadata) above the groups. */
+.param-groups .group-by {
+  margin-bottom: var(--space-2);
+}
+
 .params {
   display: flex;
   flex: 999 1 460px;
@@ -223,6 +234,11 @@
 
 .param-scroll .meaning {
   color: var(--color-text-muted);
+}
+
+/* The everyday words a result was found by, after the description. */
+.param-scroll .also {
+  color: var(--color-text-dim);
 }
 
 /* The layout is fixed, and the widths of the name (and, with metadata, the value) are in the table's <colgroup> (ParamTable.vue),

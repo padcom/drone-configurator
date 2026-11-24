@@ -1,6 +1,6 @@
 // The search in the parameter list: by name and by what a parameter does, the marks, the close matches, and what it does not do
 // (it is not run again for a telemetry tick, and the table is not touched by one).
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { PARAMS, telemetryAt } from '@/mock/fixtures'
 import type { ParamMeta } from '@/lib/params/metadata'
@@ -10,12 +10,16 @@ import * as paramSearch from '@/lib/params/paramSearch'
 import { feed, withI18n } from '@/testing/testing'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { useParamGroup } from '@/composables/useParamGroup'
+import { loadEverydayWords } from '@/composables/useParamSearchIndex'
 
 vi.mock('@/lib/params/paramSearch', async importOriginal => {
   const actual = await importOriginal<typeof import('@/lib/params/paramSearch')>()
 
   return { ...actual, search: vi.fn(actual.search), indexFor: vi.fn(actual.indexFor) }
 })
+
+// The everyday words are loaded apart from the code the page starts with: in use before any test here.
+beforeAll(loadEverydayWords)
 
 afterEach(() => {
   useParamGroup().choose('')
@@ -87,16 +91,19 @@ it('spans every parameter whatever the group, and says a typo is a close match',
 
   await searchFor(handle, wrapper, 'batery')
 
-  expect(wrapper.findAll('#rows tr').map(row => row.attributes('data-id'))).toEqual(['BATT_CAPACITY'])
+  // BATT_LOW_VOLT by its everyday words ("low battery warning"), a typo away too.
+  expect(wrapper.findAll('#rows tr').map(row => row.attributes('data-id'))).toEqual(['BATT_CAPACITY', 'BATT_LOW_VOLT'])
   expect(wrapper.get('tr[data-id="BATT_CAPACITY"] .why').text()).toBe('Close match')
 })
 
-it('searches the names only without descriptions', async () => {
+it('searches the names and the everyday words without descriptions', async () => {
   const handle = createConfigurator(mockBackend())
   feed(handle, { params: PARAMS, list: 'complete' })
   const wrapper = mount(ParamTable, withI18n)
 
   await searchFor(handle, wrapper, 'return height')
+  expect(wrapper.findAll('#rows tr').map(row => row.attributes('data-id'))).toEqual(['RTL_ALT'])
+  await searchFor(handle, wrapper, 'nothing like this')
   expect(wrapper.find('#rows').exists()).toBe(false)
   await searchFor(handle, wrapper, 'low')
 

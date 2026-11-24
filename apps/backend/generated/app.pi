@@ -238,16 +238,23 @@ export struct Param {
   kind: ParamKind
   type: string
   value: f64
+  default?: f64
 }
 
 export function decodeParam(v: Cbor, path: string): Param throws InvalidPayload {
-  const m = members(v, path, ["id", "index", "kind", "type", "value"])
+  const m = members(v, path, ["id", "index", "kind", "type", "value", "default"])
+  const cbor5 = m.get("default")
+  let opt5: f64? = null
+  if (cbor5 != null) {
+    opt5 = float(cbor5, `${path}.default`)
+  }
   return Param {
     id: text(required(m, "id", path), `${path}.id`),
     index: (uint(required(m, "index", path), `${path}.index`, 65535) as u16),
     kind: decodeParamKind(required(m, "kind", path), `${path}.kind`),
     type: text(required(m, "type", path), `${path}.type`),
     value: float(required(m, "value", path), `${path}.value`),
+    default: opt5,
   }
 }
 
@@ -258,6 +265,10 @@ export function encodeParam(v: Param): Cbor {
   m.set("kind", encodeParamKind(v.kind))
   m.set("type", Cbor.Text(v.type))
   m.set("value", Cbor.Float(v.value))
+  const opt5 = v.default
+  if (opt5 != null) {
+    m.set("default", Cbor.Float(opt5))
+  }
   return Cbor.Dict(m)
 }
 
@@ -378,10 +389,11 @@ export struct ParamList {
   fallback?: string
   elapsedMs?: u32
   reused?: u16
+  defaults?: bool
 }
 
 export function decodeParamList(v: Cbor, path: string): ParamList throws InvalidPayload {
-  const m = members(v, path, ["params", "count", "complete", "missing", "source", "fallback", "elapsedMs", "reused"])
+  const m = members(v, path, ["params", "count", "complete", "missing", "source", "fallback", "elapsedMs", "reused", "defaults"])
   const cbor4 = m.get("source")
   let opt4: ParamListSource? = null
   if (cbor4 != null) {
@@ -402,6 +414,11 @@ export function decodeParamList(v: Cbor, path: string): ParamList throws Invalid
   if (cbor7 != null) {
     opt7 = (uint(cbor7, `${path}.reused`, 65535) as u16)
   }
+  const cbor8 = m.get("defaults")
+  let opt8: bool? = null
+  if (cbor8 != null) {
+    opt8 = boolean(cbor8, `${path}.defaults`)
+  }
   return ParamList {
     params: decodeParamListParamsList(required(m, "params", path), `${path}.params`),
     count: (uint(required(m, "count", path), `${path}.count`, 65535) as u16),
@@ -411,6 +428,7 @@ export function decodeParamList(v: Cbor, path: string): ParamList throws Invalid
     fallback: opt5,
     elapsedMs: opt6,
     reused: opt7,
+    defaults: opt8,
   }
 }
 
@@ -435,6 +453,10 @@ export function encodeParamList(v: ParamList): Cbor {
   const opt7 = v.reused
   if (opt7 != null) {
     m.set("reused", Cbor.Uint(opt7 as u64))
+  }
+  const opt8 = v.defaults
+  if (opt8 != null) {
+    m.set("defaults", Cbor.Bool(opt8))
   }
   return Cbor.Dict(m)
 }

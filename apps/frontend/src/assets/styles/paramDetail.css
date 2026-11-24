@@ -19,6 +19,14 @@
   color: var(--color-text-muted);
 }
 
+/* The link to the guided page that sets the parameter (Setup, Tune), under what it is. */
+.param-detail .guide {
+  display: inline-block;
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+}
+
 .param-detail .error {
   margin: 0;
   font-size: var(--font-size-sm);

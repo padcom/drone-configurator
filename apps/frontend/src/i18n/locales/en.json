@@ -1267,7 +1267,30 @@
     "metadata": "Metadata for {count} parameter | Metadata for {count} parameters",
     "metadataLoaded": "Loaded descriptions for {described} of {total} parameters",
     "metadataSome": "{matched} of {total} parameters matched; with a description: {described}",
-    "metadataNone": "0 of {total} parameters matched. Parameters the file describes: {known}, none of them on this vehicle."
+    "metadataNone": "0 of {total} parameters matched. Parameters the file describes: {known}, none of them on this vehicle.",
+    "also": "Also: {words}",
+    "recent": {
+      "group": "Recently used",
+      "emptyTitle": "Nothing used yet",
+      "emptyHelp": "The parameters you open or change are kept here, newest first."
+    },
+    "modified": {
+      "label": "Modified from default",
+      "unknown": "The firmware's defaults are not known: they come with a download by file transfer, from a vehicle that has them.",
+      "noMatch": "No modified parameter matches \"{query}\"",
+      "noneHere": "No modified parameter here",
+      "hiddenHelp": "Modified from default is on, so the rest of the list is hidden.",
+      "showAll": "Show all parameters"
+    },
+    "groupBy": {
+      "label": "Group by",
+      "name": "Name",
+      "metadata": "Metadata"
+    },
+    "guide": {
+      "setup": "Set up in {section}",
+      "tune": "Tune in {section}"
+    }
   },
   "snapshot": {
     "save": "Save snapshot",

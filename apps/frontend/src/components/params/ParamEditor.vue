@@ -9,6 +9,10 @@
           <header>
             <h2 class="param-name">{{ param.id }}</h2>
             <p v-if="meta?.description" class="description">{{ meta.description }}</p>
+            <!-- The page of Setup or Tune that sets this parameter with its own controls, where there is one. -->
+            <RouterLink v-if="guide" id="param-guide" class="guide" :to="guide.path">
+              {{ t(`params.guide.${guide.screen}`, { section: t(`${guide.screen}.section.${guide.section}`) }) }}
+            </RouterLink>
           </header>
           <p v-if="fields.draftError.value" id="draft-error" class="error" role="alert">{{ fields.draftError.value }}</p>
         </template>
@@ -102,6 +106,7 @@ import StagedChanges from './StagedChanges.vue'
 import Button from '@/components/ui/Button.vue'
 import Pane from '@/components/ui/Pane.vue'
 import TextInput from '@/components/ui/TextInput.vue'
+import { guideOf } from '@/lib/params/guides'
 import { initialIfChanged } from '@/lib/params/initialValues'
 import { bitNamesOf, numberOr, valueOptions } from '@/lib/params/paramEditor'
 import { canonical, showNumber } from '@/lib/params/paramValue'
@@ -116,6 +121,8 @@ const { t } = useI18n()
 const { parameters, fields, staged } = useConfigurator()
 const param = computed(() => fields.params.value.find(p => p.id === fields.selected.value) ?? null)
 const meta = computed(() => param.value ? fields.metadata.value.get(param.value.id) : undefined)
+// The guided page that sets the selected parameter, where there is one.
+const guide = computed(() => param.value ? guideOf(param.value.id) : null)
 const editable = computed(() => param.value !== null && fields.connection.value.state === 'connected')
 // The initial value of the selected parameter, when it is not at it (else undefined: there is nothing to reset).
 const initialValue = computed(() => initialIfChanged(param.value?.id, parameters.changed.value, fields.initial.value))

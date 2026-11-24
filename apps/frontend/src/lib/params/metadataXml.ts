@@ -13,7 +13,7 @@
 // A vehicle's own parameters are named with the vehicle in front (`ArduCopter:RTL_ALT`), a library's are not. What is kept is
 // what the JSON reader keeps (metadata.ts), with the same meaning: the human name is the short description, the documentation the
 // long one; when a name is in more than one group the first is kept.
-import type { Metadata, ParamMeta } from './metadata'
+import { type Metadata, type ParamMeta, withGroup } from './metadata'
 
 /**
  * A number written as text.
@@ -161,6 +161,16 @@ export function isPdefXml(text: string): boolean {
 }
 
 /**
+ * The group a parameter is in: the name of the `<parameters>` that holds it.
+ *
+ * @param param the parameter's element
+ * @returns the group's name, or null when it is in none
+ */
+function groupOf(param: Element): string | null {
+  return param.closest('parameters')?.getAttribute('name') ?? null
+}
+
+/**
  * Keeps a parameter, unless one of its name was kept already (the first group that has a name keeps it).
  *
  * @param out the metadata so far
@@ -169,7 +179,7 @@ export function isPdefXml(text: string): boolean {
 function keep(out: Metadata, param: Element): void {
   const id = idOf(param.getAttribute('name') ?? '')
   if (id !== '' && !out.has(id)) {
-    out.set(id, paramOf(param))
+    out.set(id, withGroup(paramOf(param), groupOf(param)))
   }
 }
 
