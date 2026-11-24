@@ -6498,3 +6498,88 @@ export function encodeLinkStats(v: LinkStats): Cbor {
   m.set("totalLost", Cbor.Uint(v.totalLost as u64))
   return Cbor.Dict(m)
 }
+
+export enum SigningStatusState { Off, Signed, NoAnswer, UnknownKey }
+
+export function decodeSigningStatusState(v: Cbor, path: string): SigningStatusState throws InvalidPayload {
+  match (text(v, path)) {
+    "off" => SigningStatusState.Off,
+    "signed" => SigningStatusState.Signed,
+    "no-answer" => SigningStatusState.NoAnswer,
+    "unknown-key" => SigningStatusState.UnknownKey,
+    _ => throw new InvalidPayload(path, "off or signed or no-answer or unknown-key"),
+  }
+}
+
+export function encodeSigningStatusState(v: SigningStatusState): Cbor {
+  match (v) {
+    Off => Cbor.Text("off"),
+    Signed => Cbor.Text("signed"),
+    NoAnswer => Cbor.Text("no-answer"),
+    UnknownKey => Cbor.Text("unknown-key"),
+  }
+}
+
+export struct SigningStatus {
+  state: SigningStatusState
+  fingerprint?: string
+  setAt?: u64
+}
+
+export function decodeSigningStatus(v: Cbor, path: string): SigningStatus throws InvalidPayload {
+  const m = members(v, path, ["state", "fingerprint", "setAt"])
+  const cbor1 = m.get("fingerprint")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.fingerprint`)
+  }
+  const cbor2 = m.get("setAt")
+  let opt2: u64? = null
+  if (cbor2 != null) {
+    opt2 = (uint(cbor2, `${path}.setAt`, 18446744073709551615) as u64)
+  }
+  return SigningStatus {
+    state: decodeSigningStatusState(required(m, "state", path), `${path}.state`),
+    fingerprint: opt1,
+    setAt: opt2,
+  }
+}
+
+export function encodeSigningStatus(v: SigningStatus): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("state", encodeSigningStatusState(v.state))
+  const opt1 = v.fingerprint
+  if (opt1 != null) {
+    m.set("fingerprint", Cbor.Text(opt1))
+  }
+  const opt2 = v.setAt
+  if (opt2 != null) {
+    m.set("setAt", Cbor.Uint(opt2 as u64))
+  }
+  return Cbor.Dict(m)
+}
+
+export struct SigningProvision {
+  passphrase?: string
+}
+
+export function decodeSigningProvision(v: Cbor, path: string): SigningProvision throws InvalidPayload {
+  const m = members(v, path, ["passphrase"])
+  const cbor0 = m.get("passphrase")
+  let opt0: string? = null
+  if (cbor0 != null) {
+    opt0 = text(cbor0, `${path}.passphrase`)
+  }
+  return SigningProvision {
+    passphrase: opt0,
+  }
+}
+
+export function encodeSigningProvision(v: SigningProvision): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.passphrase
+  if (opt0 != null) {
+    m.set("passphrase", Cbor.Text(opt0))
+  }
+  return Cbor.Dict(m)
+}

@@ -21,15 +21,35 @@ import {
   ParamSet,
   Received,
   SimParam,
+  SETUP_SIGNING_ID,
+  SigningKey,
   SimulatedAutopilot,
   StatusText,
   TcpStream,
   TypedParamValue,
   defaultSimParams,
+  signingTimestamp,
   simulatedLog,
 } from "padcom/pico-mavlink"
 
 let muted = false
+
+/// The signing key the last vehicle held when its connection ended: the next one starts with it, as a vehicle keeps its key in its
+/// storage (each connection is a new simulated vehicle). It is never printed: what is printed is whether there is one.
+class Held {
+  public key: SigningKey? = null
+}
+
+const held = new Held()
+
+/// Keeps the key `sim` holds for the next connection.
+function keepKey(sim: SimulatedAutopilot?): void {
+  if (sim == null) {
+    return
+  }
+  const policy = sim!.conn.signing
+  held.key = if (policy == null) null else policy!.signingKey
+}
 
 /// A stream that says when its far end has gone, and writes nothing after that (a write to a connection the peer has closed is a panic
 /// of the runtime, and a simulator that sends at 25 Hz meets that in the moment between the peer's close and its own stop).
@@ -87,13 +107,24 @@ class EndWatchingStream implements ByteStream {
 
 function serve(conn: Conn): void {
   let sim: SimulatedAutopilot? = null
-  const stream = new EndWatchingStream(new TcpStream(conn), () => sim?.stop())
+  const stream = new EndWatchingStream(new TcpStream(conn), () => {
+    keepKey(sim)
+    sim?.stop()
+  })
   muted = false
   const setup = env.get("VEHICLE_SETUP") == "1"
   sim = new SimulatedAutopilot(stream, if (setup) setupParams() else defaultSimParams())
+  // MAVLink signing (#33): the key of the last connection, and `signing on` or `signing off` to say which (never the key).
+  const key = held.key
+  if (key != null) {
+    sim!.signing.setKey(key!, signingTimestamp(Date.now() as int))
+  }
+  stdout.writeText(if (key != null) "signing on\n" else "signing off\n")
   sim!.conn.on((r: Received) => {
     const m = r.message
-    if (m instanceof ParamSet) {
+    if (r.packet.header.msgid == SETUP_SIGNING_ID) {
+      stdout.writeText("setup-signing\n")
+    } else if (m instanceof ParamSet) {
       stdout.writeText("param-set\n")
     } else if (m instanceof CommandLong && m.command as int == MavCmd.DO_MOTOR_TEST) {
       // a test of a motor begins with a timeout above 0, and ends with one of 0

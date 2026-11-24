@@ -1,0 +1,410 @@
+// MAVLink signing (#33) over an in-memory link against the simulated vehicle, which signs and checks as ArduPilot does (pico-mavlink's
+// SimSigning; a "simulator" link is not USB, so a vehicle that signs ignores unsigned commands). A key is provisioned and confirmed,
+// kept in its own file that only the owner can read, and the link signs; the next connection signs by itself; a vehicle whose signing
+// was reset, or that signs with another key, is said to be so; signing is turned off and the key forgotten. Nothing is changed while
+// the vehicle is armed or its state is unknown. And the key's bytes, in any form, are never in what the page is told (replies, errors,
+// events), in the settings document, or anywhere but the key file.
+import { describe, it, expect } from "std/test"
+import { chmod, exists, mkdir, readText, remove, writeText } from "std/fs"
+import { join } from "std/path"
+import { Command, pid } from "std/process"
+import { tmpDir } from "std/os"
+import { delay } from "std/timers"
+import { base64, hex } from "std/encoding"
+import { Cbor, Envelope, encodeEnvelope } from "pico-desktop/communicator"
+import { SigningKey, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  SettingsPatch,
+  SigningProvision,
+  UiEntry,
+  SigningStatusState,
+  decodeSigningStatus,
+  encodeConnectRequest,
+  encodeSettingsPatch,
+  encodeSigningProvision,
+} from "./generated/app"
+import { link } from "./session"
+import { restartForTests, useDirectoryForTests } from "./settings"
+import { keySigning, signingStatus, waits } from "./signing"
+import { KEYS_FILE, KeptKey, fingerprintOf, forgetKeysForTests, keysText, parseKeys } from "./signingkeys"
+import { Frontend, start } from "./testing"
+
+/// A test's directory for the settings and the keys, and what it saw.
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  /// Every reply and error the page was sent.
+  public readonly replies: Envelope[] = []
+  public keeper: int = -1
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+
+  /// Calls `name`, and keeps the reply.
+  public async call(name: string, payload: Cbor? = null): Promise<Envelope> throws Error {
+    const e = await f.call(name, payload)
+    replies.push(e)
+    return e
+  }
+}
+
+/// A backend with a directory of its own (no keys, no settings) and short waits; the simulated vehicles start with no key.
+async function rig(): Promise<Rig> throws Error {
+  const root = join(tmpDir(), `dc-signing-${pid}-${Date.now()}`)
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  forgetKeysForTests()
+  link.simulatorKey = null
+  waits.answerMs = 400
+  waits.retries = 2
+  waits.beatMs = 2500
+  const f = await start()
+  await f.subscribe("signing.status")
+  new Rig(f, root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  stopKeeping(r)
+  await r.f.call("vehicle.disconnect")
+  link.simulatorKey = null
+  await remove(r.root, true)
+}
+
+/// Connects to the simulator and waits for a fresh heartbeat (the armed state is known after one); the vehicle stays disarmed.
+async function connect(r: Rig): Promise<SimulatedAutopilot> throws Error {
+  stopKeeping(r)
+  await r.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  r.keeper = setInterval(() => { sim.ticks = 0 }, 100)
+  await afterBeat()
+  return sim
+}
+
+function stopKeeping(r: Rig): void {
+  if (r.keeper >= 0) {
+    clearInterval(r.keeper)
+    r.keeper = -1
+  }
+}
+
+/// Waits for the next heartbeat of the vehicle.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+/// What a signing call came to: the error code, or the state.
+function outcome(e: Envelope): string {
+  if (e.err != null) {
+    return e.err!.code
+  }
+  stateName(decodeSigningStatus(e.p ?? Cbor.Null, "$").state)
+}
+
+function stateName(s: SigningStatusState): string {
+  match (s) {
+    Off => "off",
+    Signed => "signed",
+    NoAnswer => "no-answer",
+    UnknownKey => "unknown-key",
+  }
+}
+
+async function provision(r: Rig, passphrase: string? = null): Promise<string> throws Error {
+  outcome(await r.call("signing.provision", encodeSigningProvision(SigningProvision { passphrase: passphrase })))
+}
+
+/// The key the simulated vehicle holds.
+function vehicleKey(sim: SimulatedAutopilot): SigningKey {
+  return sim.conn.signing!.signingKey
+}
+
+/// Whether `needle` is somewhere in `hay`.
+function contains(hay: Uint8Array, needle: Uint8Array): bool {
+  for (let i = 0; i + needle.length <= hay.length; i++) {
+    let all = true
+    for (let j = 0; j < needle.length && all; j++) {
+      all = hay[i + j] == needle[j]
+    }
+    if (all) {
+      return true
+    }
+  }
+  return false
+}
+
+/// The forms a key could be given away in: its bytes, its hex (both cases) and its base64.
+function formsOf(key: SigningKey): Uint8Array[] {
+  const bytes = key.reveal()
+  const text = hex.encode(bytes)
+  const encoder = new TextEncoder()
+  return [bytes, encoder.encode(text), encoder.encode(text.toUpperCase()), encoder.encode(base64.encode(bytes))]
+}
+
+/// Whether any form of `key` is in `bytes`.
+function givesAway(bytes: Uint8Array, key: SigningKey): bool {
+  for (const form of formsOf(key)) {
+    if (contains(bytes, form)) {
+      return true
+    }
+  }
+  return false
+}
+
+/// Whether anything the page was sent (replies, errors and the events heard) gives the key away.
+function pageSaw(r: Rig, key: SigningKey): bool {
+  for (const e of r.replies) {
+    if (givesAway(encodeEnvelope(e), key)) {
+      return true
+    }
+    if (e.err != null && givesAway(new TextEncoder().encode(e.err!.message), key)) {
+      return true
+    }
+  }
+  for (const e of r.f.heard) {
+    if (givesAway(encodeEnvelope(e), key)) {
+      return true
+    }
+  }
+  return false
+}
+
+/// The permissions of a file, as `stat` prints them (`600`).
+async function modeOf(path: string): Promise<string> throws Error {
+  (await new Command("stat", ["-c", "%a", path]).output()).stdout.trim()
+}
+
+async function provisionsARandomKeyAndSigns(): Promise<void> throws Error {
+  const r = await rig()
+  const sim = await connect(r)
+  expect(stateName(signingStatus().state)).toBe("off")
+  expect(await provision(r)).toBe("signed")
+  // The vehicle holds the key, signs with it, and the link signs and checks with it.
+  expect(sim.signing.enabled).toBe(true)
+  const key = vehicleKey(sim)
+  expect(link.conn!.signing!.signingKey.equals(key)).toBe(true)
+  expect(signingStatus().fingerprint).toBe(fingerprintOf(key))
+  expect(signingStatus().fingerprint!.length).toBe(8)
+  // A command goes signed and is answered: the vehicle's details are read.
+  const info = await r.call("vehicle.info")
+  expect(info.err == null).toBe(true)
+  // The key is in its own file, the owner's only, under the vehicle's identity, and nowhere the page can see.
+  const path = join(r.root, KEYS_FILE)
+  expect(await modeOf(path)).toBe("600")
+  const kept = parseKeys(await readText(path))
+  expect(kept.length).toBe(1)
+  expect(kept[0].vehicle).toBe(link.identity)
+  expect(kept[0].key.equals(key)).toBe(true)
+  expect(pageSaw(r, key)).toBe(false)
+  // The settings document (which the page reads) is written, and holds no key.
+  await r.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "test.entry", value: "1" }] }))
+  const settings = await readText(join(r.root, "settings.json"))
+  expect(settings.includes("test.entry")).toBe(true)
+  expect(givesAway(new TextEncoder().encode(settings), key)).toBe(false)
+  await done(r)
+}
+
+async function takesAPassphraseAsOtherStationsDo(): Promise<void> throws Error {
+  const r = await rig()
+  const sim = await connect(r)
+  const phrase = "correct horse battery staple"
+  expect(await provision(r, phrase)).toBe("signed")
+  expect(vehicleKey(sim).equals(SigningKey.fromPassphrase(phrase))).toBe(true)
+  // An empty passphrase, or a long one, is refused and not repeated; nothing is sent.
+  const long = "x".repeat(257)
+  expect(await provision(r, "")).toBe("INVALID_VALUE")
+  expect(await provision(r, long)).toBe("INVALID_VALUE")
+  for (const e of r.replies) {
+    if (e.err != null) {
+      expect(e.err!.message.includes(long)).toBe(false)
+    }
+  }
+  expect(sim.signing.setups).toBe(1)
+  expect(pageSaw(r, vehicleKey(sim))).toBe(false)
+  await done(r)
+}
+
+async function signsByItselfOnTheNextConnection(): Promise<void> throws Error {
+  const r = await rig()
+  const first = await connect(r)
+  expect(await provision(r)).toBe("signed")
+  const key = vehicleKey(first)
+  await r.call("vehicle.disconnect")
+  expect(stateName(signingStatus().state)).toBe("off")
+  // A backend that restarts reads the key from its file.
+  forgetKeysForTests()
+  restartForTests()
+  const second = await connect(r)
+  expect(second.signing.enabled).toBe(true)
+  expect(stateName(signingStatus().state)).toBe("signed")
+  expect(signingStatus().fingerprint).toBe(fingerprintOf(key))
+  expect(link.conn!.signing!.signingKey.equals(key)).toBe(true)
+  // Commands are answered: the vehicle takes what the link signs. (What went before the vehicle was identified went unsigned: the
+  // link's own heartbeats, which the vehicle ignored.)
+  const rejected = second.signing.rejectedUnsigned + second.signing.rejectedSignature
+  const info = await r.call("vehicle.info")
+  expect(info.err == null).toBe(true)
+  expect(second.signing.rejectedUnsigned + second.signing.rejectedSignature).toBe(rejected)
+  expect(pageSaw(r, key)).toBe(false)
+  await done(r)
+}
+
+async function saysSoWhenTheVehicleDoesNotSignWithTheKey(): Promise<void> throws Error {
+  const r = await rig()
+  await connect(r)
+  expect(await provision(r)).toBe("signed")
+  const fingerprint = signingStatus().fingerprint
+  await r.call("vehicle.disconnect")
+  // Its signing was reset over USB: it no longer signs; the key is held, and the page is told it does not answer with it.
+  link.simulatorKey = null
+  const reset = await connect(r)
+  expect(reset.signing.enabled).toBe(false)
+  expect(stateName(signingStatus().state)).toBe("no-answer")
+  expect(signingStatus().fingerprint).toBe(fingerprint)
+  expect(link.conn!.signing == null).toBe(true)
+  await r.call("vehicle.disconnect")
+  // Another station gave it a key this computer does not have.
+  link.simulatorKey = SigningKey.random()
+  await connect(r)
+  expect(stateName(signingStatus().state)).toBe("no-answer")
+  await done(r)
+}
+
+async function saysSoWhenTheVehicleSignsWithAnUnknownKey(): Promise<void> throws Error {
+  const r = await rig()
+  const other = SigningKey.random()
+  link.simulatorKey = other
+  await connect(r)
+  expect(stateName(signingStatus().state)).toBe("unknown-key")
+  expect(signingStatus().fingerprint == null).toBe(true)
+  await done(r)
+}
+
+async function turnsSigningOffAndForgetsTheKey(): Promise<void> throws Error {
+  const r = await rig()
+  const sim = await connect(r)
+  expect(await provision(r)).toBe("signed")
+  const key = vehicleKey(sim)
+  expect(outcome(await r.call("signing.disable"))).toBe("off")
+  expect(sim.signing.enabled).toBe(false)
+  expect(link.conn!.signing == null).toBe(true)
+  expect(parseKeys(await readText(join(r.root, KEYS_FILE))).length).toBe(0)
+  expect(pageSaw(r, key)).toBe(false)
+  await done(r)
+}
+
+async function refusesWhileArmedOrUnknownAndSendsNothing(): Promise<void> throws Error {
+  const r = await rig()
+  expect(await provision(r)).toBe("NOT_CONNECTED")
+  const sim = await connect(r)
+  link.armed = true
+  expect(await provision(r)).toBe("ARMED")
+  expect(outcome(await r.call("signing.disable"))).toBe("ARMED")
+  link.armed = false
+  link.heartbeatAt = (Date.now() as int) - 10000
+  expect(await provision(r)).toBe("STATE_UNKNOWN")
+  expect(outcome(await r.call("signing.disable"))).toBe("STATE_UNKNOWN")
+  expect(sim.signing.setups).toBe(0)
+  expect(await exists(join(r.root, KEYS_FILE))).toBe(false)
+  await done(r)
+}
+
+async function forgetsAKeyTheVehicleDidNotTake(): Promise<void> throws Error {
+  const r = await rig()
+  const sim = await connect(r)
+  // A vehicle without signing: SETUP_SIGNING goes nowhere.
+  sim.signing.ignoreSetup = true
+  expect(await provision(r)).toBe("NOT_CONFIRMED")
+  expect(sim.signing.enabled).toBe(false)
+  expect(link.conn!.signing == null).toBe(true)
+  expect(stateName(signingStatus().state)).toBe("off")
+  // Its heartbeats are not signed: the key is not kept.
+  expect(parseKeys(await readText(join(r.root, KEYS_FILE))).length).toBe(0)
+  for (const e of r.replies) {
+    if (e.err != null) {
+      expect(e.err!.message.includes("redacted")).toBe(false)
+    }
+  }
+  await done(r)
+}
+
+async function neverReplacesAKeysFileItCannotRead(): Promise<void> throws Error {
+  const r = await rig()
+  const path = join(r.root, KEYS_FILE)
+  await writeText(path, "{ not a keys file")
+  forgetKeysForTests()
+  const sim = await connect(r)
+  expect(await provision(r)).toBe("NOT_SAVED")
+  expect(sim.signing.setups).toBe(0)
+  expect(await readText(path)).toBe("{ not a keys file")
+  await done(r)
+}
+
+async function makesTheFileTheOwnersOnlyAgain(): Promise<void> throws Error {
+  const r = await rig()
+  const path = join(r.root, KEYS_FILE)
+  const key = SigningKey.random()
+  await writeText(path, keysText([new KeptKey("1/1/2/3/0", key, 1)]))
+  await chmod(path, 0o644)
+  forgetKeysForTests()
+  await connect(r)
+  expect(await modeOf(path)).toBe("600")
+  await done(r)
+}
+
+function keepsKeysOutOfWhatIsSaid(): void throws Error {
+  const key = SigningKey.random()
+  const kept = new KeptKey("1/1/2/3/0", key, 1783000000000)
+  const shown = `${kept} ${key}`
+  expect(givesAway(new TextEncoder().encode(shown), key)).toBe(false)
+  // The fingerprint is the SHA-256's start, not the key's.
+  expect(hex.encode(key.reveal()).startsWith(fingerprintOf(key))).toBe(false)
+  // A file that is not right is said to be so without quoting it.
+  const text = keysText([kept])
+  try {
+    parseKeys(text.replace("\"version\": 1", "\"version\": 7").replace(hex.encode(key.reveal()), hex.encode(key.reveal()).slice(1)))
+  } catch (e: Error) {
+    expect(givesAway(new TextEncoder().encode(e.message), key)).toBe(false)
+  }
+  try {
+    parseKeys(text.replace(hex.encode(key.reveal()), `${hex.encode(key.reveal())}00`))
+    expect(true).toBe(false)
+  } catch (e: Error) {
+    expect(givesAway(new TextEncoder().encode(e.message), key)).toBe(false)
+    expect(e.message).toBe(`${KEYS_FILE} has a key that is not 32 bytes of hex`)
+  }
+  // Round trip.
+  const back = parseKeys(text)
+  expect(back.length).toBe(1)
+  expect(back[0].key.equals(key)).toBe(true)
+  expect(back[0].setAt).toBe(1783000000000)
+}
+
+function findsTheKeyAHeartbeatIsSignedWith(): void throws Error {
+  const keys = [new KeptKey("a", SigningKey.random(), 1), new KeptKey("b", SigningKey.random(), 2)]
+  expect(keySigning(null, keys) == null).toBe(true)
+}
+
+describe("MAVLink signing (#33)", () => {
+  it("keeps a key out of what is said of it, and reads back what it writes", keepsKeysOutOfWhatIsSaid)
+  it("finds no key without a heartbeat", findsTheKeyAHeartbeatIsSignedWith)
+  it("provisions a random key, keeps it in the owner's file, and signs; the page never sees it", provisionsARandomKeyAndSigns)
+  it("takes a passphrase as other stations hash it, and refuses an empty or long one without repeating it", takesAPassphraseAsOtherStationsDo)
+  it("signs by itself on the next connection, after a restart too", signsByItselfOnTheNextConnection)
+  it("says when the vehicle does not sign with the key held (reset, or another key)", saysSoWhenTheVehicleDoesNotSignWithTheKey)
+  it("says when the vehicle signs with a key this computer does not have", saysSoWhenTheVehicleSignsWithAnUnknownKey)
+  it("turns signing off and forgets the key", turnsSigningOffAndForgetsTheKey)
+  it("refuses while armed or the state is unknown, and sends and keeps nothing", refusesWhileArmedOrUnknownAndSendsNothing)
+  it("forgets a key the vehicle did not take", forgetsAKeyTheVehicleDidNotTake)
+  it("never replaces a keys file it cannot read, and sends nothing then", neverReplacesAKeysFileItCannotRead)
+  it("makes the keys file the owner's only again when it reads it", makesTheFileTheOwnersOnlyAgain)
+})

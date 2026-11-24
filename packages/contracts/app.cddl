@@ -295,6 +295,21 @@ services = {
   ; `forward.status` gives every configured endpoint, in the settings' order, at once and then whenever something changes (at most
   ; twice a second while frames flow).
   "forward.status": ["subscription", null, forward-status],
+  ; MAVLink 2 message signing (#33). A key is made here (`signing.provision`: a random one, or the SHA-256 of `passphrase`), sent to
+  ; the connected vehicle with SETUP_SIGNING and confirmed by a signed command it answers signed; from then on the link signs what it
+  ; sends and drops what is not signed with the key (RADIO_STATUS from a radio excepted). The key is kept by the BACKEND, per vehicle,
+  ; in its own file in the app's data folder that only the user can read (not in the settings document), and never goes to the page:
+  ; the page sees whether the link is signed, a fingerprint and when the key was set. When a vehicle whose key is kept connects, the
+  ; link signs by itself; one that does not answer with the key is `no-answer` (the key may be wrong, or its signing was reset).
+  ; `signing.disable` turns the vehicle's signing off (the all-zero key) and confirms it, then forgets the key. Both are refused
+  ; before anything is sent with `NOT_CONNECTED`, `ARMED`, `STATE_UNKNOWN` (unknown counts as armed), `BUSY` (another signing
+  ; change, a parameter, plan, log, calibration or motor test is under way), `NO_VEHICLE_ID` (the vehicle is not identified yet);
+  ; `signing.provision` with `INVALID_VALUE` (an empty passphrase, or one over 256 characters) and `NOT_SAVED` (the key could not be
+  ; written: then nothing is sent, because a key that is not kept would lock this computer out). `NOT_CONFIRMED` when the vehicle
+  ; did not confirm (a provisioning that was not confirmed is undone here; the vehicle's state is then what its heartbeats say).
+  "signing.status": ["subscription", null, signing-status],
+  "signing.provision": ["method", signing-provision, signing-status],
+  "signing.disable": ["method", null, signing-status],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
@@ -1421,3 +1436,16 @@ link-stats = {
   totalReceived: uint .size 4,
   totalLost: uint .size 4,
 }
+; Whether the link to the connected vehicle is signed (#33). `off`: no key is kept for it (or no vehicle is connected) and its
+; heartbeats are not signed. `signed`: a key is kept for it and the vehicle signs with it; the link signs and checks. `no-answer`: a
+; key is kept for it but the vehicle does not sign with it (the key may be wrong, or its signing was reset over USB); the link goes
+; on unsigned. `unknown-key`: the vehicle signs, with a key this computer does not have (another ground station set it). With a key
+; kept: `fingerprint` (the first 8 hex digits of the SHA-256 of the key: it names the key and gives nothing of it away) and `setAt`
+; (when it was set, ms since 1970).
+signing-status = {
+  state: "off" / "signed" / "no-answer" / "unknown-key",
+  ? fingerprint: tstr,
+  ? setAt: uint .size 8,
+}
+; A random key (no passphrase), or the SHA-256 of a passphrase (as other ground stations make them): 1 to 256 characters.
+signing-provision = { ? passphrase: tstr }

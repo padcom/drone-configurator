@@ -33,7 +33,7 @@ const { t } = useI18n()
 /** The pages in the nav, by group. */
 const GROUPS = [
   { id: 'fly', sections: ['frame', 'accel', 'compass', 'radio', 'escs', 'motors', 'modes', 'failsafes', 'battery', 'initial'] },
-  { id: 'connections', sections: ['serial', 'devices'] },
+  { id: 'connections', sections: ['serial', 'signing', 'devices'] },
   { id: 'vehicle', sections: ['info'] },
 ] as const
 

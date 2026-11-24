@@ -119,6 +119,7 @@ const SETUP_LABELS = [
   'Switch to Setup: Overview',
   'Switch to Setup: Radio',
   'Switch to Setup: Serial ports',
+  'Switch to Setup: Signing',
   'Switch to Setup: Vehicle information',
 ]
 

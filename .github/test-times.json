@@ -42,6 +42,7 @@
     "serial.test.pi": 20,
     "settings.test.pi": 20,
     "settings_json.test.pi": 20,
+    "signing.test.pi": 45,
     "telemetry.test.pi": 34,
     "testing.test.pi": 20,
     "tlogdecoder.test.pi": 20,
@@ -98,6 +99,7 @@
     "setup-initial.e2e.ts": 9,
     "setup.e2e.ts": 9,
     "shell.e2e.ts": 2,
+    "signing.e2e.ts": 15,
     "spectrum-after.e2e.ts": 1,
     "switch-label.e2e.ts": 3,
     "takeoff.e2e.ts": 17,
@@ -121,6 +123,7 @@
     "sitl-logs.e2e.ts": 141,
     "sitl-plan.e2e.ts": 32,
     "sitl-reconnect.e2e.ts": 22,
+    "sitl-signing.e2e.ts": 60,
     "sitl-vehicles.e2e.ts": 60,
     "sitl.e2e.ts": 20
   }

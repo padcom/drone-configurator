@@ -34,6 +34,11 @@ export class TcpVehicle {
   motorStops = 0
   /** The interval (microseconds) it was last asked for each message: 0 when it was given back to its own rate. */
   readonly intervals = new Map<number, number>()
+  /** How many SETUP_SIGNING it took (#33), and whether the vehicle of the last connection started with a key. */
+  signingSetups = 0
+  startedSigned = false
+  /** Every line it printed (a test looks for what must never be in them: a key). */
+  readonly lines: string[] = []
   /** The TCP port it listens on, once it has said so. */
   port = 0
   readonly #child: ChildProcessByStdio<Writable, Readable, null>
@@ -120,6 +125,8 @@ export class TcpVehicle {
    * @param line a line the child printed after its port
    */
   #heard(line: string) {
+    this.lines.push(line)
+
     if (line === 'param-set') {
       this.writes += 1
       this.#waiters.splice(0).forEach(resolve => resolve())
@@ -128,6 +135,20 @@ export class TcpVehicle {
       this.intervals.set(Number(id), Number(microseconds))
     } else {
       this.#heardMotor(line)
+      this.#heardSigning(line)
+    }
+  }
+
+  /**
+   * Notes what it says of its signing: a SETUP_SIGNING taken, and whether a new connection's vehicle holds a key.
+   *
+   * @param line a line the child printed
+   */
+  #heardSigning(line: string) {
+    if (line === 'setup-signing') {
+      this.signingSetups += 1
+    } else if (line.startsWith('signing ')) {
+      this.startedSigned = line === 'signing on'
     }
   }
 

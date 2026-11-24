@@ -178,6 +178,43 @@
   text-transform: uppercase;
 }
 
+/* The LINK cell holds the quality and, beside it, whether the link is signed: an icon and a word, a link to the Signing page. */
+.top-bar .link-cell {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.top-bar .link-signing {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: 0 var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.top-bar .link-signing.ok {
+  color: var(--color-ok);
+}
+
+.top-bar .link-signing.warn {
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.top-bar .link-signing:hover {
+  background: var(--color-accent-soft);
+}
+
+.top-bar .link-signing:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .top-bar .link-details {
   display: grid;
   grid-template-columns: auto 1fr;

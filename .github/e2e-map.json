@@ -110,6 +110,14 @@
     },
     {
       "when": [
+        "apps/frontend/src/screens/setup/SetupSigning.vue", "apps/frontend/src/components/shell/SigningIndicator.vue",
+        "apps/frontend/src/composables/useSigning.ts", "apps/frontend/src/lib/setup/signing.ts", "apps/frontend/src/mock/mock-signing.ts",
+        "apps/backend/{signing,signingkeys,connection,reconnect,session,transports}.pi", "apps/backend/e2e/tcp-vehicle.pi"
+      ],
+      "specs": ["signing.e2e.ts", "sitl-signing.e2e.ts"]
+    },
+    {
+      "when": [
         "apps/backend/{telemetry,groups,session}.pi", "apps/backend/e2e/tcp-vehicle.pi", "apps/frontend/budgets.json",
         "apps/frontend/src/components/fly/**", "apps/frontend/src/lib/fly/**", "apps/frontend/src/screens/FlightData.vue",
         "apps/frontend/src/composables/{useVehicle,useConfigurator}.ts"

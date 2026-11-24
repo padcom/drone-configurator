@@ -9,10 +9,12 @@ import {
   MavLinkRouter,
   MavType,
   ParamEncoding,
+  SigningKey,
   SimulatedAutopilot,
   Vehicle,
   VehicleDiscovery,
   encodingOf,
+  signingTimestamp,
 } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, VehicleInfo, encodeConnection } from "./generated/app"
 import { Beats } from "./heartbeat"
@@ -46,6 +48,9 @@ class Link {
   public capabilities: int = -1
   /// Whether the simulated vehicle answers AUTOPILOT_VERSION (a test can turn it off).
   public simulatorVersion: bool = true
+  /// The signing key the last simulated vehicle held when its session ended: the next one starts with it, as a vehicle keeps its key
+  /// in its storage (a "simulator" connection makes a new simulated vehicle each time).
+  public simulatorKey: SigningKey? = null
   /// Why file transfer was given up for the downloads that follow, for this vehicle on this connection: "" (not given up),
   /// "unsupported" (the vehicle has no parameter file: kept until the connection ends) or "timeout" (it did not answer: kept for
   /// the next download only, so the one after tries again). See params.pi.
@@ -134,6 +139,17 @@ class Link {
     }
   }
 
+  /// A simulated vehicle was made for a "simulator" connection: it gets the test's choices and the key the last one held.
+  public adoptSimulator(s: SimulatedAutopilot): void {
+    s.ftp = simulatorFtp
+    s.answersVersion = simulatorVersion
+    const key = simulatorKey
+    if (key != null) {
+      s.signing.setKey(key!, signingTimestamp(Date.now() as int))
+    }
+    sim = s
+  }
+
   /// Forgets which parameters the vehicle has: what was downloaded is not what a vehicle that comes back (another one, or the same one with
   /// another firmware after a reboot) has.
   public forgetParameterNames(): void {
@@ -209,6 +225,10 @@ class Link {
     }
     const c = conn
     const s = sim
+    if (s != null) {
+      const held = s!.conn.signing
+      simulatorKey = if (held == null) null else held!.signingKey
+    }
     if (sayingGoodbye()) {
       // Something must still be said: a motor test is under way (its stop was just sent, motors.pi), or the tuning stream's rates are
       // being given back (tuningstream.pi). The router drops a frame that was not on a link when it is closed (it takes the link's turn
