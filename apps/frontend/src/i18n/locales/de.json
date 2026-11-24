@@ -30,7 +30,38 @@
       "udp": "Prüfe, ob das Fahrzeug oder der Simulator an diesen Host und Port sendet, und verbinde dann erneut.",
       "tcp": "Prüfe, ob das Fahrzeug auf dieser Adresse lauscht und ob nichts anderes sie belegt, und verbinde dann erneut.",
       "serial": "Prüfe das Kabel, ob kein anderes Programm den Port geöffnet hat, und die Baudrate, und verbinde dann erneut.",
-      "simulator": "Schließe den Dialog und versuche es noch einmal; wenn es weiter fehlschlägt, starte die Anwendung neu."
+      "simulator": "Schließe den Dialog und versuche es noch einmal; wenn es weiter fehlschlägt, starte die Anwendung neu.",
+      "udp-client": "Prüfen Sie, ob das Fahrzeug auf diesem Host und Port lauscht und keine Firewall seine Antworten blockiert, dann verbinden Sie erneut.",
+      "tcp-server": "Prüfen Sie, ob sich das Fahrzeug oder die Weiterleitung mit diesem Port verbindet und nichts anderes ihn nutzt, dann verbinden Sie erneut."
+    },
+    "role": {
+      "label": "Wer die Verbindung beginnt",
+      "udp": "Auf das Fahrzeug warten",
+      "udp-client": "An das Fahrzeug senden",
+      "tcp": "Mit dem Fahrzeug verbinden",
+      "tcp-server": "Das Fahrzeug verbinden lassen",
+      "note": {
+        "udp": "Das Fahrzeug oder der Simulator sendet an diesen Computer.",
+        "udp-client": "Dieser Computer sendet zuerst an das Fahrzeug und nimmt seine Antworten an: für ein Fahrzeug, einen Begleitrechner oder einen Router, der lauscht.",
+        "tcp": "Dieser Computer verbindet sich mit dem Fahrzeug, das auf dem Port lauscht.",
+        "tcp-server": "Dieser Computer lauscht auf dem Port, und das Fahrzeug oder eine Weiterleitung verbindet sich damit. Er wartet bis zu 30 Sekunden."
+      }
+    },
+    "everywhere": "Auf allen Netzwerkschnittstellen lauschen",
+    "loopback": "Nur Programme auf diesem Computer erreichen Port {port}.",
+    "exposed": "Andere Computer in Ihrem Netzwerk erreichen Port {port}. Wählen Sie das nur in einem Netzwerk, dem Sie vertrauen.",
+    "found": {
+      "label": "Fahrzeuge im Netzwerk",
+      "again": "Erneut suchen",
+      "looking": "Suche im Netzwerk…",
+      "none": "Im Netzwerk hat sich kein MAVLink-Dienst gemeldet. Prüfen Sie, ob das Fahrzeug in diesem Netzwerk ist, oder verbinden Sie sich über die Adresse.",
+      "failed": "Im Netzwerk konnte nicht gesucht werden: {error}. Prüfen Sie die Netzwerkverbindung, oder verbinden Sie sich über die Adresse.",
+      "count": "{count} Dienst gefunden. | {count} Dienste gefunden.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -1014,7 +1045,8 @@
       "simulator": "Simulator",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Seriell"
+      "serial": "Seriell",
+      "found": "Gefunden"
     },
     "host": "Host",
     "port": "Port",

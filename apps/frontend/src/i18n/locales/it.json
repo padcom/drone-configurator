@@ -30,7 +30,38 @@
       "udp": "Controlla che il veicolo o il simulatore invii a questo host e a questa porta, poi connetti di nuovo.",
       "tcp": "Controlla che il veicolo sia in ascolto su questo indirizzo e che nient'altro lo stia usando, poi connetti di nuovo.",
       "serial": "Controlla il cavo, che nessun altro programma abbia aperto la porta e la velocità in baud, poi connetti di nuovo.",
-      "simulator": "Chiudi la finestra e riprova; se continua a non funzionare, riavvia l'applicazione."
+      "simulator": "Chiudi la finestra e riprova; se continua a non funzionare, riavvia l'applicazione.",
+      "udp-client": "Controlla che il veicolo ascolti su questo host e porta, e che nessun firewall blocchi le sue risposte, poi connettiti di nuovo.",
+      "tcp-server": "Controlla che il veicolo o l'inoltro si connetta a questa porta, e che nient'altro la usi, poi connettiti di nuovo."
+    },
+    "role": {
+      "label": "Chi avvia il collegamento",
+      "udp": "Ascolta il veicolo",
+      "udp-client": "Invia al veicolo",
+      "tcp": "Connettiti al veicolo",
+      "tcp-server": "Lascia connettere il veicolo",
+      "note": {
+        "udp": "Il veicolo o il simulatore invia a questo computer.",
+        "udp-client": "Questo computer invia per primo al veicolo e riceve le sue risposte: per un veicolo, un computer di bordo o un router in ascolto.",
+        "tcp": "Questo computer si connette al veicolo, che ascolta sulla porta.",
+        "tcp-server": "Questo computer ascolta sulla porta, e il veicolo o un inoltro si connette. Attende fino a 30 secondi."
+      }
+    },
+    "everywhere": "Ascolta su tutte le interfacce di rete",
+    "loopback": "Solo i programmi su questo computer raggiungono la porta {port}.",
+    "exposed": "Altri computer della tua rete raggiungono la porta {port}. Sceglilo solo su una rete di cui ti fidi.",
+    "found": {
+      "label": "Veicoli in rete",
+      "again": "Cerca di nuovo",
+      "looking": "Ricerca in rete…",
+      "none": "Nessun servizio MAVLink si è annunciato in rete. Controlla che il veicolo sia su questa rete, o connettiti tramite indirizzo.",
+      "failed": "Impossibile cercare in rete: {error}. Controlla la connessione di rete, o connettiti tramite indirizzo.",
+      "count": "Trovato {count} servizio. | Trovati {count} servizi.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -1014,7 +1045,8 @@
       "simulator": "Simulatore",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Seriale"
+      "serial": "Seriale",
+      "found": "Trovati"
     },
     "host": "Host",
     "port": "Porta",

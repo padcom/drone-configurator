@@ -256,6 +256,9 @@ services = {
   ; "UNREADABLE".
   "files.read": ["method", file-read, file-contents],
   "serial.ports": ["method", null, serial-ports],
+  ; MAVLink services that announce themselves on the local network (#197), over multicast DNS service discovery (RFC 6762,
+  ; RFC 6763). See `discovered-services`.
+  "discovery.browse": ["method", null, discovered-services],
   ; Settings that survive a restart (see `settings`). `settings.set` takes a patch and answers with the document it made.
   "settings.get": ["method", null, settings-state],
   "settings.set": ["method", settings-patch, settings-state],
@@ -299,13 +302,18 @@ services = {
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
 ; without hardware or SITL; "udp" listens on `host`:`port` (default 127.0.0.1:14550, where SITL and most telemetry
-; bridges send); "serial" is a USB or UART port (`device`, at `baud`). A serial request without `device` uses the port
+; bridges send); "udp-client" sends to `host`:`port` first (default 127.0.0.1:14550: a vehicle, a companion computer or a
+; MAVLink router that listens there) and takes the datagrams that come back, from a port of its own (#197); "tcp" connects to
+; `host`:`port` (default 127.0.0.1:5760); "tcp-server" listens on `host`:`port` (default 127.0.0.1:5760) and takes the vehicle,
+; or a forwarder, that connects in: one at a time, and the next one when it goes (the session waits up to 30 s for the first
+; heartbeat, not 3). The two that listen take `host` as the address to listen on: 127.0.0.1 unless the user chose every
+; interface ("0.0.0.0", which exposes the port to the network); "serial" is a USB or UART port (`device`, at `baud`). A serial request without `device` uses the port
 ; most likely to be an autopilot (`serial-port.likely`); without `baud` the backend tries the common rates in turn until
 ; MAVLink arrives (#27). A failed detection says why in `connection.errorCode`: "NO_SERIAL_PORT" (no port to try),
 ; "NO_AUTOPILOT_PORT" (several ports, none recognised), "PORT_GONE" (the port went away while it was being tried),
 ; "NO_MAVLINK" (no rate brought MAVLink).
 connect-request = {
-  transport: "simulator" / "udp" / "tcp" / "serial",
+  transport: "simulator" / "udp" / "udp-client" / "tcp" / "tcp-server" / "serial",
   ? host: tstr,
   ? port: uint .size 2,
   ? device: tstr,
@@ -1186,6 +1194,16 @@ file-opened = { ? path: tstr, ? text: tstr }
 file-read = { path: tstr }
 
 file-contents = { text: tstr }
+
+; What answered a look for MAVLink services on the local network, in about two seconds: the DNS-SD service types
+; `_mavlink._udp` and `_mavlink._tcp`, the ones BlueOS and CubePilot's Herelink announce and QGroundControl browses. The
+; backend asks once, from a port of its own, and the responders answer it directly (a one-shot query, RFC 6762 section
+; 5.1), so only what answers on the network of the machine's default route is found, and nothing that announces itself
+; later. A `_mavlink._udp` service is reached by sending to it ("udp-client"), a `_mavlink._tcp` one by connecting to it
+; ("tcp"). `name` is the name the service gives itself; `host` its IPv4 address when it was told, else its host name.
+; `error` says why nothing could be asked (no network); an empty list with no error is a look that found nothing.
+discovered-services = { services: [* discovered-service], ? error: tstr }
+discovered-service = { name: tstr, transport: "udp-client" / "tcp", host: tstr, port: uint .size 2 }
 
 ; The serial ports the backend's machine has (padcom/serialport's listPorts).
 serial-ports = { ports: [* serial-port] }

@@ -6,6 +6,7 @@ import { SimulatedAutopilot } from "padcom/pico-mavlink"
 import { register as registerArming } from "./arming"
 import { register as registerCalibration } from "./calibration"
 import { register as registerConnection } from "./connection"
+import { register as registerDiscovery } from "./discovery"
 import { register as registerFiles } from "./files"
 import { register as registerForward } from "./forward"
 import { register as registerLinkStats } from "./linkstats"
@@ -52,6 +53,11 @@ export function setHeartbeatWait(ms: int): void {
   link.heartbeatWaitMs = ms
 }
 
+/// For tests: a shorter wait for a vehicle to connect to a TCP port the backend listens on than 30 s.
+export function setServerWait(ms: int): void {
+  link.serverWaitMs = ms
+}
+
 /// The backend on `transport` (the app runs it on stdio; tests on a memory link).
 export function createBackend(transport: Transport): Communicator {
   const c = new Communicator(transport)
@@ -59,6 +65,7 @@ export function createBackend(transport: Transport): Communicator {
   // flight), so nothing keeps this process alive past the host's grace period.
   c.onClosing = () => link.close()
   registerConnection(c)
+  registerDiscovery(c)
   registerForward(c)
   registerParams(c)
   registerReboot(c)

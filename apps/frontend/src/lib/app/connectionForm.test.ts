@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { FIRST_FORM, deviceAmong, lastRequest, requestFor } from './connectionForm'
+import { FIRST_FORM, TRANSPORTS, deviceAmong, lastRequest, listens, requestFor, tabOf, transportFor } from './connectionForm'
 
 const form = { transport: 'tcp' as const, host: '', port: '', device: '', baud: '115200' }
 
@@ -45,4 +45,27 @@ it('keeps the chosen device while it is listed, else leaves it to the backend', 
   expect(deviceAmong('gone', ports)).toBe('')
   expect(deviceAmong('', ports)).toBe('')
   expect(deviceAmong('a', [])).toBe('')
+})
+
+it('sends a host for a link that goes to the vehicle, and for one that listens only every interface (#197)', () => {
+  expect(requestFor({ ...form, transport: 'udp-client', host: ' 10.0.0.2 ', port: '14551' }))
+    .toEqual({ transport: 'udp-client', host: '10.0.0.2', port: 14551 })
+  expect(requestFor({ ...form, transport: 'tcp-server', host: '10.0.0.2' })).toEqual({ transport: 'tcp-server' })
+  expect(requestFor({ ...form, transport: 'tcp-server', host: '0.0.0.0', port: '5770' }))
+    .toEqual({ transport: 'tcp-server', host: '0.0.0.0', port: 5770 })
+  expect(requestFor({ ...form, transport: 'udp', host: '127.0.0.1' })).toEqual({ transport: 'udp' })
+})
+
+it('puts each kind of link under its tab, and a tab keeps the way round that is chosen', () => {
+  expect(TRANSPORTS.map(tabOf)).toEqual(['udp', 'udp', 'tcp', 'tcp', 'serial', 'simulator'])
+  expect(transportFor('udp', 'udp-client')).toBe('udp-client')
+  expect(transportFor('tcp', 'udp-client')).toBe('tcp')
+  expect(transportFor('serial', 'tcp-server')).toBe('serial')
+  expect([listens('udp'), listens('tcp-server'), listens('udp-client'), listens('tcp')]).toEqual([true, true, false, false])
+})
+
+it('reconnects to a last connection of the new kinds', () => {
+  const last = { ...form, transport: 'tcp-server' as const, host: '0.0.0.0', port: '5770' }
+
+  expect(lastRequest(JSON.stringify(last))).toEqual({ transport: 'tcp-server', host: '0.0.0.0', port: 5770 })
 })
