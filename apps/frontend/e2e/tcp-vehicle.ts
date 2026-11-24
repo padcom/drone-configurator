@@ -66,6 +66,16 @@ export class TcpVehicle {
   }
 
   /**
+   * Builds and starts one that never arms and has nothing else (a write from a review of a snapshot or a parameter file is
+   * refused while the vehicle is armed or may be).
+   *
+   * @returns the running vehicle, with its port known
+   */
+  static startDisarmed(): Promise<TcpVehicle> {
+    return TcpVehicle.#launch({ ...environment(false, false, '', false), VEHICLE_DISARMED: '1' })
+  }
+
+  /**
    * Builds and starts it.
    *
    * @param env its environment

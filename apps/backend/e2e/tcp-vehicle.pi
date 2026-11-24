@@ -112,6 +112,10 @@ function serve(conn: Conn): void {
   if (env.get("VEHICLE_LOGS") == "1") {
     withLogs(sim!)
   }
+  // A vehicle that stays disarmed and has nothing else (a write from a parameter file's review is refused while armed).
+  if (env.get("VEHICLE_DISARMED") == "1") {
+    stayDisarmed(sim!)
+  }
   if (env.get("VEHICLE_50HZ") == "1") {
     stayDisarmed(sim!)
     sendsAt50Hz(sim!, stream)

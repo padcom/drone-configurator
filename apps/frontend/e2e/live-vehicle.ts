@@ -1,6 +1,6 @@
 // The checks for a vehicle reached over a real link, in the real window. They say nothing about
 // which vehicle it is: each *.e2e.ts says that (ArduPilot SITL, or the simulator behind TCP).
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
@@ -36,6 +36,11 @@ export interface LiveVehicle {
   /** An integer parameter that's safe to change by `paramStep`, and is put back afterwards. */
   param: string
   paramStep: number
+  /** Its parameters stay as they are while it stands (no counters or learned values): a file saved from it and loaded back is
+   * the same to the last bit. */
+  stableParams: boolean
+  /** A parameter file ArduPilot itself has (its Tools/autotest/default_params), to load for review, if there is one here. */
+  realParamFile?: () => string | null
 }
 
 /**
@@ -111,6 +116,25 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   }
 
   const valueIn = (saved: Saved) => saved.params.find(p => p.id === vehicle.param)?.value
+
+  /** The text of the file the app saved whose name starts with `prefix` and ends with `suffix`, once it's there. */
+  async function savedText(prefix: string, suffix: string): Promise<string> {
+    return vi.waitFor(() => {
+      const name = readdirSync(files).find(f => f.startsWith(prefix) && f.endsWith(suffix))
+      if (!name) {
+        throw new Error(`no ${prefix}*${suffix} file saved in ${files}`)
+      }
+
+      return readFileSync(join(files, name), 'utf8')
+    }, { timeout: 10_000, interval: 100 })
+  }
+
+  /** Loads `text` as a parameter file (the backend opens `open.param` of the test folder), and waits for its review. */
+  async function loadParamFile(text: string): Promise<void> {
+    writeFileSync(join(files, 'open.param'), text)
+    await app.click('#load-button')
+    await app.waitForText('#import', 'Parameter file: ')
+  }
 
   beforeAll(async () => {
     // Instead of the native file dialogs, which a test can't click (the backend's FileChooser).
@@ -257,6 +281,59 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
 
     await app.click('#backup')
     expect(valueIn(await savedSnapshot('backup-'))).toBe(original)
+    await app.click('#close-import')
+  })
+
+  it('saves a .param file, loads it back unchanged, and applies an edited one with a read-back', async ({ onTestFinished }) => {
+    const original = await currentValue()
+    onTestFinished(() => putBack(original))
+    onTestFinished(() => rmSync(join(files, 'open.param'), { force: true }))
+    const changed = original + vehicle.paramStep
+
+    await app.click('#save-param')
+    const saved = await savedText('params-', '.param')
+    const lines = saved.split('\n')
+    expect(lines[0]).toMatch(/^# Parameters of QUADROTOR \(ARDUPILOTMEGA\), vehicle 1, saved by Drone Configurator on /u)
+    expect(lines).toContain(`${vehicle.param},${original}`)
+    expect(saved).not.toContain('\r')
+
+    // As it was saved: the same, to the last bit of every float (on a vehicle whose counters run, those few differ).
+    await loadParamFile(saved)
+    const [, differ = '', same = ''] = /^Different: (\d+); already the same: (\d+)\./u.exec(await app.text('.review-head p')) ?? []
+    console.info(`a .param file loaded back unchanged: ${differ} differ, ${same} the same`)
+    expect(Number(differ) + Number(same)).toBe(lines.length - 2)
+    expect(Number(differ)).toBeLessThanOrEqual(vehicle.stableParams ? 0 : 5)
+    await app.click('#close-import')
+
+    // Edited the way a person does: CRLF line ends, a comment, a value changed, and a name the vehicle does not have.
+    const edited = ['# edited by hand', ...lines.filter(line => !line.startsWith(`${vehicle.param},`)), `${vehicle.param} ${changed}`]
+    await loadParamFile([...edited, 'NOT_ON_VEHICLE,1'].join('\r\n'))
+    await app.waitForText('#import', new RegExp(`${vehicle.param}\\s+${original}\\s+→ ${changed}`, 'u'))
+    await app.waitForText('#import', /NOT_ON_VEHICLE\s+—\s+→ 1\s+not on this vehicle/u)
+    expect(await app.evaluate<boolean>(`document.querySelector('input[data-pick="NOT_ON_VEHICLE"]').disabled`)).toBe(true)
+    expect(await app.evaluate<boolean>(`document.querySelector('input[data-pick="${vehicle.param}"]').checked`)).toBe(false)
+
+    await app.click(`input[data-pick="${vehicle.param}"]`)
+    await app.click('#apply')
+    await app.waitForText('#question', `Write 1 parameter to the vehicle (${vehicle.param})?`)
+    await confirmWrite(app)
+    await app.waitForText('#import', `Written and read back: ${changed}`, vehicle.downloadTimeoutMs)
+    expect(await currentValue()).toBe(changed)
+    await app.click('#close-import')
+  })
+
+  it('loads a parameter file of ArduPilot\'s own for review, and writes nothing until told', async ({ skip }) => {
+    const path = vehicle.realParamFile?.() ?? null
+    if (path === null || !existsSync(path)) {
+      skip()
+
+      return
+    }
+    await loadParamFile(readFileSync(path, 'utf8'))
+
+    // The review lists the rows that differ (or none), with nothing ticked.
+    expect(await app.text('.review-head p')).toMatch(/^Different: \d+; already the same: \d+\. Tick the ones to write\.$/u)
+    expect(await app.evaluate<number>(`document.querySelectorAll('#import input[type=checkbox]:checked').length`)).toBe(0)
     await app.click('#close-import')
   })
 

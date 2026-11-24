@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, it } from 'vitest'
@@ -26,6 +26,14 @@ const sample = (name: string) => readFileSync(join(SAMPLES, name), 'utf8')
  * @returns [name, value] pairs, in the file's order
  */
 const pairs = (text: string) => parseParamFile(text).entries.map(entry => [entry.id, entry.value])
+
+/**
+ * The names and values of entries, sorted by name (as a file is written).
+ *
+ * @param entries the entries
+ * @returns [name, value] pairs
+ */
+const byId = (entries: { id: string, value: number }[]) => entries.map(entry => [entry.id, entry.value]).sort()
 
 /** Parameters as the vehicle reports them: its REAL32s are floats (0.1 comes back as 0.10000000149011612). */
 const FLOATS: Param[] = [
@@ -236,4 +244,43 @@ it('takes a text that starts with { (after white space or a byte-order mark) for
   expect(looksLikeJson('﻿\r\n  {')).toBe(true)
   expect(looksLikeJson('RTL_ALT,1')).toBe(false)
   expect(looksLikeJson('# {')).toBe(false)
+})
+
+/**
+ * Whether ArduPilot leaves a line of a parameter file out: a name and no value, or a name over 16 characters.
+ *
+ * @param text the line
+ * @returns true if it does
+ */
+function leftOutByArduPilot(text: string): boolean {
+  const [name = '', value] = text.split(/[\s,=]+/u)
+
+  return value === undefined || name.length > 16
+}
+
+/** ArduPilot's own parameter files (Tools/autotest/default_params, which the SITL build copies), when SITL is here. */
+const REAL_FILES = process.env.SITL_DIR ? join(process.env.SITL_DIR, 'default_params') : ''
+
+const noRealFiles = !REAL_FILES || !existsSync(REAL_FILES)
+
+it.skipIf(noRealFiles)('reads ArduPilot\'s own files, every line accounted for, and writes them again', () => {
+  const names = readdirSync(REAL_FILES).filter(name => /\.(?:parm|param)$/u.test(name))
+  const malformed: string[] = []
+
+  for (const name of names) {
+    const text = readFileSync(join(REAL_FILES, name), 'utf8')
+    const file = parseParamFile(text)
+    const params = file.entries.map((entry, index): Param => ({ ...entry, index, kind: 'real', type: 'REAL64' }))
+    const lines = linesOf(text).filter(line => line.split('#')[0]?.trim())
+    const read = file.entries.length + file.duplicates.reduce((sum, { lines: on }) => sum + on.length - 1, 0)
+
+    // Each line that is not a comment is a parameter, or reported: none is dropped in silence.
+    expect(read + file.malformed.length, name).toBe(lines.length)
+    expect(pairs(formatParamFile(params, 'parm')), name).toEqual(byId(file.entries))
+    malformed.push(...file.malformed.map(line => `${name}:${line.line}: ${line.text}`))
+  }
+  expect(names.length).toBeGreaterThan(10)
+  // What is reported is what ArduPilot leaves out too (AP_Param::parse_param_line): a name and no value (motorboat.parm's
+  // "SIM_TIDE_0.5"), or a name longer than its 16 characters.
+  expect(malformed.filter(line => !leftOutByArduPilot(line.split(': ')[1] ?? '')), malformed.join('\n')).toEqual([])
 })
