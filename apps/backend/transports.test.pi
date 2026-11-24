@@ -26,41 +26,83 @@ async function freePort(): Promise<int> throws Error {
   return port
 }
 
-/// The vehicle's end of a TCP connection: once it is closed (the vehicle went), a reply the simulator still sends is dropped (a
-/// write to a closed connection is a panic of the runtime), and a reset is the end of it.
+/// The vehicle's end of its link. Once it is closed (the vehicle went), nothing more reaches the simulator, and a reply it still sends
+/// is dropped (a write to a closed connection is a panic of the runtime; one the peer reset fails, and the simulator does not catch
+/// it). `drained` says the simulator's reader has asked for more after the close: every message it took before is handled by then.
 class VehicleEnd implements ByteStream {
-  readonly inner: TcpStream
+  readonly inner: ByteStream
   closed: bool = false
+  public drained: bool = false
 
-  constructor(inner: TcpStream) {
+  constructor(inner: ByteStream) {
     this.inner = inner
   }
 
   public async read(): Promise<Uint8Array?> throws Error {
-    try {
-      return await inner.read()
-    } catch (e: Error) {
+    if (closed) {
+      drained = true
       return null
     }
+    let chunk: Uint8Array? = null
+    try {
+      chunk = await inner.read()
+    } catch (e: Error) {
+      chunk = null
+    }
+    if (closed) {
+      drained = true
+      return null
+    }
+    return chunk
   }
 
   public async write(bytes: Uint8Array): Promise<void> throws Error {
-    if (!closed) {
+    if (closed) {
+      return
+    }
+    try {
       await inner.write(bytes)
+    } catch (e: Error) {
+      // The backend went first: its end is gone.
     }
   }
 
   public close(): void {
-    closed = true
-    inner.close()
+    if (!closed) {
+      closed = true
+      inner.close()
+    }
+  }
+}
+
+/// A simulated vehicle on its end of a link.
+class Vehicle {
+  readonly sim: SimulatedAutopilot
+  readonly end: VehicleEnd
+
+  constructor(inner: ByteStream) {
+    this.end = new VehicleEnd(inner)
+    this.sim = new SimulatedAutopilot(this.end)
+    this.sim.start(100)
+  }
+
+  /// Stops it for good. pico-mavlink's simulator handles a message that was already read when it is stopped, and one that asks for
+  /// a message interval then starts a timer nobody stops (the process would never end): so, once its reader has handled what it
+  /// had, it is stopped again, which clears those timers.
+  public async stop(): Promise<void> throws Error {
+    sim.stop()
+    let waited = 0
+    while (!end.drained && waited < 2000) {
+      await delay(10)
+      waited += 10
+    }
+    sim.stop()
   }
 }
 
 /// A simulated vehicle that connects to the backend's TCP port.
-async function vehicleConnectingTo(port: int): Promise<SimulatedAutopilot> throws Error {
-  const sim = new SimulatedAutopilot(new VehicleEnd(new TcpStream(await connect(port))))
-  sim.start(100)
-  return sim
+async function vehicleConnectingTo(port: int): Promise<Vehicle> throws Error {
+  return new Vehicle(new TcpStream(await connect(port)))
 }
 
 /// The next connection state the dashboard is told.
@@ -80,15 +122,14 @@ async function describesThem(): Promise<void> throws Error {
 /// link comes up.
 async function udpClient(): Promise<void> throws Error {
   const socket = await bind(0)
-  const sim = new SimulatedAutopilot(new UdpStream(socket))
-  sim.start(100)
+  const vehicle = new Vehicle(new UdpStream(socket))
   const f = await start()
   const request = ConnectRequest { transport: ConnectRequestTransport.UdpClient, host: "127.0.0.1", port: socket.addr.port as u16 }
   const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
   expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
   const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
   expect(`${list.count} ${list.complete}`).toBe("12 true")
-  sim.stop()
+  await vehicle.stop()
   await f.call("vehicle.disconnect")
 }
 
@@ -120,7 +161,7 @@ async function tcpServer(): Promise<void> throws Error {
   expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
   const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
   expect(`${list.count} ${list.complete}`).toBe("12 true")
-  first.stop()
+  await first.stop()
   expect(await nextState(f) == ConnectionState.Reconnecting).toBe(true)
   const second = await vehicleConnectingTo(port)
   let back = decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$")
@@ -128,7 +169,7 @@ async function tcpServer(): Promise<void> throws Error {
     back = decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$")
   }
   expect(`${back.state == ConnectionState.Connected} ${back.resumed ?? false}`).toBe("true true")
-  second.stop()
+  await second.stop()
   await f.unsubscribe(subscription)
   await f.call("vehicle.disconnect")
   link.silenceMs = 5000
@@ -155,10 +196,10 @@ async function tcpServerEverywhere(): Promise<void> throws Error {
   const request = ConnectRequest { transport: ConnectRequestTransport.TcpServer, host: "0.0.0.0", port: port as u16 }
   const pending = f.call("vehicle.connect", encodeConnectRequest(request))
   await delay(200)
-  const sim = await vehicleConnectingTo(port)
+  const vehicle = await vehicleConnectingTo(port)
   const c = decodeConnection((await pending).p ?? Cbor.Null, "$")
   expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
-  sim.stop()
+  await vehicle.stop()
   await f.call("vehicle.disconnect")
 }
 
