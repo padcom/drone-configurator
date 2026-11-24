@@ -13,6 +13,18 @@
     "simulator": "Connects to the built-in simulator: no hardware needed.",
     "last": "This opens on your last connection, so Enter is usually all you need.",
     "cancel": "Cancel",
+    "again": "Connect again",
+    "detect": {
+      "device": "Find the autopilot",
+      "deviceFound": "Find the autopilot (now {path})",
+      "baud": "Try the common rates",
+      "next": {
+        "NO_SERIAL_PORT": "Plug in the flight controller or the telemetry radio, then connect again.",
+        "NO_AUTOPILOT_PORT": "Several ports are listed and none looks like a flight controller: choose its port, then connect again.",
+        "PORT_GONE": "The port went away: check the cable, plug the flight controller back in, then connect again.",
+        "NO_MAVLINK": "Check that the port sends MAVLink (its SERIALn_PROTOCOL on the vehicle), or choose its baud rate, then connect again."
+      }
+    },
     "open": "Connect to a vehicle, or see the link",
     "next": {
       "udp": "Check that the vehicle or the simulator sends to this host and port, then connect again.",
@@ -1469,6 +1481,10 @@
       "label": "Connect to a vehicle…",
       "keywords": "link serial tcp udp port open"
     },
+    "connectAgain": {
+      "label": "Connect to the last vehicle again",
+      "keywords": "reconnect last again link previous"
+    },
     "disconnect": {
       "keywords": "close link end session"
     },
@@ -1509,6 +1525,8 @@
       "noParameters": "There are no parameters yet.",
       "busy": "Parameters are being written or downloaded, or a reboot is already under way.",
       "notConnected": "Connect to a vehicle first.",
+      "linkUp": "A link is already up or being made.",
+      "noLastConnection": "No connection has been made yet: use Connect to a vehicle.",
       "stateUnknown": "The vehicle's state is unknown (no recent heartbeat).",
       "armed": "Disarm the vehicle first. A flying vehicle is never rebooted.",
       "writing": "Wait until the parameters have been written.",

@@ -5211,18 +5211,32 @@ export function encodeSerialPorts(v: SerialPorts): Cbor {
 export struct SerialPort {
   path: string
   description?: string
+  board?: string
+  likely?: bool
 }
 
 export function decodeSerialPort(v: Cbor, path: string): SerialPort throws InvalidPayload {
-  const m = members(v, path, ["path", "description"])
+  const m = members(v, path, ["path", "description", "board", "likely"])
   const cbor1 = m.get("description")
   let opt1: string? = null
   if (cbor1 != null) {
     opt1 = text(cbor1, `${path}.description`)
   }
+  const cbor2 = m.get("board")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.board`)
+  }
+  const cbor3 = m.get("likely")
+  let opt3: bool? = null
+  if (cbor3 != null) {
+    opt3 = boolean(cbor3, `${path}.likely`)
+  }
   return SerialPort {
     path: text(required(m, "path", path), `${path}.path`),
     description: opt1,
+    board: opt2,
+    likely: opt3,
   }
 }
 
@@ -5232,6 +5246,14 @@ export function encodeSerialPort(v: SerialPort): Cbor {
   const opt1 = v.description
   if (opt1 != null) {
     m.set("description", Cbor.Text(opt1))
+  }
+  const opt2 = v.board
+  if (opt2 != null) {
+    m.set("board", Cbor.Text(opt2))
+  }
+  const opt3 = v.likely
+  if (opt3 != null) {
+    m.set("likely", Cbor.Bool(opt3))
   }
   return Cbor.Dict(m)
 }

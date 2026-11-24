@@ -7,6 +7,8 @@
 // whose map would ask a tile server for its tiles, and no test ever calls a real one (flight-map.e2e.ts has a server of its own).
 // The recording of every connection (#30) is OFF too unless the test's settings say otherwise (`presetSettings`): a recording
 // is a log in Flights, and the specs that look at Flights count on the logs they made themselves.
+// The last connection is the built-in simulator unless the test's own settings say otherwise: a new install opens the Connect
+// dialog on UDP (#27), and the tests that only press Connect mean the simulator (one-key.e2e.ts starts from what it chooses).
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -29,7 +31,11 @@ interface Entry {
 }
 
 /** What the settings of a test hold when the test says nothing of them. */
-const QUIET: readonly Entry[] = [{ key: 'map.enabled', value: 'false' }, { key: 'recording.enabled', value: 'false' }]
+const QUIET: readonly Entry[] = [
+  { key: 'map.enabled', value: 'false' },
+  { key: 'recording.enabled', value: 'false' },
+  { key: 'connect.last', value: JSON.stringify({ transport: 'simulator', host: '', port: '', device: '', baud: '' }) },
+]
 
 /**
  * The settings document in the folder (an empty one when there is none yet).
@@ -54,7 +60,7 @@ export function presetSettings(entries: readonly Entry[]): void {
   writeFileSync(SETTINGS, `${JSON.stringify({ ...document, ui: [...kept, ...entries] })}\n`)
 }
 
-/** Makes sure the settings say the map's tiles and the recording are off, unless the test's own settings say whether they are. */
+/** Makes sure the settings hold the defaults above (tiles and recording off, the simulator last) the test does not set. */
 function keepQuiet(): void {
   const document = settingsDocument()
   const missing = QUIET.filter(entry => !document.ui.some(one => one.key === entry.key))
@@ -64,7 +70,7 @@ function keepQuiet(): void {
 }
 
 /**
- * Starts the app that `pico-desktop test --e2e` built, and connects to its page (with the map's tiles off, see above).
+ * Starts the app that `pico-desktop test --e2e` built, and connects to its page (with the defaults above).
  *
  * @param options more host arguments, and how long the window may take
  * @returns the app

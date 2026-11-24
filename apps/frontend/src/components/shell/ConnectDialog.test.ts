@@ -39,7 +39,7 @@ async function openDialog(last?: string) {
   return { wrapper, feed, connect, listPorts, setUi }
 }
 
-it('is shut until it is asked for, and then shows the four kinds of link as tabs, the simulator chosen', async () => {
+it('is shut until it is asked for, and then shows the four kinds of link as tabs, UDP chosen', async () => {
   const handle = createConfigurator(mockBackend())
   const wrapper = mount(ConnectDialog, { ...withI18n, attachTo: document.body })
   await flushPromises()
@@ -52,7 +52,7 @@ it('is shut until it is asked for, and then shows the four kinds of link as tabs
   expect(wrapper.get('h2').text()).toBe('Connect to a vehicle')
   const tabs = wrapper.findAll('#transport button')
   expect(tabs.map(tab => tab.text())).toEqual(['UDP', 'TCP', 'Serial', 'Simulator'])
-  expect(tabs.map(tab => tab.attributes('aria-pressed'))).toEqual(['false', 'false', 'false', 'true'])
+  expect(tabs.map(tab => tab.attributes('aria-pressed'))).toEqual(['true', 'false', 'false', 'false'])
   expect(wrapper.get('#transport').attributes('role')).toBe('group')
 })
 
@@ -67,11 +67,11 @@ it('has a primary Connect that submits the form and is where the focus starts', 
   expect(wrapper.get('#connect-cancel').attributes('type')).toBe('button')
 })
 
-it('connects to the simulator by default, and to what is typed for TCP', async () => {
+it('listens on UDP at the default port before any connection was made, and connects to what is typed for TCP', async () => {
   const { wrapper, connect } = await openDialog()
 
   await wrapper.get('#connect').trigger('submit')
-  expect(connect).toHaveBeenLastCalledWith({ transport: 'simulator' })
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'udp' })
   await wrapper.get('#transport-tcp').trigger('click')
   expect(wrapper.get('#host').classes()).toContain('kit-input')
   await wrapper.get('#host').setValue(' 127.0.0.1 ')
@@ -83,6 +83,7 @@ it('connects to the simulator by default, and to what is typed for TCP', async (
 
 it('shows the host and port for UDP and TCP, the device and baud rate for serial, and neither for the simulator', async () => {
   const { wrapper } = await openDialog()
+  await wrapper.get('#transport-simulator').trigger('click')
   expect(wrapper.find('#host').exists() || wrapper.find('#device').exists()).toBe(false)
 
   const present = (...ids: string[]) => ids.map(id => wrapper.find(id).exists())
@@ -93,12 +94,40 @@ it('shows the host and port for UDP and TCP, the device and baud rate for serial
   expect(present('#host', '#device', '#baud')).toEqual([false, true, true])
 })
 
-it('lists the baud rates, and says when there are no serial ports', async () => {
+it('lists the baud rates after trying the common ones, and says when there are no serial ports', async () => {
   const { wrapper } = await openDialog()
   await wrapper.get('#transport-serial').trigger('click')
 
-  expect(wrapper.findAll('#baud option').map(option => option.text())).toEqual(['57600', '115200', '230400', '460800', '921600'])
-  expect(wrapper.findAll('#device option').map(option => option.text())).toEqual(['No serial ports'])
+  expect(wrapper.findAll('#baud option').map(option => option.text()))
+    .toEqual(['Try the common rates', '57600', '115200', '230400', '460800', '921600'])
+  expect(wrapper.findAll('#device option').map(option => option.text())).toEqual(['Find the autopilot'])
+  expect(wrapper.text()).toContain('No serial ports')
+})
+
+it('leaves the serial port and the rate to the backend unless they are chosen, naming the port it would use', async () => {
+  const { wrapper, feed, connect } = await openDialog()
+  await wrapper.get('#transport-serial').trigger('click')
+  const cube = { path: '/dev/ttyACM0', description: 'USB 2dae:1016', board: 'CubePilot', likely: true }
+  feed({ ports: [{ path: '/dev/ttyS0' }, cube] })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.findAll('#device option').map(option => option.text()))
+    .toEqual(['Find the autopilot (now /dev/ttyACM0)', '/dev/ttyS0', '/dev/ttyACM0 (CubePilot)'])
+  await wrapper.get('#connect').trigger('submit')
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'serial' })
+})
+
+it('says what to try next when the backend found no autopilot or no rate', async () => {
+  const { wrapper, feed } = await openDialog()
+  await wrapper.get('#transport-serial').trigger('click')
+
+  feed({ connection: { state: 'disconnected', errorCode: 'NO_MAVLINK' }, error: 'serial /dev/ttyACM0: no MAVLink' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#connect-error').text()).toContain('or choose its baud rate')
+
+  feed({ connection: { state: 'disconnected', errorCode: 'PORT_GONE' }, error: 'the port went away' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#connect-error').text()).toContain('plug the flight controller back in')
 })
 
 it('lists the serial ports when serial is chosen, by description when there is one, and connects with them', async () => {
@@ -108,7 +137,9 @@ it('lists the serial ports when serial is chosen, by description when there is o
 
   feed({ ports: [{ path: '/dev/ttyACM0', description: 'Pixhawk' }, { path: '/dev/ttyUSB0' }] })
   await wrapper.vm.$nextTick()
-  expect(wrapper.findAll('#device option').map(option => option.text())).toEqual(['/dev/ttyACM0 (Pixhawk)', '/dev/ttyUSB0'])
+  expect(wrapper.findAll('#device option').map(option => option.text()))
+    .toEqual(['Find the autopilot', '/dev/ttyACM0 (Pixhawk)', '/dev/ttyUSB0'])
+  await wrapper.get('#device').setValue('/dev/ttyACM0')
   await wrapper.get('#baud').setValue('57600')
   await wrapper.get('#connect').trigger('submit')
 
@@ -140,7 +171,7 @@ it('keeps what was connected to as the last connection only once the link is up,
   await wrapper.vm.$nextTick()
 
   expect(setUi).toHaveBeenCalledWith('connect.last', JSON.stringify({
-    transport: 'tcp', host: '10.0.0.5', port: '5760', device: '', baud: '115200',
+    transport: 'tcp', host: '10.0.0.5', port: '5760', device: '', baud: '',
   }))
 })
 

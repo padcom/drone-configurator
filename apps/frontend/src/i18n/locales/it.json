@@ -13,6 +13,18 @@
     "simulator": "Si connette al simulatore integrato: nessun hardware necessario.",
     "last": "Si apre sull'ultima connessione, quindi di solito basta premere Invio.",
     "cancel": "Annulla",
+    "again": "Connetti di nuovo",
+    "detect": {
+      "device": "Trova l'autopilota",
+      "deviceFound": "Trova l'autopilota (ora {path})",
+      "baud": "Prova le velocità comuni",
+      "next": {
+        "NO_SERIAL_PORT": "Collega il controllore di volo o la radio di telemetria, poi connetti di nuovo.",
+        "NO_AUTOPILOT_PORT": "Ci sono più porte e nessuna sembra un controllore di volo: scegli la sua porta, poi connetti di nuovo.",
+        "PORT_GONE": "La porta è sparita: controlla il cavo, ricollega il controllore di volo, poi connetti di nuovo.",
+        "NO_MAVLINK": "Controlla che la porta invii MAVLink (il suo SERIALn_PROTOCOL sul veicolo) o scegli la sua velocità, poi connetti di nuovo."
+      }
+    },
     "open": "Connetti a un veicolo o guarda il collegamento",
     "next": {
       "udp": "Controlla che il veicolo o il simulatore invii a questo host e a questa porta, poi connetti di nuovo.",
@@ -1469,6 +1481,10 @@
       "label": "Connetti a un veicolo…",
       "keywords": "collegamento seriale tcp udp porta apri"
     },
+    "connectAgain": {
+      "label": "Connetti di nuovo all'ultimo veicolo",
+      "keywords": "riconnetti ultimo di nuovo collegamento reconnect"
+    },
     "disconnect": {
       "keywords": "chiudi collegamento termina sessione"
     },
@@ -1509,6 +1525,8 @@
       "noParameters": "Non ci sono ancora parametri.",
       "busy": "Si stanno scrivendo o scaricando dei parametri, oppure un riavvio è già in corso.",
       "notConnected": "Connettiti prima a un veicolo.",
+      "linkUp": "Un collegamento è già attivo o in corso.",
+      "noLastConnection": "Non è ancora stata fatta nessuna connessione: usa Connetti a un veicolo.",
       "stateUnknown": "Lo stato del veicolo è sconosciuto (nessun heartbeat recente).",
       "armed": "Disarma prima il veicolo. Un veicolo in volo non viene mai riavviato.",
       "writing": "Attendi che i parametri siano stati scritti.",

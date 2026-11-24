@@ -21,7 +21,8 @@ import { counted } from "./linkstats"
 import { reopenable, watchSession } from "./reconnect"
 import { recorded } from "./recording"
 import { boardOf, capabilitiesOf, encodingFor, identityOf, infoOf, link } from "./session"
-import { describe, open } from "./transports"
+import { describe, openDetecting } from "./transports"
+import { DetectError, WINDOW_MS } from "./autodetect"
 
 /// Registers the service's methods and subscription on `c`.
 export function register(c: Communicator): void {
@@ -54,17 +55,29 @@ async function watchLink(conn: MavLinkConnection, generation: int): Promise<void
 }
 
 async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const request = decodeConnectRequest(payload ?? Cbor.Null, "$")
+  const asked = decodeConnectRequest(payload ?? Cbor.Null, "$")
   link.close()
   const generation = link.generation
   link.update(Connection { state: ConnectionState.Connecting })
   let stream: ByteStream? = null
+  // What reconnects use: for a serial request that left the port or the rate to be found, the ones that were (#27).
+  let request = asked
   try {
-    const opened = await open(request, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim })
+    const onSimulator = (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim }
+    const opened = await openDetecting(asked, onSimulator, WINDOW_MS, () => link.generation == generation)
+    if (opened == null || link.generation != generation) {
+      opened?.stream.close()
+      return encodeConnection(link.state)
+    }
+    request = opened!.request
     // A link that is opened again later may be closed by the session while the router holds it (see guarded.pi).
-    stream = if (reopenable(request)) new GuardedStream(opened) else opened
+    stream = if (reopenable(request)) new GuardedStream(opened!.stream) else opened!.stream
   } catch (e: Error) {
-    link.update(Connection { state: ConnectionState.Disconnected, error: `can't open ${describe(request)}: ${e.message}` })
+    if (e instanceof DetectError) {
+      link.update(Connection { state: ConnectionState.Disconnected, error: `${describe(asked)}: ${e.message}`, errorCode: e.code })
+    } else {
+      link.update(Connection { state: ConnectionState.Disconnected, error: `can't open ${describe(asked)}: ${e.message}` })
+    }
     return encodeConnection(link.state)
   }
   // The link goes under a router that stays open when the link ends (`keepOpen`): the connection and the

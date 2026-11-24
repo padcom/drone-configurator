@@ -3,7 +3,7 @@
 // does. Nothing here draws anything or knows Vue: the palette (and later the top bar, the F-keys, the menus) only list commands
 // and call `CommandRegistry.invoke`, which is the one way a command runs.
 import type {
-  ArmingResult, ChangeAltitudeAsk, Connection, RepositionAsk, SetSpeedAsk, Telemetry, VehicleModes,
+  ArmingResult, ChangeAltitudeAsk, ConnectRequest, Connection, RepositionAsk, SetSpeedAsk, Telemetry, VehicleModes,
 } from '@/generated/app'
 import type { GuidedPreferences, Place } from '@/lib/fly/guided'
 import type { IconName } from '@/lib/ui/icons'
@@ -96,6 +96,10 @@ export interface VehicleFacts {
   mode(): string | undefined
   /** Ends the session with the vehicle (and the tries to bring a lost link back). */
   disconnect(): void
+  /** The last connection that was made, kept in the settings: what one key connects to again (null: none yet). */
+  lastConnection(): ConnectRequest | null
+  /** Asks the backend to connect. */
+  connect(request: ConnectRequest): void
 }
 
 /** The vehicle's parameters, as the toolbar's commands see them. */
