@@ -1,0 +1,332 @@
+// Network discovery (#197): the MAVLink services that announce themselves on the local network over multicast DNS service
+// discovery (DNS-SD, RFC 6763, over mDNS, RFC 6762), as the Connect dialog lists them.
+//
+// The service types are `_mavlink._udp` and `_mavlink._tcp`: BlueOS announces `_mavlink._udp` on port 14550
+// (github.com/bluerobotics/BlueOS, install/network/blueos.service), CubePilot's Herelink does too
+// (github.com/CubePilot/HerelinkWindowsJoystick, rc-servicesender/Program.cs), and QGroundControl browses both
+// (src/Comms/LinkManager.cc). A UDP one is reached by sending to it (a "udp-client" connection), a TCP one by connecting.
+//
+// How it asks: a one-shot query (RFC 6762 section 5.1). The question goes to the mDNS group (224.0.0.251, port 5353) from an
+// ordinary port of the backend's own, and the responders answer that port directly (section 6.7, "legacy unicast"). That
+// needs no group membership, which std/net cannot do yet: so it sees only the network of the machine's default route, only
+// what answers within the window, and nothing that announces itself later (a continuous browse would need the socket to
+// join the group on port 5353, alongside the system's own responder).
+//
+// Behind `ServiceBrowser`, so that the tests (and the E2E suite, with DRONE_CONFIGURATOR_MDNS=host:port) ask a fake
+// advertiser on a loopback port instead of the network.
+import { Cbor, Communicator, RequestContext } from "pico-desktop/communicator"
+import { Datagram, UdpSocket, bind } from "std/net"
+import { env } from "std/process"
+import { delay } from "std/timers"
+import { DiscoveredService, DiscoveredServiceTransport, DiscoveredServices, encodeDiscoveredServices } from "./generated/app"
+
+/// The mDNS group and port (RFC 6762 section 3).
+export const MDNS_GROUP: string = "224.0.0.251"
+export const MDNS_PORT: int = 5353
+
+/// The service types asked for, and how each is reached.
+export const MAVLINK_UDP: string = "_mavlink._udp.local"
+export const MAVLINK_TCP: string = "_mavlink._tcp.local"
+
+/// DNS record types (RFC 1035, RFC 2782).
+export const TYPE_A: int = 1
+export const TYPE_PTR: int = 12
+export const TYPE_TXT: int = 16
+export const TYPE_SRV: int = 33
+
+/// How long each round of questions waits for answers, and how many rounds there are at most: the first asks for the
+/// services, the next for what their answers left out (the instance's port and host, then the host's address).
+const ROUND_MS: int = 700
+const ROUNDS: int = 3
+
+/// Something that finds the MAVLink services on the network.
+export interface ServiceBrowser {
+  /// Looks for them, for about `roundMs` per round of questions.
+  browse(roundMs: int): Promise<DiscoveredService[], Error>
+}
+
+/// One resource record of an answer, as far as discovery needs it.
+export struct DnsRecord {
+  /// The owner name, in lower case, without the final dot.
+  name: string
+  type: int
+  /// PTR: the name pointed to; SRV: the target host; A: the address as text; otherwise empty.
+  value: string
+  /// SRV: the port; otherwise 0.
+  port: int
+}
+
+/// A DNS name and where the bytes after it start.
+struct NameAt {
+  name: string
+  next: int
+}
+
+/// The 16-bit big-endian integer at `at`.
+function u16At(b: Uint8Array, at: int): int {
+  if (at + 1 >= b.length) {
+    throw new Error("a DNS message cut short")
+  }
+  return ((b[at] as int) << 8) | (b[at + 1] as int)
+}
+
+/// The labels of a name written as a string with dots (each label as its UTF-8 bytes, so an instance name keeps its spaces and
+/// accents).
+function labelsOf(name: string): Uint8Array[] {
+  const out: Uint8Array[] = []
+  for (const label of name.split(".")) {
+    if (label.length > 0) {
+      out.push(new TextEncoder().encode(label))
+    }
+  }
+  return out
+}
+
+/// Reads the name at `at`, following compression pointers (RFC 1035 section 4.1.4), at most 32 of them (a loop is an
+/// error, not a hang).
+export function readName(b: Uint8Array, at: int): NameAt throws Error {
+  const labels: string[] = []
+  let i = at
+  let next = -1
+  let jumps = 0
+  while (true) {
+    if (i >= b.length) {
+      throw new Error("a DNS name runs past the message")
+    }
+    const len = b[i] as int
+    if (len == 0) {
+      break
+    }
+    if ((len & 0xC0) == 0xC0) {
+      if (next < 0) {
+        next = i + 2
+      }
+      jumps += 1
+      if (jumps > 32) {
+        throw new Error("a DNS name points in a loop")
+      }
+      i = u16At(b, i) & 0x3FFF
+      continue
+    }
+    if (i + 1 + len > b.length) {
+      throw new Error("a DNS label runs past the message")
+    }
+    labels.push(string.fromCBytes(b.subarray(i + 1, i + 1 + len)))
+    i += 1 + len
+  }
+  return NameAt { name: labels.join("."), next: if (next < 0) i + 1 else next }
+}
+
+/// A query (RFC 1035 section 4.1) with one question for each name and type; `id` is echoed by a responder that answers a
+/// one-shot query.
+export function encodeQuery(id: int, questions: DnsRecord[]): Uint8Array {
+  const bytes: int[] = [(id >> 8) & 0xFF, id & 0xFF, 0, 0, 0, questions.length, 0, 0, 0, 0, 0, 0]
+  for (const q of questions) {
+    for (const label of labelsOf(q.name)) {
+      bytes.push(label.length)
+      for (let i = 0; i < label.length; i++) {
+        bytes.push(label[i] as int)
+      }
+    }
+    bytes.push(0)
+    bytes.push((q.type >> 8) & 0xFF)
+    bytes.push(q.type & 0xFF)
+    bytes.push(0)
+    bytes.push(1)
+  }
+  Uint8Array.from(bytes)
+}
+
+/// What a record's data says, for the types discovery reads.
+function valueOf(b: Uint8Array, type: int, at: int, len: int): DnsRecord throws Error {
+  if (type == TYPE_PTR) {
+    return DnsRecord { name: "", type: type, value: readName(b, at).name, port: 0 }
+  }
+  if (type == TYPE_SRV && len >= 7) {
+    return DnsRecord { name: "", type: type, value: readName(b, at + 6).name.toLowerCase(), port: u16At(b, at + 4) }
+  }
+  if (type == TYPE_A && len == 4) {
+    const address = `${b[at] as int}.${b[at + 1] as int}.${b[at + 2] as int}.${b[at + 3] as int}`
+    return DnsRecord { name: "", type: type, value: address, port: 0 }
+  }
+  return DnsRecord { name: "", type: type, value: "", port: 0 }
+}
+
+/// The records of a response: its answers, authority and additional records (a responder puts the SRV and the address
+/// there). A PTR's target keeps its case (it is the instance's name, shown to the user); every other name is lower case.
+export function parseResponse(b: Uint8Array): DnsRecord[] throws Error {
+  const out: DnsRecord[] = []
+  if (b.length < 12 || ((b[2] as int) & 0x80) == 0) {
+    return out
+  }
+  let at = 12
+  for (let q = 0; q < u16At(b, 4); q++) {
+    at = readName(b, at).next + 4
+  }
+  const count = u16At(b, 6) + u16At(b, 8) + u16At(b, 10)
+  for (let r = 0; r < count; r++) {
+    const owner = readName(b, at)
+    const type = u16At(b, owner.next)
+    const len = u16At(b, owner.next + 8)
+    const data = owner.next + 10
+    if (data + len > b.length) {
+      throw new Error("a DNS record runs past the message")
+    }
+    const record = valueOf(b, type, data, len)
+    record.name = owner.name.toLowerCase()
+    out.push(record)
+    at = data + len
+  }
+  return out
+}
+
+/// The services that the records describe. An instance is listed once its port is known (SRV); its host is the address of
+/// the SRV's target when that was told, else the target's name.
+export function servicesOf(records: DnsRecord[]): DiscoveredService[] {
+  const out: DiscoveredService[] = []
+  const seen = new Map<string, bool>()
+  for (const ptr of records) {
+    const instance = ptr.value.toLowerCase()
+    if (ptr.type != TYPE_PTR || (ptr.name != MAVLINK_UDP && ptr.name != MAVLINK_TCP) || seen.has(instance)) {
+      continue
+    }
+    const srv = find(records, instance, TYPE_SRV)
+    if (srv == null) {
+      continue
+    }
+    seen.set(instance, true)
+    const a = find(records, srv!.value, TYPE_A)
+    const transport = if (ptr.name == MAVLINK_UDP) DiscoveredServiceTransport.UdpClient else DiscoveredServiceTransport.Tcp
+    const label = ptr.value.split(".")[0]
+    out.push(DiscoveredService { name: label, transport: transport, host: if (a != null) a!.value else srv!.value, port: srv!.port as u16 })
+  }
+  return out
+}
+
+/// The first record of `type` for `name`, if any.
+function find(records: DnsRecord[], name: string, type: int): DnsRecord? {
+  for (const r of records) {
+    if (r.type == type && r.name == name) {
+      return r
+    }
+  }
+  return null
+}
+
+/// What is still to be asked: the two service types first; then, for each instance named, its SRV; then, for each target, its
+/// address.
+export function questionsFor(records: DnsRecord[]): DnsRecord[] {
+  const out: DnsRecord[] = []
+  for (const ptr of records) {
+    const instance = ptr.value.toLowerCase()
+    if (ptr.type == TYPE_PTR && (ptr.name == MAVLINK_UDP || ptr.name == MAVLINK_TCP) && find(records, instance, TYPE_SRV) == null) {
+      out.push(DnsRecord { name: instance, type: TYPE_SRV, value: "", port: 0 })
+    }
+  }
+  for (const srv of records) {
+    if (srv.type == TYPE_SRV && find(records, srv.value, TYPE_A) == null) {
+      out.push(DnsRecord { name: srv.value, type: TYPE_A, value: "", port: 0 })
+    }
+  }
+  return out
+}
+
+/// The address a socket that sends to `host` is bound to: the loopback one for a loopback host, else every interface (the
+/// group is reached through the default route).
+export function localFor(host: string): string {
+  if (host.startsWith("127.") || host == "localhost") "127.0.0.1" else "0.0.0.0"
+}
+
+/// Takes every datagram that arrives on `socket` until it is closed, and keeps what it says.
+async function collect(socket: UdpSocket, records: DnsRecord[]): Promise<void> {
+  while (true) {
+    let d: Datagram? = null
+    try {
+      d = await socket.receive()
+    } catch (e: Error) {
+      return
+    }
+    if (d == null) {
+      return
+    }
+    try {
+      for (const r of parseResponse(d!.data)) {
+        records.push(r)
+      }
+    } catch (e: Error) {
+      // A malformed answer is ignored: it is somebody else's.
+    }
+  }
+}
+
+/// Asks the mDNS group (or a fake advertiser, for the tests) with one-shot queries.
+export class MdnsBrowser implements ServiceBrowser {
+  readonly host: string
+  readonly port: int
+
+  constructor(host: string = MDNS_GROUP, port: int = MDNS_PORT) {
+    this.host = host
+    this.port = port
+  }
+
+  public async browse(roundMs: int): Promise<DiscoveredService[]> throws Error {
+    const socket = await bind(0, localFor(host))
+    const records: DnsRecord[] = []
+    collect(socket, records)
+    try {
+      const first = [
+        DnsRecord { name: MAVLINK_UDP, type: TYPE_PTR, value: "", port: 0 },
+        DnsRecord { name: MAVLINK_TCP, type: TYPE_PTR, value: "", port: 0 },
+      ]
+      await socket.send(encodeQuery(0x4443, first), port, host)
+      await delay(roundMs)
+      for (let round = 1; round < ROUNDS; round++) {
+        const asked = questionsFor(records)
+        if (asked.length == 0) {
+          break
+        }
+        await socket.send(encodeQuery(0x4443 + round, asked), port, host)
+        await delay(roundMs)
+      }
+    } finally {
+      socket.close()
+    }
+    servicesOf(records)
+  }
+}
+
+/// The browser the service uses: the network's mDNS group, or the advertiser that DRONE_CONFIGURATOR_MDNS names
+/// (`host:port`, for the E2E suite).
+class Browsing {
+  public browser: ServiceBrowser = defaultBrowser()
+}
+
+const browsing = new Browsing()
+
+function defaultBrowser(): ServiceBrowser {
+  const named = env.get("DRONE_CONFIGURATOR_MDNS")
+  if (named != null && named!.includes(":")) {
+    const parts = named!.split(":")
+    return new MdnsBrowser(parts[0], parseInt(parts[1]))
+  }
+  new MdnsBrowser()
+}
+
+/// For tests: the browser the service asks.
+export function setBrowserForTests(b: ServiceBrowser): void {
+  browsing.browser = b
+}
+
+/// Registers the service's method on `c`.
+export function register(c: Communicator): void {
+  c.handle("discovery.browse", browse)
+}
+
+/// The services that answered; a failure to ask at all (no network) is said, not thrown.
+async function browse(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  try {
+    return encodeDiscoveredServices(DiscoveredServices { services: await browsing.browser.browse(ROUND_MS) })
+  } catch (e: Error) {
+    return encodeDiscoveredServices(DiscoveredServices { services: [], error: e.message })
+  }
+}

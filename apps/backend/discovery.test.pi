@@ -1,0 +1,319 @@
+// Network discovery (#197) against a fake advertiser: a responder on a loopback port that answers one-shot mDNS queries as
+// a real one does (Avahi answers the PTR question with the SRV and the address as additional records; a terse responder answers
+// only what is asked, and the browser asks again for what is missing). The DNS messages here are written by hand, apart from
+// the module's own encoder, so that the two check each other.
+import { describe, it, expect } from "std/test"
+import { Cbor } from "pico-desktop/communicator"
+import { UdpSocket, bind } from "std/net"
+import {
+  DnsRecord,
+  MAVLINK_TCP,
+  MAVLINK_UDP,
+  MdnsBrowser,
+  ServiceBrowser,
+  TYPE_A,
+  TYPE_PTR,
+  TYPE_SRV,
+  encodeQuery,
+  parseResponse,
+  questionsFor,
+  readName,
+  servicesOf,
+  setBrowserForTests,
+} from "./discovery"
+import { DiscoveredService, DiscoveredServiceTransport, decodeDiscoveredServices } from "./generated/app"
+import { start } from "./testing"
+
+/// A service the fake advertises.
+struct Advertised {
+  instance: string
+  type: string
+  host: string
+  address: string
+  port: int
+}
+
+const ROVER = Advertised { instance: "Rover 1", type: MAVLINK_UDP, host: "rover.local", address: "192.168.2.2", port: 14550 }
+const SUB = Advertised { instance: "BlueOS Sub", type: MAVLINK_TCP, host: "blueos.local", address: "10.0.0.7", port: 5760 }
+
+/// Bytes being written.
+class Out {
+  public bytes: int[] = []
+
+  public u16(v: int): void {
+    bytes.push((v >> 8) & 0xFF)
+    bytes.push(v & 0xFF)
+  }
+
+  public name(name: string): void {
+    for (const label of name.split(".")) {
+      const b = new TextEncoder().encode(label)
+      bytes.push(b.length)
+      for (let i = 0; i < b.length; i++) {
+        bytes.push(b[i] as int)
+      }
+    }
+    bytes.push(0)
+  }
+
+  /// A record's header up to its data length; `owner` is a name, or a pointer to the first question (`at12`).
+  public record(owner: string, type: int, at12: bool): void {
+    if (at12) {
+      u16(0xC00C)
+    } else {
+      name(owner)
+    }
+    u16(type)
+    u16(1)
+    u16(0)
+    u16(10)
+  }
+
+  public ptr(s: Advertised, at12: bool): void {
+    record(s.type, TYPE_PTR, at12)
+    const data = new Out()
+    data.name(`${s.instance}.${s.type}`)
+    u16(data.bytes.length)
+    for (const b of data.bytes) {
+      bytes.push(b)
+    }
+  }
+
+  public srv(s: Advertised): void {
+    record(`${s.instance}.${s.type}`, TYPE_SRV, false)
+    const data = new Out()
+    data.u16(0)
+    data.u16(0)
+    data.u16(s.port)
+    data.name(s.host)
+    u16(data.bytes.length)
+    for (const b of data.bytes) {
+      bytes.push(b)
+    }
+  }
+
+  public a(s: Advertised): void {
+    record(s.host, TYPE_A, false)
+    u16(4)
+    for (const part of s.address.split(".")) {
+      bytes.push(parseInt(part))
+    }
+  }
+}
+
+/// The questions of a query, as (name, type).
+function questionsOf(q: Uint8Array): DnsRecord[] throws Error {
+  const out: DnsRecord[] = []
+  let at = 12
+  const count = ((q[4] as int) << 8) | (q[5] as int)
+  for (let i = 0; i < count; i++) {
+    const n = readName(q, at)
+    out.push(DnsRecord { name: n.name.toLowerCase(), type: ((q[n.next] as int) << 8) | (q[n.next + 1] as int), value: "", port: 0 })
+    at = n.next + 4
+  }
+  return out
+}
+
+/// The answer to a query: with `full`, each PTR answer comes with its SRV and address as additional records; without, only
+/// what is asked is answered. The question is echoed, as a one-shot query's answer must.
+function answer(q: Uint8Array, services: Advertised[], full: bool): Uint8Array throws Error {
+  const answers = new Out()
+  const additional = new Out()
+  let an = 0
+  let ar = 0
+  const questions = questionsOf(q)
+  for (const question of questions) {
+    for (const s of services) {
+      const instance = `${s.instance}.${s.type}`.toLowerCase()
+      if (question.type == TYPE_PTR && question.name == s.type) {
+        // The first question's name is written as a pointer to it (name compression).
+        answers.ptr(s, question.name == questions[0].name)
+        an += 1
+        if (full) {
+          additional.srv(s)
+          additional.a(s)
+          ar += 2
+        }
+      } else if (question.type == TYPE_SRV && question.name == instance) {
+        answers.srv(s)
+        an += 1
+      } else if (question.type == TYPE_A && question.name == s.host) {
+        answers.a(s)
+        an += 1
+      }
+    }
+  }
+  const out = new Out()
+  out.bytes.push(q[0] as int)
+  out.bytes.push(q[1] as int)
+  out.u16(0x8400)
+  out.u16(questions.length)
+  out.u16(an)
+  out.u16(0)
+  out.u16(ar)
+  // The questions, as they were asked.
+  let end = 12
+  for (let i = 0; i < questions.length; i++) {
+    end = readName(q, end).next + 4
+  }
+  for (let i = 12; i < end; i++) {
+    out.bytes.push(q[i] as int)
+  }
+  for (const b of answers.bytes) {
+    out.bytes.push(b)
+  }
+  for (const b of additional.bytes) {
+    out.bytes.push(b)
+  }
+  Uint8Array.from(out.bytes)
+}
+
+/// The fake advertiser: answers every query on its socket until it is closed.
+class FakeAdvertiser {
+  public readonly socket: UdpSocket
+  readonly services: Advertised[]
+  readonly full: bool
+  public queries: int = 0
+
+  constructor(socket: UdpSocket, services: Advertised[], full: bool) {
+    this.socket = socket
+    this.services = services
+    this.full = full
+  }
+
+  public static async start(services: Advertised[], full: bool): Promise<FakeAdvertiser> throws Error {
+    const fake = new FakeAdvertiser(await bind(0), services, full)
+    fake.serve()
+    return fake
+  }
+
+  async serve(): Promise<void> throws Error {
+    while (true) {
+      const d = await socket.receive()
+      if (d == null) {
+        return
+      }
+      queries += 1
+      await socket.send(answer(d!.data, services, full), d!.addr.port, d!.addr.hostname)
+    }
+  }
+
+  public close(): void {
+    socket.close()
+  }
+}
+
+/// What was found, in words.
+function listed(found: DiscoveredService[]): string {
+  const out: string[] = []
+  for (const s of found) {
+    const how = if (s.transport == DiscoveredServiceTransport.UdpClient) "udp-client" else "tcp"
+    out.push(`${s.name} ${how} ${s.host}:${s.port}`)
+  }
+  out.join(" | ")
+}
+
+/// The query asks the two service types, for a PTR each, under the id it was given.
+async function encodesTheQuery(): Promise<void> throws Error {
+  const q = encodeQuery(0x1234, [
+    DnsRecord { name: MAVLINK_UDP, type: TYPE_PTR, value: "", port: 0 },
+    DnsRecord { name: MAVLINK_TCP, type: TYPE_PTR, value: "", port: 0 },
+  ])
+  const asked = questionsOf(q)
+  expect(`${q[0] as int} ${q[1] as int} ${asked.length} ${asked[0].name} ${asked[0].type} ${asked[1].name}`)
+    .toBe("18 52 2 _mavlink._udp.local 12 _mavlink._tcp.local")
+}
+
+/// A responder like Avahi: everything comes in the first answer, and nothing more is asked.
+async function findsWithOneQuestion(): Promise<void> throws Error {
+  const fake = await FakeAdvertiser.start([ROVER, SUB], true)
+  const found = await new MdnsBrowser("127.0.0.1", fake.socket.addr.port).browse(150)
+  fake.close()
+  expect(listed(found)).toBe("Rover 1 udp-client 192.168.2.2:14550 | BlueOS Sub tcp 10.0.0.7:5760")
+  expect(fake.queries).toBe(1)
+}
+
+/// A terse responder: the port and the address are asked for, in two more rounds.
+async function asksForWhatIsMissing(): Promise<void> throws Error {
+  const fake = await FakeAdvertiser.start([ROVER], false)
+  const found = await new MdnsBrowser("127.0.0.1", fake.socket.addr.port).browse(150)
+  fake.close()
+  expect(listed(found)).toBe("Rover 1 udp-client 192.168.2.2:14550")
+  expect(fake.queries).toBe(3)
+}
+
+/// Nobody advertises: nothing is found, and nothing fails.
+async function findsNothing(): Promise<void> throws Error {
+  const fake = await FakeAdvertiser.start([], true)
+  const found = await new MdnsBrowser("127.0.0.1", fake.socket.addr.port).browse(100)
+  fake.close()
+  expect(found.length).toBe(0)
+}
+
+/// What the records leave out is asked next; an instance without its port is not listed, and one without its address is
+/// listed by its host's name.
+async function assemblesTheRecords(): Promise<void> throws Error {
+  const ptr = DnsRecord { name: MAVLINK_UDP, type: TYPE_PTR, value: "Rover 1._mavlink._udp.local", port: 0 }
+  expect(listed(servicesOf([ptr]))).toBe("")
+  const asked = questionsFor([ptr])
+  expect(`${asked.length} ${asked[0].name} ${asked[0].type}`).toBe("1 rover 1._mavlink._udp.local 33")
+  const srv = DnsRecord { name: "rover 1._mavlink._udp.local", type: TYPE_SRV, value: "rover.local", port: 14550 }
+  expect(listed(servicesOf([ptr, srv]))).toBe("Rover 1 udp-client rover.local:14550")
+  const next = questionsFor([ptr, srv])
+  expect(`${next.length} ${next[0].name} ${next[0].type}`).toBe("1 rover.local 1")
+  // A PTR of another service type is somebody else's.
+  const other = DnsRecord { name: "_http._tcp.local", type: TYPE_PTR, value: "Web._http._tcp.local", port: 0 }
+  expect(questionsFor([other]).length).toBe(0)
+}
+
+/// A malformed answer fails to parse (a name that points in a loop, a record cut short); a query is not an answer.
+async function refusesMalformed(): Promise<void> throws Error {
+  let looped = "no error"
+  try {
+    readName(Uint8Array.from([0, 0, 0xC0, 0x02]), 2)
+  } catch (e: Error) {
+    looped = e.message
+  }
+  expect(looped).toBe("a DNS name points in a loop")
+  const q = encodeQuery(1, [DnsRecord { name: MAVLINK_UDP, type: TYPE_PTR, value: "", port: 0 }])
+  expect(parseResponse(q).length).toBe(0)
+  const whole = answer(q, [ROVER], true)
+  expect(parseResponse(whole).length).toBe(3)
+  let cut = "no error"
+  try {
+    parseResponse(whole.subarray(0, whole.length - 2))
+  } catch (e: Error) {
+    cut = e.message
+  }
+  expect(cut).toBe("a DNS record runs past the message")
+}
+
+/// A browser that cannot ask (no network).
+class Failing implements ServiceBrowser {
+  public async browse(_roundMs: int): Promise<DiscoveredService[]> throws Error {
+    throw new Error("Network is unreachable")
+  }
+}
+
+/// Through the service: what the fake advertises, and why nothing could be asked.
+async function throughTheService(): Promise<void> throws Error {
+  const fake = await FakeAdvertiser.start([SUB], true)
+  setBrowserForTests(new MdnsBrowser("127.0.0.1", fake.socket.addr.port))
+  const f = await start()
+  const found = decodeDiscoveredServices((await f.call("discovery.browse")).p ?? Cbor.Null, "$")
+  fake.close()
+  expect(`${listed(found.services)} ${found.error ?? ""}`).toBe("BlueOS Sub tcp 10.0.0.7:5760 ")
+  setBrowserForTests(new Failing())
+  const failed = decodeDiscoveredServices((await f.call("discovery.browse")).p ?? Cbor.Null, "$")
+  expect(`${failed.services.length} ${failed.error ?? ""}`).toBe("0 Network is unreachable")
+}
+
+describe("network discovery", () => {
+  it("asks for the two MAVLink service types", encodesTheQuery)
+  it("finds what a full responder advertises with one question", findsWithOneQuestion)
+  it("asks a terse responder for the port and the address", asksForWhatIsMissing)
+  it("finds nothing when nothing is advertised", findsNothing)
+  it("puts the records together, and knows what is still to ask", assemblesTheRecords)
+  it("refuses malformed answers", refusesMalformed)
+  it("answers through the service, and says why nothing could be asked", throughTheService)
+})
