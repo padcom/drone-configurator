@@ -2,7 +2,8 @@
 // simulator's SIM_STATE: where the vehicle really is, how it moves and how it is turned, from the physics model before any
 // sensor or estimator. The app's telemetry (what the backend sends the page, with when the page got it and each group's age) is
 // compared with that truth at the moment each value was the vehicle's.
-//  1. Before a GPS fix (the simulated GPS is off at boot): no position, no home, no altitude on the display: nothing made up.
+//  1. Before a GPS fix (the simulated GPS is off at boot): no position, no home, no altitude on the display, and of the GPS only
+//     what the vehicle itself reports (its GPS_RAW_INT, read on the second port): nothing made up.
 //  2. The GPS on, a short flight: armed in GUIDED, up to 10 m, then 40 m north and east at 15 m. All along, the position, the
 //     altitudes above sea level and above home, the velocities, the ground speed and climb, and the attitude match the truth.
 //
@@ -11,7 +12,7 @@ import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { BridgeClient, type Seen, type TimedTelemetry } from './bridge-client'
 import { type E2eApp, launchApp } from './launch'
-import type { SimState } from './mavlink-wire'
+import type { GpsRaw, SimState } from './mavlink-wire'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
 import { SimTruth, angleDifference } from './sitl-truth'
@@ -74,7 +75,7 @@ interface Groups {
     ageMs: number
   }
   home?: { lat: number, lon: number, altitude: number, ageMs: number }
-  gps?: { fixType: number, satellites?: number, hdop?: number, ageMs: number }
+  gps?: { fixType: number, satellites?: number, hdop?: number, vdop?: number, ageMs: number }
   speed?: { groundspeed: number, climb: number, ageMs: number }
   attitude?: { roll: number, pitch: number, yaw: number, ageMs: number }
 }
@@ -218,6 +219,36 @@ function cardText(label: string): Promise<string> {
   return window().evaluate<string>(`${card}.textContent`)
 }
 
+/**
+ * A GPS group without its age and without the fields it has not, in one order.
+ *
+ * @param gps the group
+ * @returns the fields it has
+ */
+function withoutAge(gps: Record<string, number | undefined>): Record<string, number> {
+  const fields = ['fixType', 'satellites', 'hdop', 'vdop'] as const
+
+  return Object.fromEntries(fields.flatMap(field => (gps[field] === undefined ? [] : [[field, gps[field]]])))
+}
+
+/**
+ * The GPS group the backend makes of what the vehicle reports (the contract's gps-group): HDOP and VDOP in units, and none of
+ * what the vehicle does not know.
+ *
+ * @param gps the vehicle's GPS_RAW_INT
+ * @returns the group, without its age, with its fields in order
+ */
+function asGroup(gps: GpsRaw): Record<string, number> {
+  const known = (value: number, unknown: number, scale = 1) => (value === unknown ? undefined : value / scale)
+
+  return withoutAge({
+    fixType: gps.fixType,
+    satellites: known(gps.satellites, 255),
+    hdop: known(gps.eph, 65_535, 100),
+    vdop: known(gps.epv, 65_535, 100),
+  })
+}
+
 async function showsNothingMadeUpBeforeAFix(): Promise<void> {
   // the attitude comes without a GPS: the telemetry flows
   await client().until('the attitude is reported', seen => (seen as Seen & Groups).attitude !== undefined, 60_000)
@@ -227,7 +258,14 @@ async function showsNothingMadeUpBeforeAFix(): Promise<void> {
 
   expect(groups.length).toBeGreaterThan(10)
   expect(groups.filter(g => g.position !== undefined || g.home !== undefined)).toEqual([])
-  expect(groups.filter(g => g.gps !== undefined && (g.gps.fixType >= 2 || g.gps.hdop !== undefined))).toEqual([])
+  expect(groups.filter(g => g.gps !== undefined && g.gps.fixType >= 2)).toEqual([])
+  // the GPS group is what the vehicle reports, and no more: its own numbers or none (Copter 4.7.3 reports an HDOP and a few
+  // satellites while it has no fix)
+  const reported = new Set(reader().gps.map(gps => JSON.stringify(asGroup(gps))))
+  const shown = groups.flatMap(g => (g.gps ? [JSON.stringify(withoutAge(g.gps))] : []))
+
+  expect(shown.length).toBeGreaterThan(0)
+  expect(shown.filter(gps => !reported.has(gps))).toEqual([])
   // the display has no altitude, and the GPS card says there is no fix
   expect(await hudLabel()).not.toMatch(/altitude -?\d/u)
   expect(await cardText('GPS')).toMatch(/No GPS|No fix|—/u)

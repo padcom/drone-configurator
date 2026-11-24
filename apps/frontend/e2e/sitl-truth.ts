@@ -1,10 +1,12 @@
 // The simulator's own truth, read beside the app: a second MAVLink reader on SITL's spare port (SERIAL2) that asks for
 // ArduPilot's SIM_STATE (where the simulated vehicle really is, how fast it moves and how it is turned, straight from the
 // physics model, before any sensor or estimator) and keeps what it says with the time it came. A test compares what the app
-// shows with it at the same moment (`at`).
+// shows with it at the same moment (`at`). It also keeps what the vehicle itself reports of its GPS (GPS_RAW_INT), to tell what
+// the vehicle said from what an app would make up.
 import type { Socket } from 'node:net'
 import {
-  MAV_AUTOPILOT_ARDUPILOTMEGA, MSG_SIM_STATE, FrameReader, type Frame, type SimState, asHeartbeat, asSimState, encodeCommandLong,
+  MAV_AUTOPILOT_ARDUPILOTMEGA, MSG_GPS_RAW_INT, MSG_SIM_STATE, FrameReader, type Frame, type GpsRaw, type SimState, asGpsRaw,
+  asHeartbeat, asSimState, encodeCommandLong,
 } from './mavlink-wire'
 import { connect } from './sitl'
 
@@ -12,6 +14,9 @@ const MAV_CMD_SET_MESSAGE_INTERVAL = 511
 
 /** How often SIM_STATE is asked for: 50 a second, so that a moment between two is at most 20 ms from either. */
 const INTERVAL_US = 20_000
+
+/** How often GPS_RAW_INT is asked for: 5 a second, as often as the simulated GPS updates (SIM_GPS1_HZ). */
+const GPS_INTERVAL_US = 200_000
 
 /** How much of it is kept (ms): enough for a short flight. */
 const KEEP_MS = 600_000
@@ -126,6 +131,8 @@ export function truthAt(samples: readonly TruthSample[], at: number, gapMs: numb
 export class SimTruth {
   /** What came, oldest first. */
   readonly samples: TruthSample[] = []
+  /** What the vehicle reported of its GPS, oldest first (the last 1000). */
+  readonly gps: GpsRaw[] = []
   readonly #reader = new FrameReader()
   #asked = false
 
@@ -224,6 +231,11 @@ export class SimTruth {
     if (state) {
       this.samples.push({ at: now, state })
     }
+    const gps = asGpsRaw(frame)
+    if (gps) {
+      this.gps.push(gps)
+      this.gps.splice(0, this.gps.length - 1000)
+    }
   }
 
   /**
@@ -249,5 +261,6 @@ export class SimTruth {
     this.#asked = true
     const target = { systemId: heartbeat.systemId, componentId: heartbeat.componentId }
     this.socket.write(encodeCommandLong(target, MAV_CMD_SET_MESSAGE_INTERVAL, [MSG_SIM_STATE, INTERVAL_US]))
+    this.socket.write(encodeCommandLong(target, MAV_CMD_SET_MESSAGE_INTERVAL, [MSG_GPS_RAW_INT, GPS_INTERVAL_US]))
   }
 }

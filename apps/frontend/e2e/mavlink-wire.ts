@@ -345,3 +345,30 @@ export function asSimState(frame: Frame): SimState | undefined {
     yaw: degrees(6),
   }
 }
+
+/** What GPS_RAW_INT says of the fix, as the vehicle sends it (65535 and 255 are its "unknown"). */
+export interface GpsRaw {
+  /** GPS_FIX_TYPE. */
+  fixType: number
+  /** The satellites in view. */
+  satellites: number
+  /** HDOP and VDOP, times 100. */
+  eph: number
+  epv: number
+}
+
+/**
+ * The fix in a frame, if it is a GPS_RAW_INT (time_usec, lat, lon, alt, eph, epv, vel, cog, fix_type, satellites_visible).
+ *
+ * @param frame the frame
+ * @returns the fix, or undefined for another message
+ */
+export function asGpsRaw(frame: Frame): GpsRaw | undefined {
+  if (frame.messageId !== MSG_GPS_RAW_INT) {
+    return undefined
+  }
+  const payload = padded(frame.payload, 30)
+  const view = new DataView(payload.buffer, payload.byteOffset)
+
+  return { eph: view.getUint16(20, true), epv: view.getUint16(22, true), fixType: payload[28] ?? 0, satellites: payload[29] ?? 0 }
+}
