@@ -84,8 +84,8 @@
             </span>
           </td>
         </tr>
-        <tr v-if="to < rows.length" class="spacer" aria-hidden="true">
-          <td :colspan="columns" :style="{ height: `${(rows.length - to) * ROW_PX}px` }" />
+        <tr v-if="to < visible.length" class="spacer" aria-hidden="true">
+          <td :colspan="columns" :style="{ height: `${(visible.length - to) * ROW_PX}px` }" />
         </tr>
       </tbody>
     </table>
@@ -391,27 +391,31 @@ function changedText(initial: number | undefined): string | undefined {
   return initial === undefined ? undefined : t('params.initial.changedFrom', { initial: showNumber(initial) })
 }
 
-const rows = computed(() => {
-  const why = new Map((hits.value ?? []).map(hit => [hit.id, hit]))
+// Why each parameter is a result of the search (none without one).
+const why = computed(() => new Map((hits.value ?? []).map(hit => [hit.id, hit])))
 
-  return visible.value.map(param => {
-    const { description = '', longDescription = description } = fields.metadata.value.get(param.id) ?? {}
+/**
+ * A row as it is drawn: made only for the rows in view (a search that matches a thousand parameters draws a screenful of them,
+ * and a keystroke must not make a thousand rows).
+ *
+ * @param param the parameter
+ * @returns the row
+ */
+function drawnRow(param: Param) {
+  const { description = '', longDescription = description } = fields.metadata.value.get(param.id) ?? {}
+  const initial = initialValueOf(param.id)
+  const row = rowOf(param, { description, full: longDescription }, why.value.get(param.id))
 
-    const initial = initialValueOf(param.id)
-
-    const row = rowOf(param, { description, full: longDescription }, why.get(param.id))
-
-    return { ...row, initial, changedText: changedText(initial) }
-  })
-})
+  return { ...row, initial, changedText: changedText(initial) }
+}
 
 // Which rows are drawn: from where the scroll box is scrolled to and how tall it is.
 const scroller = ref<HTMLElement | null>(null)
 const scrolled = ref(0)
 const height = ref(0)
-const from = computed(() => windowOf(rows.value.length, scrolled.value, height.value, ROW_PX).from)
-const to = computed(() => windowOf(rows.value.length, scrolled.value, height.value, ROW_PX).to)
-const shown = computed(() => rows.value.slice(from.value, to.value))
+const from = computed(() => windowOf(visible.value.length, scrolled.value, height.value, ROW_PX).from)
+const to = computed(() => windowOf(visible.value.length, scrolled.value, height.value, ROW_PX).to)
+const shown = computed(() => visible.value.slice(from.value, to.value).map(drawnRow))
 
 /** Reads where the scroll box is scrolled to, and how tall it is. */
 function measure(): void {
@@ -424,7 +428,7 @@ function measure(): void {
 
 // The selected row, by its place in the list (-1: none, or it is filtered out), and the row the table points to for a screen
 // reader (only while it is drawn: the rows far from the view are not in the page).
-const selectedAt = computed(() => rows.value.findIndex(row => row.param.id === fields.selected.value))
+const selectedAt = computed(() => visible.value.findIndex(param => param.id === fields.selected.value))
 // What the polite status says: which parameter the selection is on, and where. It is made when the selected parameter changes
 // and not when the list does (the total changes with every key typed in the search, and the region would speak while the user
 // types).
@@ -448,7 +452,7 @@ function selectionOf(): string {
   const id = fields.selected.value
   const initial = initialValueOf(id ?? '')
   const key = initial === undefined ? 'params.selection' : 'params.selectionChanged'
-  const said = { id, position: selectedAt.value + 1, total: rows.value.length, initial: initialText(initial) }
+  const said = { id, position: selectedAt.value + 1, total: visible.value.length, initial: initialText(initial) }
 
   return selectedAt.value < 0 ? '' : t(key, said)
 }
@@ -509,9 +513,9 @@ function pageNow(): number {
  * @param index the place
  */
 function selectAt(index: number): void {
-  const row = rows.value[index]
-  if (row) {
-    parameters.select(row.param.id)
+  const param = visible.value[index]
+  if (param) {
+    parameters.select(param.id)
     reveal(index)
   }
 }
@@ -566,7 +570,7 @@ function focusValue(event: KeyboardEvent): void {
  * @returns true if the selection moved, false for a key that moves nothing or a list with no rows
  */
 function moveSelection(key: string): boolean {
-  const target = movedRow(key, selectedAt.value, rows.value.length, pageNow())
+  const target = movedRow(key, selectedAt.value, visible.value.length, pageNow())
   selectAt(target)
 
   return target >= 0
@@ -653,6 +657,9 @@ function onRowClick(id: string): void {
   void recent.touch(id)
 }
 
+/** The first row, selected because the list changed: it is in view at the top (cleared when the selection is followed). */
+let fromTop = ''
+
 /** The parameter whose row the list has been scrolled to (or that the user clicked, so that it is in view). */
 let scrolledTo: string | null = null
 
@@ -668,10 +675,11 @@ function scrollToSelected(): void {
 // scrolled into view. The focus is not moved.
 watch(() => fields.selected.value, async () => {
   await nextTick()
-  const byClick = clicked !== '' && clicked === fields.selected.value
+  const inView = [clicked, fromTop].includes(fields.selected.value ?? '')
   clicked = ''
+  fromTop = ''
 
-  if (byClick) {
+  if (inView) {
     scrolledTo = fields.selected.value
   } else if (selectedAt.value >= 0) {
     scrollToSelected()
@@ -698,18 +706,30 @@ async function forgetSelectedByList(): Promise<void> {
   selectedByList = ''
 }
 
-/** Nothing to select (no row matches): the list is still left at the top, for the rows that come back. */
-function emptyToTop(): void {
-  if (rows.value.length === 0 && scroller.value) {
+/**
+ * The list is scrolled to its top, from where it was last seen to be (the scroll events keep that): nothing is measured, so that
+ * a keystroke in the search does not make the browser lay out the rows that are about to be replaced.
+ */
+function scrollToTop(): void {
+  if (scroller.value && scrolled.value !== 0) {
     scroller.value.scrollTop = 0
+    scrolled.value = 0
   }
 }
 
-/** The list is of another scope: the first row is selected and the list is at the top (once, whatever changed together). */
+/**
+ * The list is of another scope: the first row is selected and the list is at the top (once, whatever changed together). That row
+ * is in view at the top, so the selection does not scroll to it (a measure of the layout at each key typed).
+ */
 function toTop(): void {
-  selectedByList = rows.value[0]?.param.id ?? ''
-  selectAt(0)
-  emptyToTop()
+  const first = visible.value[0]?.id ?? ''
+  selectedByList = first
+  fromTop = first
+
+  if (first !== '') {
+    parameters.select(first)
+  }
+  scrollToTop()
   void forgetSelectedByList()
 }
 // What is searched, which group is chosen, and which view: a change of any of them is a new list, from its top. The focus stays
