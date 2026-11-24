@@ -22,6 +22,7 @@ import { type AnalysisModel, useAnalysis } from './useAnalysis'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type LinkStatsModel, useLinkStats } from './useLinkStats'
+import { type RecordingModel, useRecording } from './useRecording'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -93,6 +94,8 @@ export interface ConfiguratorHandle {
   staged: StagedModel
   /** The quality of the link to the vehicle: loss, rates and latency. */
   link: LinkStatsModel
+  /** The recording of every connection to a tlog: what it is doing, and its preferences. */
+  recording: RecordingModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
@@ -560,6 +563,20 @@ function startLink(client: BackendClient, vehicle: Vehicle): LinkStatsModel {
 }
 
 /**
+ * The recording of the connections, started: what the backend is doing is asked once, and followed after.
+ *
+ * @param client the link to the backend
+ * @param settings the settings
+ * @returns the recording
+ */
+function startRecording(client: BackendClient, settings: SettingsModel): RecordingModel {
+  const recording = useRecording({ client, settings })
+  void recording.refresh()
+
+  return recording
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -593,6 +610,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), link: startLink(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
+    recording: startRecording(client, settings),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

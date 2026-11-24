@@ -74,6 +74,7 @@
     </div>
     <GuidedSettings />
     <MapSettings />
+    <RecordingSettings />
     <KeyBindings />
     <p class="muted">{{ t('settings.more') }}</p>
   </section>
@@ -86,6 +87,7 @@ import { LANGUAGES, LANGUAGE_NAMES, isLanguage } from '@/i18n/i18n'
 import GuidedSettings from '@/components/settings/GuidedSettings.vue'
 import KeyBindings from '@/components/settings/KeyBindings.vue'
 import MapSettings from '@/components/settings/MapSettings.vue'
+import RecordingSettings from '@/components/settings/RecordingSettings.vue'
 import Button from '@/components/ui/Button.vue'
 import Select from '@/components/ui/Select.vue'
 import TextInput from '@/components/ui/TextInput.vue'
@@ -102,10 +104,9 @@ import { sizeText } from '@/lib/logs/vehicleLogs'
 import { useFormat } from '@/i18n/useFormat'
 
 // What the user chooses about the application: the language of the interface, what the Parameters screen shows, the parameter
-// metadata file, the logs, how much a mode change asks, and the map. The choices are kept in the settings (the backend's file),
-// so they are still there at the next start. The settings notice (a file that was set aside, one that cannot be written) stays
-// where it is, under the top bar,
-// since it matters on every screen.
+// metadata file, the logs, how much a mode change asks, the map and the recording of the connections. The choices are kept in
+// the settings (the backend's file), so they are still there at the next start. The settings notice (a file that was set aside,
+// one that cannot be written) stays where it is, under the top bar, since it matters on every screen.
 const { t, locale } = useI18n()
 const { settings } = useConfigurator()
 const uid = useId()

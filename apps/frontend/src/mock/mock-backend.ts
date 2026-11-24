@@ -6,7 +6,7 @@ import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
   CalibrationStart, Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
-  ChangeAltitudeAsk, RepositionAsk, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
+  ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
@@ -16,6 +16,7 @@ import { MockLogs, type MockLogsOptions } from './mock-logs'
 import { MockMotors, type MockMotorsControl } from './mock-motors'
 import { MockArming, type MockArmingControl } from './mock-arming'
 import { MockMap } from './mock-map'
+import { MockRecording } from './mock-recording'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
 import { type LinkStats, linkStatsAt } from './mock-link'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
@@ -126,6 +127,8 @@ export interface MockControl {
   tuning?: MockTuningControl
   /** Sets what `link.stats` says from now on (null: the mock's own healthy link again). */
   link?: (stats: LinkStats | null) => void
+  /** The recording fails (or no longer does), or the limit removed this many old recordings in all: `recording.changed` is sent. */
+  recording?: (change: { failure?: RecordingFailure, removed?: number }) => void
 }
 
 /** How long a rebooting mock vehicle is gone (ms), unless `MockOptions.rebootMs` says. */
@@ -190,6 +193,7 @@ class MockVehicle {
   /** The logs on this computer (no vehicle needed). */
   readonly localLogs: MockLocalLogs
   readonly map: MockMap
+  readonly recording = new MockRecording()
   /** The motor test. */
   readonly motors: MockMotors
   readonly tuning: MockTuning
@@ -227,6 +231,7 @@ class MockVehicle {
       options.control.announce = (id, value) => this.announceParam(id, value)
       options.control.connection = connection => this.push(connection)
       options.control.say = (severity, text) => this.say(severity, text)
+      options.control.recording = change => this.changeRecording(change)
       options.control.armed = armed => { this.armedOverride = armed }
       options.control.busy = busy => { this.busy = busy }
       options.control.ftp = mode => { this.ftpMode = mode }
@@ -347,6 +352,12 @@ class MockVehicle {
       case 'map.clear': return this.map.clear(ok)
       case 'map.tile': return this.map.tile(this.settings, ok, fail)
       case 'map.cancel': return ok(null)
+      case 'recording.state': return ok(this.recording.state(this.settings, this.connection))
+      case 'recording.dismiss': {
+        this.recording.failure = undefined
+
+        return ok(this.recording.state(this.settings, this.connection))
+      }
       case 'motors.test': return this.motors.subscribe(e)
       case 'motors.hold': return this.motors.hold(ok, fail)
       case 'tuning.stream': return this.tuning.subscribe(e)
@@ -468,6 +479,19 @@ class MockVehicle {
     return this.armedOverride === undefined ? this.telemetryArmed : this.armedOverride
   }
 
+  /**
+   * Changes what the recording says, and sends it.
+   *
+   * @param change the failure (undefined: none), and how many recordings the limit removed in all
+   * @param change.failure why the recording stopped, if it did
+   * @param change.removed how many old recordings the limit removed in all
+   */
+  changeRecording(change: { failure?: RecordingFailure, removed?: number }) {
+    this.recording.failure = change.failure
+    this.recording.removed = change.removed ?? this.recording.removed
+    this.send({ k: 'event', n: 'recording.changed', p: this.recording.state(this.settings, this.connection) })
+  }
+
   connected(fail: (code: string, message: string) => void): boolean {
     if (this.connection.state !== 'connected') {
       fail('NOT_CONNECTED', 'no vehicle is connected')
@@ -498,9 +522,14 @@ class MockVehicle {
 
   /** Tells every watcher of the connection that it is now `connection`. */
   push(connection: Connection) {
+    const recordingChanges = (connection.state === 'connected') !== (this.connection.state === 'connected')
     this.connection = connection
     for (const s of this.watchers) {
       this.send({ k: 'event', n: 'vehicle.connection', s, p: connection })
+    }
+    // (a recording starts with a connection and ends with it, as the backend's does)
+    if (recordingChanges) {
+      this.send({ k: 'event', n: 'recording.changed', p: this.recording.state(this.settings, this.connection) })
     }
   }
 
