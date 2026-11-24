@@ -1253,11 +1253,6 @@
     "loadMetadata": "Carica metadati"
   },
   "paramFile": {
-    "save": {
-      "param": "Salva .param",
-      "parm": "Salva .parm",
-      "qgc": "Salva .params"
-    },
     "format": {
       "param": "ArduPilot .param (NOME,VALORE)",
       "parm": "MAVProxy .parm (NOME VALORE)",
