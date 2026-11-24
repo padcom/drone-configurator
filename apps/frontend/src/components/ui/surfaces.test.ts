@@ -91,6 +91,24 @@ describe('a banner', () => {
   })
 })
 
+describe('an empty banner', () => {
+  it('keeps its place in the page, a status with nothing in it, when it is empty (#562)', () => {
+    const banner = put(Banner, { props: { tone: 'warn', empty: true } })
+
+    expect(banner.attributes('role')).toBe('status')
+    expect(banner.classes()).toEqual(expect.arrayContaining(['kit-banner', 'warn', 'empty']))
+    expect(banner.text()).toBe('')
+  })
+
+  it('keeps, unseen and not read out, the room of every text it may say, and shows the one it says', () => {
+    const banner = put(Banner, { props: { room: ['Armed', 'Not known whether it is disarmed'] }, slots: { default: 'Armed' } })
+
+    expect(banner.get('.text.kept .said').text()).toBe('Armed')
+    expect(banner.findAll('.room').map(room => [room.text(), room.attributes('aria-hidden')]))
+      .toEqual([['Armed', 'true'], ['Not known whether it is disarmed', 'true']])
+  })
+})
+
 describe('a progress bar', () => {
   it('says how far it is to a screen reader, from 0 to 100', () => {
     const bar = put(ProgressBar, { props: { value: 0.4, label: 'Downloading parameters' } })

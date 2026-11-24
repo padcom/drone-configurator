@@ -1,6 +1,7 @@
 <template>
   <div class="setup-calibration-notice">
-    <Banner v-if="blockedText" id="calibration-blocked" tone="warn">{{ blockedText }}</Banner>
+    <!-- Its line is always kept: the controls below stay put when the vehicle's state is not heard for a moment (#562). -->
+    <Banner id="calibration-blocked" tone="warn" :empty="!blockedText" :room="reasons">{{ blockedText }}</Banner>
     <Banner v-if="errorText" id="calibration-error" tone="error" urgent>{{ errorText }}</Banner>
   </div>
 </template>
@@ -21,6 +22,8 @@ const blockedText = computed(() => {
 
   return why === null || calibration.running.value ? '' : t(`setup.calibration.blocked.${why}`)
 })
+/** Every reason it may give: the banner keeps the room of the longest (in the narrow column one takes two lines). */
+const reasons = computed(() => (['offline', 'armed', 'unknown'] as const).map(why => t(`setup.calibration.blocked.${why}`)))
 const errorText = computed(() => {
   const code = calibration.errorCode.value
   if (code === null) {

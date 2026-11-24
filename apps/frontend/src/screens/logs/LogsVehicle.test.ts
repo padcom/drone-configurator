@@ -134,7 +134,7 @@ it('says why, and turns the buttons off, while the vehicle is armed', async () =
   feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
   await flushPromises()
 
-  expect(wrapper.get('#logs-blocked').text()).toContain('The vehicle is armed')
+  expect(wrapper.get('#logs-blocked .said').text()).toContain('The vehicle is armed')
   expect(wrapper.get('#logs-download').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
 })
@@ -145,7 +145,7 @@ it('counts a vehicle that is not known to be disarmed as armed, and says that is
   feed(handle, { telemetry: { ...telemetryAt(0), armed: false, heartbeatAgeMs: 9000 } })
   await flushPromises()
 
-  expect(wrapper.get('#logs-blocked').text()).toContain('not known whether the vehicle is disarmed')
+  expect(wrapper.get('#logs-blocked .said').text()).toContain('not known whether the vehicle is disarmed')
   expect(wrapper.get('#logs-download').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
 })
