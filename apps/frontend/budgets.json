@@ -17,9 +17,9 @@
     },
     "initialJs": {
       "unit": "KiB",
-      "budget": 1850,
+      "budget": 800,
       "noise": 1,
-      "what": "The JavaScript the page loads before anything else: index.html's module script and its modulepreloads, uncompressed (the app reads them from disk, so the size is parse time)",
+      "what": "The JavaScript the page loads before anything else: index.html's module script and its modulepreloads, uncompressed (the app reads them from disk, so the size is parse time). English only: another language is a chunk loaded when it is chosen (661 KiB when that was made, from 1815 with every language up front)",
       "measuredBy": "e2e/budgets.e2e.ts"
     },
     "longTask": {
