@@ -94,7 +94,7 @@ async function provisionsAKey(): Promise<void> {
   await w.click('#link-signing')
   await w.waitFor(`document.querySelector('#signing-form') !== null`, WAIT_MS)
   // (the waits of the backend: the vehicle's state is known once its heartbeat is)
-  await w.waitFor(`document.querySelector('#signing-blocked') === null`, WAIT_MS)
+  await w.waitFor(`document.querySelector('#signing-blocked')?.classList.contains('empty') === true`, WAIT_MS)
   await w.click('#signing-form .kit-segmented label:nth-of-type(2) input')
   await w.waitFor(`document.querySelector('#signing-form input[type="password"]') !== null`)
   await w.fill('#signing-form input[type="password"]', 'a passphrase for SITL')

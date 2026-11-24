@@ -17,7 +17,9 @@
       :level="4"
     />
     <template v-else>
-      <Banner v-if="reason" id="logs-blocked" tone="warn">{{ reason }}</Banner>
+      <!-- Why nothing can be downloaded or erased now: its line is always kept, so that the toolbar below never moves when the
+           vehicle's state is not heard for a moment and the warning comes and goes (#562). -->
+      <Banner id="logs-blocked" tone="warn" :empty="!reason" :room="reasons">{{ reason }}</Banner>
       <Banner v-if="logs.error.value" id="logs-error" tone="error">{{ logs.error.value }}</Banner>
       <div class="logs-toolbar">
         <Button id="logs-refresh" :disabled="logs.loading.value || logs.running.value" @click="logs.refresh()">
@@ -181,6 +183,8 @@ const eraseOff = computed<'waiting' | 'blocked' | null>(() => {
 })
 const canDownload = computed(() => logs.blocked.value === null && chosen.value > 0)
 const reason = computed(() => (logs.blocked.value === null ? '' : t(`logs.vehicle.blocked.${logs.blocked.value}`)))
+/** Every reason the page may give (with no vehicle the page shows none): the warning keeps the room of the longest. */
+const reasons = computed(() => (['armed', 'unknown', 'busy', 'reading'] as const).map(why => t(`logs.vehicle.blocked.${why}`)))
 const eraseNote = computed(() => {
   if (!logs.canErase.value) {
     return t('logs.vehicle.erase.unavailable')

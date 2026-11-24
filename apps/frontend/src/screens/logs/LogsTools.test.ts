@@ -127,7 +127,7 @@ it('takes the names of the bits from the metadata, and keeps a bit that is on an
 
 it('changes nothing on the vehicle when ticking: it says what would change, and queues it only on the button', async () => {
   const { wrapper, handle } = await page()
-  expect(wrapper.find('#setup-armed').exists()).toBe(false)
+  expect(wrapper.get('#setup-armed').classes()).toContain('empty')
 
   // Bit 17 on, bit 0 off: LOG_BITMASK 5 → 131076.
   await box(wrapper, 0, 2).setValue(true)
@@ -164,7 +164,7 @@ it('puts the ticks back, and queues nothing for ticks that end where the vehicle
 it('refuses everything while the vehicle is armed: a banner, boxes that are off, nothing queued', async () => {
   const { wrapper, handle } = await page({ tick: ARMED })
 
-  expect(wrapper.get('#setup-armed').text()).toContain('armed')
+  expect(wrapper.get('#setup-armed .said').text()).toContain('armed')
   expect(wrapper.findAll('fieldset input').every(input => (input.element as HTMLInputElement).disabled)).toBe(true)
   await wrapper.get('#setup-queue').trigger('click')
 
@@ -175,7 +175,7 @@ it('refuses everything while the vehicle is armed: a banner, boxes that are off,
 it('counts a vehicle whose state is not known as armed', async () => {
   const { wrapper } = await page({ tick: null })
 
-  expect(wrapper.find('#setup-armed').exists()).toBe(true)
+  expect(wrapper.get('#setup-armed').classes()).not.toContain('empty')
   expect(wrapper.findAll('fieldset input').every(input => (input.element as HTMLInputElement).disabled)).toBe(true)
 })
 

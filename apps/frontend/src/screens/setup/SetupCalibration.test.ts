@@ -131,7 +131,7 @@ it('is idle with only Start and Level enabled, and says nothing is running', asy
   expect(wrapper.get('#setup-accel-placed').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#setup-accel-cancel').attributes('disabled')).toBeDefined()
   expect(wrapper.findAll('.setup-position')).toHaveLength(6)
-  expect(wrapper.find('#calibration-blocked').exists()).toBe(false)
+  expect(wrapper.get('#calibration-blocked .said').text()).toBe('')
 })
 
 it('walks through the six positions the vehicle asks for, and shows the values only once it says it worked', async () => {
@@ -187,7 +187,7 @@ it('refuses to start while the vehicle is armed, and says why', async () => {
   feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
   await flushPromises()
 
-  expect(wrapper.get('#calibration-blocked').text()).toContain('armed')
+  expect(wrapper.get('#calibration-blocked .said').text()).toContain('armed')
   expect(wrapper.get('#setup-accel-start').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#setup-accel-level').attributes('disabled')).toBeDefined()
 })
@@ -197,7 +197,7 @@ it('refuses to start while the armed state is not known, and says why', async ()
   feed(handle, { telemetry: { ...telemetryAt(0), armed: false, heartbeatAgeMs: 6000 } })
   await flushPromises()
 
-  expect(wrapper.get('#calibration-blocked').text()).toContain('not known')
+  expect(wrapper.get('#calibration-blocked .said').text()).toContain('not known')
   expect(wrapper.get('#setup-accel-start').attributes('disabled')).toBeDefined()
 })
 
