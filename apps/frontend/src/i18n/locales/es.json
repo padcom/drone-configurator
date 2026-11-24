@@ -30,7 +30,38 @@
       "udp": "Comprueba que el vehículo o el simulador envíe a este host y a este puerto, y vuelve a conectar.",
       "tcp": "Comprueba que el vehículo escuche en esta dirección y que nada más la esté usando, y vuelve a conectar.",
       "serial": "Comprueba el cable, que ningún otro programa tenga el puerto abierto y la velocidad en baudios, y vuelve a conectar.",
-      "simulator": "Cierra el cuadro de diálogo e inténtalo de nuevo; si sigue fallando, reinicia la aplicación."
+      "simulator": "Cierra el cuadro de diálogo e inténtalo de nuevo; si sigue fallando, reinicia la aplicación.",
+      "udp-client": "Comprueba que el vehículo escucha en este host y puerto, y que ningún cortafuegos bloquea sus respuestas, y vuelve a conectar.",
+      "tcp-server": "Comprueba que el vehículo o el reenviador se conecta a este puerto, y que nada más lo usa, y vuelve a conectar."
+    },
+    "role": {
+      "label": "Quién inicia el enlace",
+      "udp": "Escuchar al vehículo",
+      "udp-client": "Enviar al vehículo",
+      "tcp": "Conectar con el vehículo",
+      "tcp-server": "Dejar que el vehículo se conecte",
+      "note": {
+        "udp": "El vehículo o el simulador envía a este ordenador.",
+        "udp-client": "Este ordenador envía primero al vehículo y recibe sus respuestas: para un vehículo, un ordenador de a bordo o un router que escucha.",
+        "tcp": "Este ordenador se conecta al vehículo, que escucha en el puerto.",
+        "tcp-server": "Este ordenador escucha en el puerto, y el vehículo o un reenviador se conecta a él. Espera hasta 30 segundos."
+      }
+    },
+    "everywhere": "Escuchar en todas las interfaces de red",
+    "loopback": "Solo los programas de este ordenador pueden llegar al puerto {port}.",
+    "exposed": "Otros ordenadores de tu red pueden llegar al puerto {port}. Elígelo solo en una red de confianza.",
+    "found": {
+      "label": "Vehículos en la red",
+      "again": "Buscar de nuevo",
+      "looking": "Buscando en la red…",
+      "none": "Nada en la red anunció un servicio MAVLink. Comprueba que el vehículo está en esta red, o conéctate por dirección.",
+      "failed": "No se pudo buscar en la red: {error}. Comprueba la conexión de red, o conéctate por dirección.",
+      "count": "Se encontró {count} servicio. | Se encontraron {count} servicios.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -1074,7 +1105,8 @@
       "simulator": "Simulador",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Serie"
+      "serial": "Serie",
+      "found": "Encontrados"
     },
     "host": "Host",
     "port": "Puerto",

@@ -54,10 +54,10 @@ const run = (test: Check, value: unknown): string | null => {
 }
 
 
-export type ConnectRequest = { "transport": "simulator" | "udp" | "tcp" | "serial", "host"?: string, "port"?: number, "device"?: string, "baud"?: number }
+export type ConnectRequest = { "transport": "simulator" | "udp" | "udp-client" | "tcp" | "tcp-server" | "serial", "host"?: string, "port"?: number, "device"?: string, "baud"?: number }
 
 function validateConnectRequestInto(value: any, path: string): boolean {
-  return map(value, path, ["transport","host","port","device","baud"]) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["simulator","udp","tcp","serial"]))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["baud"] === undefined || nested(value["baud"], `${path}.baud`, (value, path) => uint(value, path, 0xffffffff)))
+  return map(value, path, ["transport","host","port","device","baud"]) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["simulator","udp","udp-client","tcp","tcp-server","serial"]))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["baud"] === undefined || nested(value["baud"], `${path}.baud`, (value, path) => uint(value, path, 0xffffffff)))
 }
 
 /** The first problem with `value` as a connect-request, or null. */
@@ -1053,6 +1053,24 @@ function validateFileContentsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a file-contents, or null. */
 export const validateFileContents = (value: unknown) => run(validateFileContentsInto, value)
 
+export type DiscoveredServices = { "services": (DiscoveredService)[], "error"?: string }
+
+function validateDiscoveredServicesInto(value: any, path: string): boolean {
+  return map(value, path, ["services","error"]) && (value["services"] === undefined ? fail(`${path}.services`, 'present') : nested(value["services"], `${path}.services`, (value, path) => list(value, path, (value, path) => validateDiscoveredServiceInto(value, path)))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a discovered-services, or null. */
+export const validateDiscoveredServices = (value: unknown) => run(validateDiscoveredServicesInto, value)
+
+export type DiscoveredService = { "name": string, "transport": "udp-client" | "tcp", "host": string, "port": number }
+
+function validateDiscoveredServiceInto(value: any, path: string): boolean {
+  return map(value, path, ["name","transport","host","port"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["udp-client","tcp"]))) && (value["host"] === undefined ? fail(`${path}.host`, 'present') : nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined ? fail(`${path}.port`, 'present') : nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a discovered-service, or null. */
+export const validateDiscoveredService = (value: unknown) => run(validateDiscoveredServiceInto, value)
+
 export type SerialPorts = { "ports": (SerialPort)[] }
 
 function validateSerialPortsInto(value: any, path: string): boolean {
@@ -1482,6 +1500,7 @@ export interface Services {
   "metadata.fetch": { kind: 'method', request: MetadataAsk, response: MetadataFile }
   "metadata.progress": { kind: 'event', payload: MetadataProgress }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
+  "discovery.browse": { kind: 'method', request: null, response: DiscoveredServices }
   "serial.bridge.start": { kind: 'method', request: SerialBridgeStart, response: SerialBridgeState }
   "serial.bridge.stop": { kind: 'method', request: null, response: SerialBridgeState }
   "serial.bridge.status": { kind: 'subscription', params: null, value: SerialBridgeState }
@@ -1761,6 +1780,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateSerialPortsInto(value, path),
+  },
+  "discovery.browse": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateDiscoveredServicesInto(value, path),
   },
   "serial.bridge.start": {
     request: (value: any, path: string) => validateSerialBridgeStartInto(value, path),

@@ -1,0 +1,213 @@
+// The transports of #197 through the connection service: UDP to a vehicle that listens (the backend sends first), and a TCP port
+// the backend listens on (the vehicle connects in, and connects again after it went), against the simulated vehicle.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor } from "pico-desktop/communicator"
+import { TcpStream, UdpStream, bind, connect, listen } from "std/net"
+import { ByteStream, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { setHeartbeatWait, setServerWait } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  decodeConnection,
+  decodeParamList,
+  encodeConnectRequest,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+import { describe as words } from "./transports"
+
+/// A TCP port nobody listens on now.
+async function freePort(): Promise<int> throws Error {
+  const l = await listen(0)
+  const port = l.addr.port
+  l.close()
+  return port
+}
+
+/// The vehicle's end of its link. Once it is closed (the vehicle went), nothing more reaches the simulator, and a reply it still sends
+/// is dropped (a write to a closed connection is a panic of the runtime; one the peer reset fails, and the simulator does not catch
+/// it). `drained` says the simulator's reader has asked for more after the close: every message it took before is handled by then.
+class VehicleEnd implements ByteStream {
+  readonly inner: ByteStream
+  closed: bool = false
+  public drained: bool = false
+
+  constructor(inner: ByteStream) {
+    this.inner = inner
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    if (closed) {
+      drained = true
+      return null
+    }
+    let chunk: Uint8Array? = null
+    try {
+      chunk = await inner.read()
+    } catch (e: Error) {
+      chunk = null
+    }
+    if (closed) {
+      drained = true
+      return null
+    }
+    return chunk
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    if (closed) {
+      return
+    }
+    try {
+      await inner.write(bytes)
+    } catch (e: Error) {
+      // The backend went first: its end is gone.
+    }
+  }
+
+  public close(): void {
+    if (!closed) {
+      closed = true
+      inner.close()
+    }
+  }
+}
+
+/// A simulated vehicle on its end of a link.
+class Vehicle {
+  readonly sim: SimulatedAutopilot
+  readonly end: VehicleEnd
+
+  constructor(inner: ByteStream) {
+    this.end = new VehicleEnd(inner)
+    this.sim = new SimulatedAutopilot(this.end)
+    this.sim.start(100)
+  }
+
+  /// Stops it for good. pico-mavlink's simulator handles a message that was already read when it is stopped, and one that asks for
+  /// a message interval then starts a timer nobody stops (the process would never end): so, once its reader has handled what it
+  /// had, it is stopped again, which clears those timers.
+  public async stop(): Promise<void> throws Error {
+    sim.stop()
+    let waited = 0
+    while (!end.drained && waited < 2000) {
+      await delay(10)
+      waited += 10
+    }
+    sim.stop()
+  }
+}
+
+/// A simulated vehicle that connects to the backend's TCP port.
+async function vehicleConnectingTo(port: int): Promise<Vehicle> throws Error {
+  return new Vehicle(new TcpStream(await connect(port)))
+}
+
+/// The next connection state the dashboard is told.
+async function nextState(f: Frontend): Promise<ConnectionState> throws Error {
+  return decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$").state
+}
+
+/// The request says what it is, with the defaults it leaves out.
+async function describesThem(): Promise<void> throws Error {
+  const client = ConnectRequest { transport: ConnectRequestTransport.UdpClient, host: "192.168.2.2" }
+  const server = ConnectRequest { transport: ConnectRequestTransport.TcpServer }
+  const all = ConnectRequest { transport: ConnectRequestTransport.TcpServer, host: "0.0.0.0", port: 5770 }
+  expect(`${words(client)} | ${words(server)} | ${words(all)}`).toBe("udp to 192.168.2.2:14550 | tcp server 127.0.0.1:5760 | tcp server 0.0.0.0:5770")
+}
+
+/// UDP client: the vehicle listens on a port and answers whoever sends to it; the backend sends first (its heartbeat) and the
+/// link comes up.
+async function udpClient(): Promise<void> throws Error {
+  const socket = await bind(0)
+  const vehicle = new Vehicle(new UdpStream(socket))
+  const f = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.UdpClient, host: "127.0.0.1", port: socket.addr.port as u16 }
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
+  expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
+  const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete}`).toBe("12 true")
+  await vehicle.stop()
+  await f.call("vehicle.disconnect")
+}
+
+/// UDP client to a port where nothing answers: no heartbeat, said in the request's words.
+async function udpClientNoAnswer(): Promise<void> throws Error {
+  setHeartbeatWait(300)
+  const f = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.UdpClient, port: 14998 }
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
+  setHeartbeatWait(3000)
+  expect(`${c.state == ConnectionState.Disconnected} ${c.error ?? ""}`).toBe("true no heartbeat from udp to 127.0.0.1:14998")
+}
+
+/// TCP server: the backend listens, the vehicle connects in, the link comes up. When the vehicle goes, the backend says it is
+/// reconnecting and keeps listening; the same vehicle connecting again resumes the session.
+async function tcpServer(): Promise<void> throws Error {
+  const port = await freePort()
+  const f = await start()
+  const subscription = await f.subscribe("vehicle.connection")
+  expect(await nextState(f) == ConnectionState.Disconnected).toBe(true)
+  link.silenceMs = 600
+  const request = ConnectRequest { transport: ConnectRequestTransport.TcpServer, port: port as u16 }
+  const pending = f.call("vehicle.connect", encodeConnectRequest(request))
+  expect(await nextState(f) == ConnectionState.Connecting).toBe(true)
+  // The vehicle comes later than a heartbeat wait of a link the backend opens itself.
+  await delay(500)
+  const first = await vehicleConnectingTo(port)
+  const c = decodeConnection((await pending).p ?? Cbor.Null, "$")
+  expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
+  const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete}`).toBe("12 true")
+  await first.stop()
+  expect(await nextState(f) == ConnectionState.Reconnecting).toBe(true)
+  const second = await vehicleConnectingTo(port)
+  let back = decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$")
+  while (back.state == ConnectionState.Reconnecting) {
+    back = decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$")
+  }
+  expect(`${back.state == ConnectionState.Connected} ${back.resumed ?? false}`).toBe("true true")
+  await second.stop()
+  await f.unsubscribe(subscription)
+  await f.call("vehicle.disconnect")
+  link.silenceMs = 5000
+}
+
+/// TCP server that nobody connects to: it gives up after its own wait, says so, and lets the port go.
+async function tcpServerNobody(): Promise<void> throws Error {
+  const port = await freePort()
+  setServerWait(300)
+  const f = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.TcpServer, port: port as u16 }
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
+  setServerWait(30000)
+  expect(`${c.state == ConnectionState.Disconnected} ${c.error ?? ""}`).toBe(`true no heartbeat from tcp server 127.0.0.1:${port}`)
+  await delay(100)
+  const again = await listen(port)
+  again.close()
+}
+
+/// TCP server on every interface ("0.0.0.0"): reached on the loopback address too.
+async function tcpServerEverywhere(): Promise<void> throws Error {
+  const port = await freePort()
+  const f = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.TcpServer, host: "0.0.0.0", port: port as u16 }
+  const pending = f.call("vehicle.connect", encodeConnectRequest(request))
+  await delay(200)
+  const vehicle = await vehicleConnectingTo(port)
+  const c = decodeConnection((await pending).p ?? Cbor.Null, "$")
+  expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
+  await vehicle.stop()
+  await f.call("vehicle.disconnect")
+}
+
+describe("the transports of #197", () => {
+  it("says what each request is, with its defaults", describesThem)
+  it("connects as a UDP client to a vehicle that listens", udpClient)
+  it("reports a UDP client that nothing answers", udpClientNoAnswer)
+  it("listens on TCP, takes the vehicle that connects in, and takes it back after it went", tcpServer)
+  it("gives up on a TCP port nobody connects to, and lets it go", tcpServerNobody)
+  it("listens on every interface when asked", tcpServerEverywhere)
+})

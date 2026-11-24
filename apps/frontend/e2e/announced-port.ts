@@ -6,13 +6,13 @@ import type { Readable, Writable } from 'node:stream'
 type Announcer = ChildProcessByStdio<Writable | null, Readable, null>
 
 /**
- * The port in a `listening <port>` line.
+ * The port in a `listening <port>` line (or `connected to <port>`, from a vehicle that connects to the app: #197).
  *
  * @param line the first line the process printed
  * @returns the port, or NaN if the line isn't that
  */
 function portIn(line: string): number {
-  return Number(/^listening (?<port>\d+)$/u.exec(line)?.groups?.port)
+  return Number(/^(?:listening|connected to) (?<port>\d+)$/u.exec(line)?.groups?.port)
 }
 
 /**
