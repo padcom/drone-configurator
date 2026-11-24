@@ -48,8 +48,10 @@ const METRES_PER_DEGREE = 6_371_000 * Math.PI / 180
  *
  * Attitude: the gyros have no noise, so the estimator's roll and pitch are within a fraction of a degree. The heading on the
  * ground is the compass's alone, which in SITL is a few degrees off; ArduPilot's EKF3 realigns its yaw in the air once it
- * has climbed (`alignedM`: copter's EK3_MAG_CAL 3, about 1.5 m up; seen here as a 2.3 degree step at 2.5 m), after which
- * the heading is held to the gyros. So the heading is compared from 3 m up.
+ * has climbed (copter's EK3_MAG_CAL 3: the final reset when its own height is 2.5 m above the takeoff, EKF3_MAG_FINAL_RESET_ALT;
+ * seen here as a 2.3 degree step), and then learns the field with three-axis fusion, so the heading settles during the climb.
+ * On a slow runner the reset lands later than the truth's 2.5 m (a heading 1.7 degrees off was seen at 3 m up), so the heading
+ * is compared from `alignedM`, most of the way to the 10 m of the takeoff, and through the whole leg.
  */
 const TOLERANCE = {
   timingMs: 100,
@@ -59,7 +61,7 @@ const TOLERANCE = {
   velocityMs: 0.3,
   attitudeDeg: 1,
   yawDeg: 1.5,
-  alignedM: 3,
+  alignedM: 8,
 }
 
 /** The telemetry groups these tests read, as the contract has them. */
@@ -79,6 +81,9 @@ interface Groups {
   speed?: { groundspeed: number, climb: number, ageMs: number }
   attitude?: { roll: number, pitch: number, yaw: number, ageMs: number }
 }
+
+/** What the flight saw: where its events begin, and the truth's height on the ground at home. */
+const flight = { from: 0, groundAlt: 0 }
 
 let sitl: Sitl | undefined
 let truth: SimTruth | undefined
@@ -276,6 +281,8 @@ async function showsNothingMadeUpBeforeAFix(): Promise<void> {
 interface Report {
   compared: Record<string, number>
   worst: Record<string, number>
+  /** How high above home (the truth's) the vehicle was at the worst of each. */
+  worstAt: Record<string, number>
 }
 
 /**
@@ -299,18 +306,44 @@ function errorAround(at: number, error: (state: SimState) => number): number | u
 }
 
 /**
- * Records a measure in a report.
+ * How high above home the vehicle really was at a moment.
+ *
+ * @param at the moment
+ * @returns metres, NaN when there is no truth then
+ */
+function heightAt(at: number): number {
+  return (reader().at(at)?.alt ?? Number.NaN) - flight.groundAlt
+}
+
+/**
+ * Counts a measure, and keeps it when it is the worst yet, with how high the vehicle was then.
  *
  * @param report the report
  * @param name the measure
+ * @param value how far it was
+ * @param at the moment the value was the vehicle's
+ */
+function keep(report: Report, name: string, value: number, at: number): void {
+  report.compared[name] = (report.compared[name] ?? 0) + 1
+
+  if (value >= (report.worst[name] ?? 0)) {
+    report.worst[name] = value
+    report.worstAt[name] = heightAt(at)
+  }
+}
+
+/**
+ * Records a measure in a report.
+ *
+ * @param report the report
+ * @param at the moment the value was the vehicle's
+ * @param name the measure
  * @param value how far it was, if there was truth to compare with
  */
-function record(report: Report, name: string, value: number | undefined): void {
-  if (value === undefined) {
-    return
+function record(report: Report, at: number, name: string, value: number | undefined): void {
+  if (value !== undefined) {
+    keep(report, name, value, at)
   }
-  report.compared[name] = (report.compared[name] ?? 0) + 1
-  report.worst[name] = Math.max(report.worst[name] ?? 0, value)
 }
 
 /**
@@ -341,12 +374,12 @@ function comparePosition(report: Report, event: TimedTelemetry, groundAlt: numbe
     return
   }
   const at = event.at - position.ageMs
-  record(report, 'horizontal', errorAround(at, s => horizontal(position.lat, position.lon, s)))
-  record(report, 'amsl', errorAround(at, s => Math.abs(position.altitude - s.alt)))
-  record(report, 'relative', errorAround(at, s => Math.abs(position.relativeAltitude - (s.alt - groundAlt))))
-  record(report, 'vn', errorAround(at, s => Math.abs(position.vx - s.vn)))
-  record(report, 've', errorAround(at, s => Math.abs(position.vy - s.ve)))
-  record(report, 'vd', errorAround(at, s => Math.abs(position.vz - s.vd)))
+  record(report, at, 'horizontal', errorAround(at, s => horizontal(position.lat, position.lon, s)))
+  record(report, at, 'amsl', errorAround(at, s => Math.abs(position.altitude - s.alt)))
+  record(report, at, 'relative', errorAround(at, s => Math.abs(position.relativeAltitude - (s.alt - groundAlt))))
+  record(report, at, 'vn', errorAround(at, s => Math.abs(position.vx - s.vn)))
+  record(report, at, 've', errorAround(at, s => Math.abs(position.vy - s.ve)))
+  record(report, at, 'vd', errorAround(at, s => Math.abs(position.vz - s.vd)))
 }
 
 /**
@@ -361,8 +394,8 @@ function compareSpeed(report: Report, event: TimedTelemetry): void {
     return
   }
   const at = event.at - speed.ageMs
-  record(report, 'groundspeed', errorAround(at, s => Math.abs(speed.groundspeed - Math.hypot(s.vn, s.ve))))
-  record(report, 'climb', errorAround(at, s => Math.abs(speed.climb + s.vd)))
+  record(report, at, 'groundspeed', errorAround(at, s => Math.abs(speed.groundspeed - Math.hypot(s.vn, s.ve))))
+  record(report, at, 'climb', errorAround(at, s => Math.abs(speed.climb + s.vd)))
 }
 
 /**
@@ -390,10 +423,10 @@ function compareAttitude(report: Report, event: TimedTelemetry, groundAlt: numbe
     return
   }
   const at = event.at - attitude.ageMs
-  record(report, 'roll', errorAround(at, s => Math.abs(attitude.roll - s.roll)))
-  record(report, 'pitch', errorAround(at, s => Math.abs(attitude.pitch - s.pitch)))
+  record(report, at, 'roll', errorAround(at, s => Math.abs(attitude.roll - s.roll)))
+  record(report, at, 'pitch', errorAround(at, s => Math.abs(attitude.pitch - s.pitch)))
   const yaw = (s: SimState) => Math.abs(angleDifference(attitude.yaw, s.yaw))
-  record(report, 'yaw', isAligned(at, groundAlt) ? errorAround(at, yaw) : undefined)
+  record(report, at, 'yaw', isAligned(at, groundAlt) ? errorAround(at, yaw) : undefined)
 }
 
 /** The tolerance of each measure. */
@@ -410,9 +443,6 @@ const LIMIT: Record<string, number> = {
   pitch: TOLERANCE.attitudeDeg,
   yaw: TOLERANCE.yawDeg,
 }
-
-/** What the flight saw: where its events begin, and the truth's height on the ground at home. */
-const flight = { from: 0, groundAlt: 0 }
 
 /**
  * A place 40 m north and 40 m east of the vehicle.
@@ -480,7 +510,7 @@ function extremes(): { fastest: number, highest: number } {
 
 async function matchesTheTruth(): Promise<void> {
   const events = await client().telemetrySince(flight.from)
-  const report: Report = { compared: {}, worst: {} }
+  const report: Report = { compared: {}, worst: {}, worstAt: {} }
   for (const event of events) {
     comparePosition(report, event, flight.groundAlt)
     compareSpeed(report, event)
@@ -494,7 +524,8 @@ async function matchesTheTruth(): Promise<void> {
   expect(highest).toBeGreaterThan(12)
 
   for (const [name, limit] of Object.entries(LIMIT)) {
-    expect(report.compared[name] ?? 0, `${name}: values compared`).toBeGreaterThan(50)
+    // at least six seconds of the app's events (5 a second); the heading has the fewest, from 8 m up
+    expect(report.compared[name] ?? 0, `${name}: values compared`).toBeGreaterThanOrEqual(30)
     expect(report.worst[name], `${name}: the worst difference from the truth`).toBeLessThanOrEqual(limit)
   }
 }
