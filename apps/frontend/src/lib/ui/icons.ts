@@ -25,6 +25,9 @@ export const ICONS = {
   'save': 'M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6',
   'folder': 'M3 6h6l2 2h10v11H3z',
   'star': 'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z',
+  // A closed lock (a signed link) and an open one.
+  'lock': 'M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11M12 15v2',
+  'unlock': 'M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 6.8-1.2M12 15v2',
   'trash': 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
   // The rail's icons, as the design draws them.
   'grid': 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',

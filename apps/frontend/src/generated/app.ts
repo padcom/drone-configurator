@@ -1395,6 +1395,24 @@ function validateLinkStatsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a link-stats, or null. */
 export const validateLinkStats = (value: unknown) => run(validateLinkStatsInto, value)
 
+export type SigningStatus = { "state": "off" | "signed" | "no-answer" | "unknown-key", "fingerprint"?: string, "setAt"?: number | bigint }
+
+function validateSigningStatusInto(value: any, path: string): boolean {
+  return map(value, path, ["state","fingerprint","setAt"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["off","signed","no-answer","unknown-key"]))) && (value["fingerprint"] === undefined || nested(value["fingerprint"], `${path}.fingerprint`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["setAt"] === undefined || nested(value["setAt"], `${path}.setAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a signing-status, or null. */
+export const validateSigningStatus = (value: unknown) => run(validateSigningStatusInto, value)
+
+export type SigningProvision = { "passphrase"?: string }
+
+function validateSigningProvisionInto(value: any, path: string): boolean {
+  return map(value, path, ["passphrase"]) && (value["passphrase"] === undefined || nested(value["passphrase"], `${path}.passphrase`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a signing-provision, or null. */
+export const validateSigningProvision = (value: unknown) => run(validateSigningProvisionInto, value)
+
 export type RecordingState = { "enabled": boolean, "folder": string, "limitMb": number, "key"?: string, "path"?: string, "bytes": number | bigint, "failure"?: RecordingFailure, "removed": number, "removedBytes": number | bigint }
 
 function validateRecordingStateInto(value: any, path: string): boolean {
@@ -1508,6 +1526,9 @@ export interface Services {
   "recording.dismiss": { kind: 'method', request: null, response: RecordingState }
   "recording.changed": { kind: 'event', payload: RecordingState }
   "forward.status": { kind: 'subscription', params: null, value: ForwardStatus }
+  "signing.status": { kind: 'subscription', params: null, value: SigningStatus }
+  "signing.provision": { kind: 'method', request: SigningProvision, response: SigningStatus }
+  "signing.disable": { kind: 'method', request: null, response: SigningStatus }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -1835,6 +1856,18 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "forward.status": {
     params: (value: any, path: string) => value === null || fail(path, 'null'),
     value: (value: any, path: string) => validateForwardStatusInto(value, path),
+  },
+  "signing.status": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateSigningStatusInto(value, path),
+  },
+  "signing.provision": {
+    request: (value: any, path: string) => validateSigningProvisionInto(value, path),
+    response: (value: any, path: string) => validateSigningStatusInto(value, path),
+  },
+  "signing.disable": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSigningStatusInto(value, path),
   },
 }
 

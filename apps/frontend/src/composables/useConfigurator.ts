@@ -21,6 +21,7 @@ import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type AnalysisModel, useAnalysis } from './useAnalysis'
 import { type ForwardingModel, useForwarding } from './useForwarding'
+import { type SigningModel, useSigning } from './useSigning'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type LinkStatsModel, useLinkStats } from './useLinkStats'
@@ -95,6 +96,8 @@ export interface ConfiguratorHandle {
   map: MapSettingsModel
   /** The programs the vehicle's MAVLink is forwarded to, and what the backend says each is doing. */
   forwarding: ForwardingModel
+  /** Whether the link is signed (MAVLink 2 signing), and the actions that set a key on the vehicle or turn its signing off. */
+  signing: SigningModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The quality of the link to the vehicle: loss, rates and latency. */
@@ -585,6 +588,19 @@ function startLink(client: BackendClient, vehicle: Vehicle): LinkStatsModel {
 }
 
 /**
+ * The link's signing, started: the status bar shows it on every screen.
+ *
+ * @param client the link to the backend
+ * @returns the signing
+ */
+function startSigning(client: BackendClient): SigningModel {
+  const signing = useSigning({ client })
+  void signing.watch()
+
+  return signing
+}
+
+/**
  * The serial bridge, started: it follows the backend's state from the start, so a port that is locked is shown on every screen.
  *
  * @param client the link to the backend
@@ -655,7 +671,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), ...linkModels(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
-    recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }),
+    recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }), signing: startSigning(client),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
