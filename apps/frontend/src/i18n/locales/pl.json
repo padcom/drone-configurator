@@ -56,6 +56,10 @@
       "totalValue": "utracono {lost} z {sent} pakietów",
       "window": "Zmierzone w ostatnich {seconds} s."
     },
+    "bridge": {
+      "locked": "{port} zablokowany",
+      "open": "Most szeregowy trzyma ten port pojazdu: pokaż go i zatrzymaj"
+    },
     "rebooting": "Restart…",
     "state": {
       "arm": "Uzbrój pojazd (pojazd jest rozbrojony)",
@@ -1521,6 +1525,7 @@
         "initial": "Przejdź do ekranu Konfiguracja: Strojenie początkowe",
         "serial": "Przejdź do ekranu Konfiguracja: Porty szeregowe",
         "devices": "Przejdź do ekranu Konfiguracja: Urządzenia",
+        "bridge": "Przejdź do ekranu Konfiguracja: Most szeregowy",
         "info": "Przejdź do ekranu Konfiguracja: Informacje o pojeździe"
       },
       "tune": {
@@ -1704,6 +1709,7 @@
       "initial": "Strojenie początkowe",
       "serial": "Porty szeregowe",
       "devices": "Urządzenia",
+      "bridge": "Most szeregowy",
       "info": "Informacje o pojeździe"
     },
     "group": {
@@ -2039,6 +2045,55 @@
       "motor": "Silnik {number} pod kątem {angle} stopni, obraca się {spin}",
       "cw": "zgodnie z ruchem wskazówek zegara",
       "ccw": "przeciwnie do ruchu wskazówek zegara"
+    },
+    "bridge": {
+      "summary": "Połącz się z urządzeniem za autopilotem, takim jak GPS lub radio, z innego programu na tym komputerze. Program łączy się z lokalnym portem TCP, a port pojazdu jest zablokowany dla mostu, dopóki go nie zatrzymasz.",
+      "port": "Port pojazdu",
+      "name": {
+        "gps": "GPS {n}",
+        "telem": "Telemetria {n}",
+        "serial": "Szeregowy {n}"
+      },
+      "baud": "Prędkość",
+      "baudUnchanged": "Bez zmian",
+      "baudValue": "{baud} bodów",
+      "localPort": "Lokalny port TCP",
+      "portHelp": "Programy na tym komputerze łączą się z 127.0.0.1 na tym porcie. Zostaw puste, aby użyć dowolnego wolnego portu.",
+      "portInvalid": "Port to liczba całkowita od 1 do 65535 lub puste pole dla dowolnego wolnego portu.",
+      "start": "Uruchom most",
+      "stop": "Zatrzymaj i zwolnij port",
+      "locked": "{port} jest zablokowany dla mostu, dopóki go nie zatrzymasz. Programy łączą się z {address}.",
+      "releasing": "Oddawanie {port} pojazdowi…",
+      "fact": {
+        "program": "Program",
+        "toVehicle": "Bajty do pojazdu",
+        "fromVehicle": "Bajty z pojazdu",
+        "dropped": "Bajty bez programu, który by je odebrał",
+        "refused": "Odrzucone programy"
+      },
+      "connected": "Połączony z {address}",
+      "waiting": "Jeszcze żaden. Naraz może się połączyć jeden program.",
+      "armed": "Pojazd jest uzbrojony: port można przejąć tylko na ziemi.",
+      "unknown": "Stan pojazdu jest nieznany: port można przejąć tylko od pojazdu, o którym wiadomo, że jest rozbrojony.",
+      "released": "{port} znów należy do pojazdu.",
+      "releaseFailed": "{port} może być nadal zablokowany: pojazd nie otrzymał zwolnienia. Zostanie wysłane ponownie, gdy połączenie wróci, a restart pojazdu też zwalnia port.",
+      "refused": {
+        "ARMED": "Nie uruchomiono: pojazd jest uzbrojony. Najpierw go rozbrój.",
+        "STATE_UNKNOWN": "Nie uruchomiono: stan pojazdu jest nieznany. Poczekaj na jego heartbeat.",
+        "NOT_CONNECTED": "Nie uruchomiono: żaden pojazd nie jest połączony.",
+        "BUSY": "Nie uruchomiono: most już działa.",
+        "PORT_UNAVAILABLE": "Nie uruchomiono: lokalny port jest zajęty lub niedozwolony. Wybierz inny.",
+        "INVALID_VALUE": "Nie uruchomiono: prędkość jest za wysoka.",
+        "other": "Nie uruchomiono: most został odrzucony."
+      },
+      "ended": {
+        "STOPPED": "Most został zatrzymany.",
+        "DISCONNECTED": "Most zakończył się wraz z połączeniem.",
+        "LINK_LOST": "Połączenie zostało utracone, więc most się zakończył.",
+        "ARMED": "Pojazd został uzbrojony, więc most się zakończył.",
+        "LISTEN_FAILED": "Lokalny port przestał działać, więc most się zakończył.",
+        "other": "Most się zakończył."
+      }
     },
     "serial": {
       "summary": "Do czego służy każdy port szeregowy płytki i jak szybko rozmawia.",

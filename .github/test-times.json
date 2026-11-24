@@ -41,6 +41,7 @@
     "recording.test.pi": 45,
     "reconnect.test.pi": 43,
     "serial.test.pi": 20,
+    "serialbridge.test.pi": 45,
     "settings.test.pi": 20,
     "settings_json.test.pi": 20,
     "telemetry.test.pi": 34,
@@ -97,6 +98,7 @@
     "radio.e2e.ts": 20,
     "reboot.e2e.ts": 5,
     "recording.e2e.ts": 30,
+    "serial-bridge.e2e.ts": 6,
     "setup-initial.e2e.ts": 9,
     "setup.e2e.ts": 9,
     "shell.e2e.ts": 2,
@@ -124,6 +126,7 @@
     "sitl-plan.e2e.ts": 32,
     "sitl-recording.e2e.ts": 90,
     "sitl-reconnect.e2e.ts": 22,
+    "sitl-serial-bridge.e2e.ts": 40,
     "sitl-vehicles.e2e.ts": 60,
     "sitl.e2e.ts": 20
   }

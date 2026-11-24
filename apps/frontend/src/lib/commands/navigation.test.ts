@@ -81,6 +81,7 @@ const SETUP_PARTS = [
   'initial',
   'serial',
   'devices',
+  'bridge',
   'info',
 ]
 
