@@ -35,6 +35,11 @@ export class TcpVehicle {
   motorStops = 0
   /** The interval (microseconds) it was last asked for each message: 0 when it was given back to its own rate. */
   readonly intervals = new Map<number, number>()
+  /** How many SETUP_SIGNING it took (#33), and whether the vehicle of the last connection started with a key. */
+  signingSetups = 0
+  startedSigned = false
+  /** Every line it printed (a test looks for what must never be in them: a key). */
+  readonly lines: string[] = []
   /** The serial ports SERIAL_CONTROL holds now (SERIAL_CONTROL_DEV numbers), and how many times one was handed back. */
   readonly serialHeld = new Set<number>()
   serialReleases = 0
@@ -67,6 +72,16 @@ export class TcpVehicle {
    */
   static startAt50Hz(): Promise<TcpVehicle> {
     return TcpVehicle.#launch(environment(false, false, '', true))
+  }
+
+  /**
+   * Builds and starts one that never arms and has nothing else (a write from a review of a snapshot or a parameter file is
+   * refused while the vehicle is armed or may be).
+   *
+   * @returns the running vehicle, with its port known
+   */
+  static startDisarmed(): Promise<TcpVehicle> {
+    return TcpVehicle.#launch({ ...environment(false, false, '', false), VEHICLE_DISARMED: '1' })
   }
 
   /**
@@ -144,6 +159,8 @@ export class TcpVehicle {
    * @param line a line the child printed after its port
    */
   #heard(line: string) {
+    this.lines.push(line)
+
     if (line === 'param-set') {
       this.writes += 1
       this.#waiters.splice(0).forEach(resolve => resolve())
@@ -154,6 +171,20 @@ export class TcpVehicle {
       this.#heardSerial(line)
     } else {
       this.#heardMotor(line)
+      this.#heardSigning(line)
+    }
+  }
+
+  /**
+   * Notes what it says of its signing: a SETUP_SIGNING taken, and whether a new connection's vehicle holds a key.
+   *
+   * @param line a line the child printed
+   */
+  #heardSigning(line: string) {
+    if (line === 'setup-signing') {
+      this.signingSetups += 1
+    } else if (line.startsWith('signing ')) {
+      this.startedSigned = line === 'signing on'
     }
   }
 

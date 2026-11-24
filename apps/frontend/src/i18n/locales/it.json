@@ -65,6 +65,12 @@
     }
   },
   "topBar": {
+    "signing": {
+      "open": "Firma: {state}. Apri la pagina della firma",
+      "signed": "Firmato",
+      "off": "Non firmato",
+      "notSigned": "Senza firma valida"
+    },
     "link": {
       "open": "Collegamento {value}, {level}: mostra i dettagli",
       "title": "Qualità del collegamento",
@@ -1308,8 +1314,24 @@
     "load": "Carica istantanea",
     "loadMetadata": "Carica metadati"
   },
+  "paramFile": {
+    "format": {
+      "param": "ArduPilot .param (NOME,VALORE)",
+      "parm": "MAVProxy .parm (NOME VALORE)",
+      "qgc": "QGroundControl .params"
+    }
+  },
   "import": {
     "from": "Istantanea del {savedAt}",
+    "fromFile": "File di parametri: {format}",
+    "notes": "Sul file",
+    "unusual": "{warning}. Controllalo prima di scriverlo.",
+    "armed": "Non si scrive nulla mentre il veicolo è armato, o potrebbe esserlo. Prima disarmalo.",
+    "note": {
+      "duplicate": "{id} è nelle righe {lines}: si usa il valore della riga {last}.",
+      "malformed": "La riga {line} non è un parametro ed è esclusa: {text}",
+      "moreMalformed": "Ancora {count} riga non è un parametro. | Ancora {count} righe non sono parametri."
+    },
     "itWas": "Era {warning}.",
     "summary": "Diversi: {differ}; già uguali: {same}. Spunta quelli da scrivere.",
     "noValue": "—",
@@ -1317,6 +1339,7 @@
       "apply": "Applica",
       "vehicle": "Sul veicolo",
       "snapshot": "Nell'istantanea",
+      "file": "Nel file",
       "result": "Risultato"
     },
     "verified": "✓ Scritto e riletto: {detail}",
@@ -1433,10 +1456,13 @@
     "noParams": "non ha parametri",
     "snapshotVersion": "istantanea versione {version} (questa app legge la versione {supported})",
     "malformed": "i suoi parametri sono malformati",
+    "noParamLines": "nessuna riga di parametri (NOME,VALORE o NOME VALORE, uno per riga)",
     "notSnapshot": "non è un'istantanea dei parametri di Drone Configurator"
   },
   "problem": {
     "notOnVehicle": "non presente su questo veicolo",
+    "readOnly": "sola lettura: lo imposta il veicolo stesso",
+    "otherComponent": "per il componente {file} nel file; l’autopilota è il componente {vehicle}",
     "otherType": "{snapshot} nell'istantanea, {vehicle} sul veicolo",
     "otherVehicle": "salvato da un {was} ({wasAutopilot}); questo è un {now} ({nowAutopilot})",
     "notConfirmed": "il veicolo riporta {reported}, non {written}"
@@ -1557,6 +1583,7 @@
         "failsafes": "Vai a Configurazione: Failsafe",
         "battery": "Vai a Configurazione: Batteria",
         "initial": "Vai a Configurazione: Taratura iniziale",
+        "signing": "Vai a Configurazione: Firma",
         "serial": "Vai a Configurazione: Porte seriali",
         "devices": "Vai a Configurazione: Dispositivi",
         "bridge": "Vai a Configurazione: Ponte seriale",
@@ -1589,14 +1616,20 @@
         "keywords": "leggi aggiorna ricarica elenco"
       }
     },
+    "paramFile": {
+      "param": "Salva i parametri come file .param di ArduPilot…",
+      "parm": "Salva i parametri come file .parm di MAVProxy…",
+      "qgc": "Salva i parametri come file .params di QGroundControl…",
+      "keywords": "esporta file scrivi param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Salva l'istantanea dei parametri…",
         "keywords": "esporta backup file scrivi"
       },
       "load": {
-        "label": "Carica l'istantanea dei parametri…",
-        "keywords": "importa ripristina file apri"
+        "label": "Carica un’istantanea o un file di parametri…",
+        "keywords": "importa ripristina file apri param parm params"
       }
     },
     "reason": {
@@ -1695,6 +1728,63 @@
     }
   },
   "setup": {
+    "signing": {
+      "summary": "La firma impedisce a chi non ha la chiave di inviare comandi a questo veicolo via radio.",
+      "fingerprint": "Impronta della chiave",
+      "setAt": "Impostata il",
+      "newHeading": "Imposta una chiave",
+      "changeHeading": "Imposta una nuova chiave",
+      "source": "Origine della chiave",
+      "random": "Chiave casuale",
+      "fromPassphrase": "Da una passphrase",
+      "randomHint": "Questo computer crea una chiave casuale e la conserva. Non può essere data a un'altra stazione di terra.",
+      "passphrase": "Passphrase",
+      "loss": "Se questo computer perde la chiave, nessuna stazione di terra potrà comandare il veicolo via radio finché la sua firma non viene azzerata via USB.",
+      "turnOn": "Attiva la firma",
+      "replace": "Imposta la nuova chiave",
+      "turnOff": "Disattiva la firma",
+      "confirmTitle": "Firma del veicolo",
+      "confirmRandom": "Viene creata una chiave casuale, conservata su questo computer e inviata al veicolo.",
+      "confirmPassphrase": "La chiave ricavata dalla passphrase viene conservata su questo computer e inviata al veicolo.",
+      "confirmOn": "Invia la chiave",
+      "confirmOffWhat": "La firma viene disattivata sul veicolo e la sua chiave rimossa da questo computer. Poi qualsiasi stazione di terra potrà comandarlo.",
+      "confirmOff": "Disattiva la firma",
+      "state": {
+        "off": "La firma è disattivata",
+        "signed": "La firma è attiva",
+        "noAnswer": "Il veicolo non firma con la chiave che ha questo computer",
+        "unknownKey": "Il veicolo firma con una chiave che questo computer non ha"
+      },
+      "note": {
+        "off": "Qualsiasi stazione di terra può comandare questo veicolo.",
+        "signed": "Questo computer e il veicolo condividono una chiave. Anche le altre stazioni di terra ne hanno bisogno.",
+        "noAnswer": "La chiave potrebbe essere sbagliata, o la firma del veicolo è stata azzerata. Il collegamento non è firmato e via radio il veicolo ignora i comandi. Imposta una nuova chiave via USB o disattiva la firma.",
+        "unknownKey": "L'ha impostata un'altra stazione di terra. Via radio il veicolo ignora i comandi di questo computer. Collegati via USB per impostare una nuova chiave o disattivare la firma."
+      },
+      "phraseHint": {
+        "ok": "Le altre stazioni di terra ricavano la stessa chiave dalla stessa passphrase.",
+        "empty": "Scrivi una passphrase.",
+        "long": "Una passphrase ha al massimo 256 caratteri."
+      },
+      "blocked": {
+        "offline": "Collega un veicolo per impostare la firma.",
+        "unknown": "Lo stato del veicolo non è noto. La firma si cambia solo su un veicolo che si sa disarmato.",
+        "armed": "Il veicolo è armato. La firma si cambia solo a terra, disarmato.",
+        "busy": "È in corso una modifica della firma."
+      },
+      "error": {
+        "NOT_CONNECTED": "Nessun veicolo è collegato.",
+        "ARMED": "Il veicolo è armato. Disarmalo e riprova.",
+        "STATE_UNKNOWN": "Lo stato del veicolo non è noto. Attendi il suo heartbeat e riprova.",
+        "BUSY": "È in corso un'altra operazione: parametri, un piano, log, una calibrazione, un test dei motori o un riavvio. Riprova quando è finita.",
+        "NO_VEHICLE_ID": "Il veicolo non è ancora identificato. Riprova tra un momento.",
+        "INVALID_VALUE": "Una passphrase ha da 1 a 256 caratteri.",
+        "NOT_SAVED": "Non è stato possibile salvare la chiave su questo computer, quindi non è stato inviato nulla al veicolo. Controlla la cartella dei dati dell'app.",
+        "NOT_CONFIRMED": "Il veicolo non ha confermato. Verifica che il suo firmware supporti la firma e riprova. Via radio un veicolo che firma accetta questo solo con la propria chiave: usa USB.",
+        "ABORTED": "Il collegamento si è perso prima che il veicolo confermasse. La chiave viene conservata, nel caso il veicolo l'abbia presa.",
+        "other": "Non è stato possibile cambiare la firma. Riprova."
+      }
+    },
     "initial": {
       "summary": "Valori iniziali calcolati dall'Initial Parameter Setup di Mission Planner per un multicottero, dalla dimensione delle eliche e dal tipo e dalle celle della batteria. Sono suggerimenti: sceglili, guarda l'elenco a lato e scrivili.",
       "size": "Dimensione delle eliche (pollici)",
@@ -1724,6 +1814,7 @@
     },
     "sections": "Pagine del setup",
     "section": {
+      "signing": "Firma",
       "home": "Panoramica",
       "frame": "Telaio e orientamento",
       "accel": "Accelerometro",

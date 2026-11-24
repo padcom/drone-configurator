@@ -33,6 +33,7 @@ import { register as registerSerial } from "./serial"
 import { register as registerSerialBridge } from "./serialbridge"
 import { link } from "./session"
 import { register as registerSettings } from "./settings"
+import { register as registerSigning } from "./signing"
 import { register as registerTelemetry } from "./telemetry"
 import { register as registerTuningStream } from "./tuningstream"
 import { register as registerVehicleInfo } from "./vehicleinfo"
@@ -99,6 +100,7 @@ export function createBackend(transport: Transport): Communicator {
   registerSerial(c)
   registerSerialBridge(c)
   registerSettings(c)
+  registerSigning(c)
   registerRecording(c)
   return c
 }

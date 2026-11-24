@@ -65,6 +65,12 @@
     }
   },
   "topBar": {
+    "signing": {
+      "open": "Firma: {state}. Abrir la página de firma",
+      "signed": "Firmado",
+      "off": "Sin firma",
+      "notSigned": "No firmado"
+    },
     "link": {
       "open": "Enlace {value}, {level}: mostrar los detalles",
       "title": "Calidad del enlace",
@@ -1308,8 +1314,24 @@
     "load": "Cargar instantánea",
     "loadMetadata": "Cargar metadatos"
   },
+  "paramFile": {
+    "format": {
+      "param": "ArduPilot .param (NOMBRE,VALOR)",
+      "parm": "MAVProxy .parm (NOMBRE VALOR)",
+      "qgc": "QGroundControl .params"
+    }
+  },
   "import": {
     "from": "Instantánea del {savedAt}",
+    "fromFile": "Archivo de parámetros: {format}",
+    "notes": "Sobre el archivo",
+    "unusual": "{warning}. Revísalo antes de escribirlo.",
+    "armed": "No se escribe nada mientras el vehículo está armado o puede estarlo. Desármalo primero.",
+    "note": {
+      "duplicate": "{id} está en las líneas {lines}: se usa el valor de la línea {last}.",
+      "malformed": "La línea {line} no es un parámetro y se omite: {text}",
+      "moreMalformed": "{count} línea más no es un parámetro. | {count} líneas más no son parámetros."
+    },
     "itWas": "Era {warning}.",
     "summary": "Distintos: {differ}; ya iguales: {same}. Marca los que quieras escribir.",
     "noValue": "—",
@@ -1317,6 +1339,7 @@
       "apply": "Aplicar",
       "vehicle": "En el vehículo",
       "snapshot": "En la instantánea",
+      "file": "En el archivo",
       "result": "Resultado"
     },
     "verified": "✓ Escrito y releído: {detail}",
@@ -1433,10 +1456,13 @@
     "noParams": "no tiene parámetros",
     "snapshotVersion": "instantánea versión {version} (esta app lee la versión {supported})",
     "malformed": "sus parámetros están mal formados",
+    "noParamLines": "no tiene líneas de parámetros (NOMBRE,VALOR o NOMBRE VALOR, uno por línea)",
     "notSnapshot": "no es una instantánea de parámetros de Drone Configurator"
   },
   "problem": {
     "notOnVehicle": "no está en este vehículo",
+    "readOnly": "solo lectura: lo fija el propio vehículo",
+    "otherComponent": "para el componente {file} en el archivo; el autopiloto es el componente {vehicle}",
     "otherType": "{snapshot} en la instantánea, {vehicle} en el vehículo",
     "otherVehicle": "guardado desde un {was} ({wasAutopilot}); este es un {now} ({nowAutopilot})",
     "notConfirmed": "el vehículo informa {reported}, no {written}"
@@ -1557,6 +1583,7 @@
         "failsafes": "Ir a Configuración: Failsafes",
         "battery": "Ir a Configuración: Batería",
         "initial": "Ir a Configuración: Ajuste inicial",
+        "signing": "Ir a Configuración: Firma",
         "serial": "Ir a Configuración: Puertos serie",
         "devices": "Ir a Configuración: Dispositivos",
         "bridge": "Ir a Configuración: Puente serie",
@@ -1589,14 +1616,20 @@
         "keywords": "leer actualizar recargar lista"
       }
     },
+    "paramFile": {
+      "param": "Guardar los parámetros como archivo .param de ArduPilot…",
+      "parm": "Guardar los parámetros como archivo .parm de MAVProxy…",
+      "qgc": "Guardar los parámetros como archivo .params de QGroundControl…",
+      "keywords": "exportar archivo escribir param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Guardar una instantánea de los parámetros…",
         "keywords": "exportar copia archivo escribir"
       },
       "load": {
-        "label": "Cargar una instantánea de los parámetros…",
-        "keywords": "importar restaurar archivo abrir"
+        "label": "Cargar una instantánea o un archivo de parámetros…",
+        "keywords": "importar restaurar archivo abrir param parm params"
       }
     },
     "reason": {
@@ -1695,6 +1728,63 @@
     }
   },
   "setup": {
+    "signing": {
+      "summary": "La firma impide que nadie sin la clave envíe órdenes a este vehículo por radio.",
+      "fingerprint": "Huella de la clave",
+      "setAt": "Establecida el",
+      "newHeading": "Establecer una clave",
+      "changeHeading": "Establecer una clave nueva",
+      "source": "Origen de la clave",
+      "random": "Clave aleatoria",
+      "fromPassphrase": "A partir de una frase",
+      "randomHint": "Este ordenador crea una clave aleatoria y la guarda. No se puede dar a otra estación de tierra.",
+      "passphrase": "Frase de contraseña",
+      "loss": "Si este ordenador pierde la clave, ninguna estación de tierra podrá dar órdenes al vehículo por radio hasta que se restablezca su firma por USB.",
+      "turnOn": "Activar la firma",
+      "replace": "Establecer la clave nueva",
+      "turnOff": "Desactivar la firma",
+      "confirmTitle": "Firma del vehículo",
+      "confirmRandom": "Se crea una clave aleatoria, se guarda en este ordenador y se envía al vehículo.",
+      "confirmPassphrase": "La clave creada a partir de la frase se guarda en este ordenador y se envía al vehículo.",
+      "confirmOn": "Enviar la clave",
+      "confirmOffWhat": "Se desactiva la firma en el vehículo y se borra su clave de este ordenador. Después, cualquier estación de tierra podrá darle órdenes.",
+      "confirmOff": "Desactivar la firma",
+      "state": {
+        "off": "La firma está desactivada",
+        "signed": "La firma está activada",
+        "noAnswer": "El vehículo no firma con la clave que guarda este ordenador",
+        "unknownKey": "El vehículo firma con una clave que este ordenador no tiene"
+      },
+      "note": {
+        "off": "Cualquier estación de tierra puede dar órdenes a este vehículo.",
+        "signed": "Este ordenador y el vehículo comparten una clave. Otras estaciones de tierra también la necesitan.",
+        "noAnswer": "Puede que la clave sea incorrecta o que se haya restablecido la firma del vehículo. El enlace no está firmado y, por radio, el vehículo ignora las órdenes. Establezca una clave nueva por USB o desactive la firma.",
+        "unknownKey": "La estableció otra estación de tierra. Por radio, el vehículo ignora las órdenes de este ordenador. Conéctese por USB para establecer una clave nueva o desactivar la firma."
+      },
+      "phraseHint": {
+        "ok": "Otras estaciones de tierra crean la misma clave a partir de la misma frase.",
+        "empty": "Escriba una frase de contraseña.",
+        "long": "Una frase de contraseña tiene como máximo 256 caracteres."
+      },
+      "blocked": {
+        "offline": "Conecte un vehículo para configurar la firma.",
+        "unknown": "No se conoce el estado del vehículo. La firma solo se cambia en un vehículo que se sabe desarmado.",
+        "armed": "El vehículo está armado. La firma solo se cambia en tierra y desarmado.",
+        "busy": "Hay un cambio de firma en curso."
+      },
+      "error": {
+        "NOT_CONNECTED": "No hay ningún vehículo conectado.",
+        "ARMED": "El vehículo está armado. Desármelo e inténtelo de nuevo.",
+        "STATE_UNKNOWN": "No se conoce el estado del vehículo. Espere su latido e inténtelo de nuevo.",
+        "BUSY": "Hay otra operación en curso: parámetros, un plan, registros, una calibración, una prueba de motores o un reinicio. Inténtelo cuando termine.",
+        "NO_VEHICLE_ID": "El vehículo aún no está identificado. Inténtelo de nuevo en un momento.",
+        "INVALID_VALUE": "Una frase de contraseña tiene de 1 a 256 caracteres.",
+        "NOT_SAVED": "No se pudo guardar la clave en este ordenador, así que no se envió nada al vehículo. Revise la carpeta de datos de la aplicación.",
+        "NOT_CONFIRMED": "El vehículo no lo confirmó. Compruebe que su firmware admite la firma e inténtelo de nuevo. Por radio, un vehículo que firma solo acepta esto con su propia clave: use USB.",
+        "ABORTED": "Se perdió el enlace antes de que el vehículo confirmara. La clave se guarda por si el vehículo la aceptó.",
+        "other": "No se pudo cambiar la firma. Inténtelo de nuevo."
+      }
+    },
     "initial": {
       "summary": "Valores iniciales que calcula el Initial Parameter Setup de Mission Planner para un multicóptero, a partir del tamaño de las hélices y del tipo y las celdas de la batería. Son sugerencias: elíjalas, mire la lista del lateral y escríbalas.",
       "size": "Tamaño de las hélices (pulgadas)",
@@ -1724,6 +1814,7 @@
     },
     "sections": "Páginas de configuración",
     "section": {
+      "signing": "Firma",
       "home": "Resumen",
       "frame": "Bastidor y orientación",
       "accel": "Acelerómetro",

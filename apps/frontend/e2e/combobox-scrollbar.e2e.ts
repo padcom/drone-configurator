@@ -44,6 +44,18 @@ async function press(at: { x: number, y: number }): Promise<void> {
   await app.devtools('Input.dispatchMouseEvent', { type: 'mouseReleased', ...event })
 }
 
+/**
+ * A place outside the field, on nothing that takes a press: the line under the list (a fixed place may be a row of the list,
+ * which would select another parameter: how far down the rows start depends on how the toolbar above them wraps).
+ *
+ * @returns the position in the window
+ */
+const outsideAt = () => app.evaluate<{ x: number, y: number }>(`(() => {
+  const box = document.getElementById('list-status').getBoundingClientRect()
+
+  return { x: box.left + 4, y: box.top + box.height / 2 }
+})()`)
+
 const listTop = () => app.evaluate<number>(`document.querySelector('#edit [role="listbox"]').scrollTop`)
 const listOpen = () => app.evaluate<boolean>(`document.querySelector('#edit [role="listbox"]') !== null`)
 
@@ -143,7 +155,7 @@ describe.each([['the field of names', 'SERIAL0_BAUD'], ['the field of bits', 'AR
   })
 
   it('closes on a press outside, and on Escape', async () => {
-    await press({ x: 700, y: 700 })
+    await press(await outsideAt())
     await app.waitFor(CLOSED)
     await app.click('#draft')
     await app.waitFor(`!(${CLOSED})`)

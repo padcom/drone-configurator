@@ -13,7 +13,7 @@
     {
       "when": [
         "apps/frontend/src/components/params/**", "apps/frontend/src/components/fields/**", "apps/frontend/src/lib/params/**",
-        "apps/frontend/src/composables/{useParam*,useStaged,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
+        "apps/frontend/src/composables/{useParam*,useStaged,useSnapshots,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
         "apps/frontend/src/composables/useMetadataDownload.ts",
         "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,paramcache,paramstore,groups,files,settings,tuning,metadata}.pi"
       ],
@@ -21,7 +21,7 @@
         "param-*.e2e.ts", "configurator.e2e.ts", "confirm.e2e.ts", "favourites.e2e.ts", "view.e2e.ts", "initial.e2e.ts", "bitmask.e2e.ts",
         "lists.e2e.ts", "list-top.e2e.ts", "value-rounding.e2e.ts", "groups-setting.e2e.ts", "combobox-scrollbar.e2e.ts", "sitl.e2e.ts",
         "calibration.e2e.ts", "sitl-calibration.e2e.ts", "metadata-autoload.e2e.ts", "reconnect.e2e.ts", "sitl-param-speed.e2e.ts",
-        "sitl-ftp.e2e.ts", "metadata-download.e2e.ts", "sitl-metadata.e2e.ts"
+        "sitl-ftp.e2e.ts", "metadata-download.e2e.ts", "sitl-metadata.e2e.ts", "tcp-vehicle.e2e.ts"
       ]
     },
     {
@@ -116,6 +116,14 @@
         "apps/backend/{forward,connection,reconnect,settings}.pi"
       ],
       "specs": ["forward.e2e.ts", "sitl-forward.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/frontend/src/screens/setup/SetupSigning.vue", "apps/frontend/src/components/shell/SigningIndicator.vue",
+        "apps/frontend/src/composables/useSigning.ts", "apps/frontend/src/lib/setup/signing.ts", "apps/frontend/src/mock/mock-signing.ts",
+        "apps/backend/{signing,signingkeys,connection,reconnect,session,transports}.pi", "apps/backend/e2e/tcp-vehicle.pi"
+      ],
+      "specs": ["signing.e2e.ts", "sitl-signing.e2e.ts"]
     },
     {
       "when": [

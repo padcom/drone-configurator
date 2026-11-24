@@ -14,6 +14,12 @@ describe('snapshotFileName', () => {
     expect(snapshotFileName('params', { ...VEHICLE }, now)).toBe('params-quadrotor-1-2026-11-09T123005.json')
     expect(snapshotFileName('backup', undefined, now)).toBe('backup-vehicle-2026-11-09T123005.json')
   })
+
+  it('takes the extension of a parameter file', () => {
+    const now = new Date(Date.UTC(2026, 10, 9, 12, 30, 5))
+
+    expect(snapshotFileName('params', { ...VEHICLE }, now, '.params')).toBe('params-quadrotor-1-2026-11-09T123005.params')
+  })
 })
 
 describe('hasHost', () => {
@@ -49,6 +55,22 @@ describe('download', () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
   })
+})
+
+it('offers a parameter file (anything not .json) as plain text', () => {
+  const blobs: Blob[] = []
+  const createObjectURL = (blob: Blob) => {
+    blobs.push(blob)
+
+    return 'blob:x'
+  }
+  vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: () => undefined })
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+
+  download('RTL_ALT,1500\n', 'params.param')
+
+  expect(blobs[0]?.type).toBe('text/plain')
+  vi.unstubAllGlobals()
 })
 
 describe('saveText', () => {

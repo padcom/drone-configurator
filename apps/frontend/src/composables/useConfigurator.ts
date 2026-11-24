@@ -21,6 +21,7 @@ import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type AnalysisModel, useAnalysis } from './useAnalysis'
 import { type ForwardingModel, useForwarding } from './useForwarding'
+import { type SigningModel, useSigning } from './useSigning'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type LinkStatsModel, useLinkStats } from './useLinkStats'
@@ -95,6 +96,8 @@ export interface ConfiguratorHandle {
   map: MapSettingsModel
   /** The programs the vehicle's MAVLink is forwarded to, and what the backend says each is doing. */
   forwarding: ForwardingModel
+  /** Whether the link is signed (MAVLink 2 signing), and the actions that set a key on the vehicle or turn its signing off. */
+  signing: SigningModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The quality of the link to the vehicle: loss, rates and latency. */
@@ -542,15 +545,18 @@ function logModels(
   }
 }
 
+/** What the snapshots take from the rest of the interface, besides the vehicle. */
+type SnapshotsFrom = Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters' | 'metadata'>
+
 /**
- * The snapshots: the parameters are written from them one after the other, and not a logging or notch parameter while the
- * vehicle may be armed.
+ * The snapshots and parameter files: the parameters are written from them one after the other, and nothing while the vehicle
+ * may be armed.
  *
- * @param deps the link to the backend, how a failure is recorded, the questions, and the parameters
+ * @param deps the link to the backend, how a failure is recorded, the questions, the parameters and the metadata
  * @param vehicle the vehicle link
  * @returns the snapshots
  */
-function snapshotsFor(deps: Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters'>, vehicle: Vehicle): SnapshotsModel {
+function snapshotsFor(deps: SnapshotsFrom, vehicle: Vehicle): SnapshotsModel {
   const { connection } = vehicle
 
   return useSnapshots({ ...deps, connection, mayBeArmed: () => mayBeArmed(vehicle) })
@@ -584,6 +590,19 @@ function startLink(client: BackendClient, vehicle: Vehicle): LinkStatsModel {
   void link.watch()
 
   return link
+}
+
+/**
+ * The link's signing, started: the status bar shows it on every screen.
+ *
+ * @param client the link to the backend
+ * @returns the signing
+ */
+function startSigning(client: BackendClient): SigningModel {
+  const signing = useSigning({ client })
+  void signing.watch()
+
+  return signing
 }
 
 /**
@@ -645,7 +664,7 @@ export function createConfigurator(
   const metadata = useMetadata({ client, rememberPath: path => keepMetadataPath(settings, path) })
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
-  const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)
+  const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters, metadata: () => metadata.metadata.value }, vehicle)
   const messages = startMessages(client, vehicle)
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   const staged = stagedFor(client, parameters, vehicle, { confirm: askUser, confirmHold: holdOf(confirmWith, vehicle) })
@@ -657,7 +676,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), ...linkModels(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
-    recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }),
+    recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }), signing: startSigning(client),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

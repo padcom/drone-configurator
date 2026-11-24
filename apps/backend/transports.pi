@@ -109,8 +109,9 @@ export async function open(r: ConnectRequest, onSimulator: (sim: SimulatedAutopi
     Simulator => {
       const ends = MemoryStream.pair()
       const sim = new SimulatedAutopilot(ends[1])
-      sim.start(1000)
+      // Set up before it starts: its first heartbeat is already as it should be (signed, when it holds a key).
       onSimulator(sim)
+      sim.start(1000)
       const s: ByteStream = ends[0]
       s
     },

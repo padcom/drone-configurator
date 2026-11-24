@@ -26,6 +26,9 @@ const ALLOWED: [string, string][] = [
   ['lib/app/chords.ts', 'Page Down'],
   ['lib/app/chords.ts', 'ctrl Key'],
   ['lib/app/chords.ts', 'ctrl shift Key'],
+  // The comment lines a parameter file starts with: the file's own words (ArduPilot's files are in English), not the interface's.
+  ['lib/params/paramFile.ts', 'saved by Drone Configurator on'],
+  ['lib/params/paramFile.ts', '# Vehicle-Id Component-Id Name Value Type'],
   // The credit that the tile usage policy of OpenStreetMap asks for, in its words (a legal notice, not translated).
   ['lib/map/mapText.ts', '© OpenStreetMap contributors'],
   // The names ArduPilot gives the values of its own parameters (its frames and serial protocols): the vehicle's vocabulary,

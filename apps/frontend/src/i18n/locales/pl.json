@@ -65,6 +65,12 @@
     }
   },
   "topBar": {
+    "signing": {
+      "open": "Podpisywanie: {state}. Otwórz stronę podpisywania",
+      "signed": "Podpisane",
+      "off": "Niepodpisane",
+      "notSigned": "Bez podpisu"
+    },
     "link": {
       "open": "Łącze {value}, {level}: pokaż szczegóły",
       "title": "Jakość łącza",
@@ -1308,8 +1314,24 @@
     "load": "Wczytaj migawkę",
     "loadMetadata": "Wczytaj metadane"
   },
+  "paramFile": {
+    "format": {
+      "param": "ArduPilot .param (NAZWA,WARTOŚĆ)",
+      "parm": "MAVProxy .parm (NAZWA WARTOŚĆ)",
+      "qgc": "QGroundControl .params"
+    }
+  },
   "import": {
     "from": "Migawka z {savedAt}",
+    "fromFile": "Plik parametrów: {format}",
+    "notes": "O pliku",
+    "unusual": "{warning}. Sprawdź to przed zapisaniem.",
+    "armed": "Nic nie jest zapisywane, gdy pojazd jest uzbrojony lub może być. Najpierw go rozbrój.",
+    "note": {
+      "duplicate": "{id} jest w wierszach {lines}: używana jest wartość z wiersza {last}.",
+      "malformed": "Wiersz {line} nie jest parametrem, pominięto go: {text}",
+      "moreMalformed": "Jeszcze {count} wiersz nie jest parametrem. | Jeszcze {count} wiersze nie są parametrami. | Jeszcze {count} wierszy nie jest parametrami."
+    },
     "itWas": "To było: {warning}.",
     "summary": "Różni się: {differ}, już takie same: {same}. Zaznacz te do zapisania.",
     "noValue": "—",
@@ -1317,6 +1339,7 @@
       "apply": "Zastosuj",
       "vehicle": "W pojeździe",
       "snapshot": "W migawce",
+      "file": "W pliku",
       "result": "Wynik"
     },
     "verified": "✓ Zapisano i odczytano z powrotem: {detail}",
@@ -1433,10 +1456,13 @@
     "noParams": "nie ma parametrów",
     "snapshotVersion": "migawka w wersji {version} (ta aplikacja czyta wersję {supported})",
     "malformed": "jej parametry są nieprawidłowo zbudowane",
+    "noParamLines": "nie ma w nim wierszy parametrów (NAZWA,WARTOŚĆ lub NAZWA WARTOŚĆ, po jednym w wierszu)",
     "notSnapshot": "to nie jest migawka parametrów Drone Configurator"
   },
   "problem": {
     "notOnVehicle": "nie ma w tym pojeździe",
+    "readOnly": "tylko do odczytu: ustawia go sam pojazd",
+    "otherComponent": "w pliku dla komponentu {file}; autopilot to komponent {vehicle}",
     "otherType": "{snapshot} w migawce, {vehicle} w pojeździe",
     "otherVehicle": "zapisano z pojazdu {was} ({wasAutopilot}); ten pojazd to {now} ({nowAutopilot})",
     "notConfirmed": "pojazd zgłasza {reported}, a nie {written}"
@@ -1557,6 +1583,7 @@
         "failsafes": "Przejdź do ekranu Konfiguracja: Zabezpieczenia",
         "battery": "Przejdź do ekranu Konfiguracja: Bateria",
         "initial": "Przejdź do ekranu Konfiguracja: Strojenie początkowe",
+        "signing": "Przejdź do ekranu Konfiguracja: Podpisywanie",
         "serial": "Przejdź do ekranu Konfiguracja: Porty szeregowe",
         "devices": "Przejdź do ekranu Konfiguracja: Urządzenia",
         "bridge": "Przejdź do ekranu Konfiguracja: Most szeregowy",
@@ -1589,14 +1616,20 @@
         "keywords": "odczytaj odśwież wczytaj ponownie lista"
       }
     },
+    "paramFile": {
+      "param": "Zapisz parametry jako plik .param ArduPilota…",
+      "parm": "Zapisz parametry jako plik .parm MAVProxy…",
+      "qgc": "Zapisz parametry jako plik .params QGroundControl…",
+      "keywords": "eksport plik zapis param parm params mavproxy qgroundcontrol"
+    },
     "snapshot": {
       "save": {
         "label": "Zapisz migawkę parametrów…",
         "keywords": "eksport kopia plik zapis"
       },
       "load": {
-        "label": "Wczytaj migawkę parametrów…",
-        "keywords": "import przywróć plik otwórz"
+        "label": "Wczytaj migawkę lub plik parametrów…",
+        "keywords": "import przywróć plik otwórz param parm params"
       }
     },
     "reason": {
@@ -1695,6 +1728,63 @@
     }
   },
   "setup": {
+    "signing": {
+      "summary": "Podpisywanie nie pozwala nikomu bez klucza wysyłać poleceń do tego pojazdu przez radio.",
+      "fingerprint": "Odcisk klucza",
+      "setAt": "Ustawiony",
+      "newHeading": "Ustaw klucz",
+      "changeHeading": "Ustaw nowy klucz",
+      "source": "Skąd pochodzi klucz",
+      "random": "Losowy klucz",
+      "fromPassphrase": "Z hasła",
+      "randomHint": "Ten komputer tworzy losowy klucz i go przechowuje. Nie można go przekazać innej stacji naziemnej.",
+      "passphrase": "Hasło",
+      "loss": "Jeśli ten komputer zgubi klucz, żadna stacja naziemna nie będzie mogła sterować pojazdem przez radio, dopóki jego podpisywanie nie zostanie zresetowane przez USB.",
+      "turnOn": "Włącz podpisywanie",
+      "replace": "Ustaw nowy klucz",
+      "turnOff": "Wyłącz podpisywanie",
+      "confirmTitle": "Podpisywanie pojazdu",
+      "confirmRandom": "Zostanie utworzony losowy klucz, zapisany na tym komputerze i wysłany do pojazdu.",
+      "confirmPassphrase": "Klucz utworzony z hasła zostanie zapisany na tym komputerze i wysłany do pojazdu.",
+      "confirmOn": "Wyślij klucz",
+      "confirmOffWhat": "Podpisywanie w pojeździe zostanie wyłączone, a jego klucz usunięty z tego komputera. Potem każda stacja naziemna będzie mogła nim sterować.",
+      "confirmOff": "Wyłącz podpisywanie",
+      "state": {
+        "off": "Podpisywanie jest wyłączone",
+        "signed": "Podpisywanie jest włączone",
+        "noAnswer": "Pojazd nie podpisuje kluczem, który ma ten komputer",
+        "unknownKey": "Pojazd podpisuje kluczem, którego ten komputer nie ma"
+      },
+      "note": {
+        "off": "Każda stacja naziemna może sterować tym pojazdem.",
+        "signed": "Ten komputer i pojazd mają wspólny klucz. Inne stacje naziemne też go potrzebują.",
+        "noAnswer": "Klucz może być błędny albo podpisywanie w pojeździe zostało zresetowane. Łącze nie jest podpisane, a przez radio pojazd ignoruje polecenia. Ustaw nowy klucz przez USB albo wyłącz podpisywanie.",
+        "unknownKey": "Ustawiła go inna stacja naziemna. Przez radio pojazd ignoruje polecenia tego komputera. Połącz się przez USB, aby ustawić nowy klucz albo wyłączyć podpisywanie."
+      },
+      "phraseHint": {
+        "ok": "Inne stacje naziemne tworzą ten sam klucz z tego samego hasła.",
+        "empty": "Wpisz hasło.",
+        "long": "Hasło ma najwyżej 256 znaków."
+      },
+      "blocked": {
+        "offline": "Połącz pojazd, aby ustawić podpisywanie.",
+        "unknown": "Stan pojazdu jest nieznany. Podpisywanie zmienia się tylko w pojeździe, o którym wiadomo, że jest rozbrojony.",
+        "armed": "Pojazd jest uzbrojony. Podpisywanie zmienia się tylko na ziemi, po rozbrojeniu.",
+        "busy": "Trwa zmiana podpisywania."
+      },
+      "error": {
+        "NOT_CONNECTED": "Żaden pojazd nie jest połączony.",
+        "ARMED": "Pojazd jest uzbrojony. Rozbrój go i spróbuj ponownie.",
+        "STATE_UNKNOWN": "Stan pojazdu jest nieznany. Poczekaj na jego heartbeat i spróbuj ponownie.",
+        "BUSY": "Trwa coś innego: parametry, plan, logi, kalibracja, test silników albo restart. Spróbuj ponownie, gdy się skończy.",
+        "NO_VEHICLE_ID": "Pojazd nie jest jeszcze rozpoznany. Spróbuj ponownie za chwilę.",
+        "INVALID_VALUE": "Hasło ma od 1 do 256 znaków.",
+        "NOT_SAVED": "Nie udało się zapisać klucza na tym komputerze, więc nic nie zostało wysłane do pojazdu. Sprawdź folder danych aplikacji.",
+        "NOT_CONFIRMED": "Pojazd nie potwierdził. Sprawdź, czy jego oprogramowanie obsługuje podpisywanie, i spróbuj ponownie. Przez radio pojazd, który podpisuje, przyjmuje to tylko z własnym kluczem: użyj USB.",
+        "ABORTED": "Łącze zostało utracone, zanim pojazd potwierdził. Klucz zostaje zachowany na wypadek, gdyby pojazd go przyjął.",
+        "other": "Nie udało się zmienić podpisywania. Spróbuj ponownie."
+      }
+    },
     "initial": {
       "summary": "Wartości początkowe obliczone przez Initial Parameter Setup w Mission Planner dla multikoptera, według wielkości śmigieł oraz rodzaju i liczby ogniw akumulatora. To propozycje: wybierz je, obejrzyj listę z boku i zapisz.",
       "size": "Wielkość śmigieł (cale)",
@@ -1724,6 +1814,7 @@
     },
     "sections": "Strony konfiguracji",
     "section": {
+      "signing": "Podpisywanie",
       "home": "Przegląd",
       "frame": "Rama i orientacja",
       "accel": "Akcelerometr",
