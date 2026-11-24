@@ -21,6 +21,8 @@ import { SimTruth, angleDifference } from './sitl-truth'
 const STARTUP_MS = 180_000
 /** The position and the EKF are ready once the GPS is on: an arm is accepted. */
 const READY_MS = 300_000
+/** How long the heartbeat may take to say the vehicle is armed after the arm was accepted. */
+const ARMED_MS = 10_000
 /** A flight leg. */
 const LEG_MS = 90_000
 /** What a page sends by default: 50 m, 500 m, 10 m/s. */
@@ -56,6 +58,12 @@ const METRES_PER_DEGREE = 6_371_000 * Math.PI / 180
  * seen here as a 2.3 degree step), and then learns the field with three-axis fusion, so the heading settles during the climb.
  * The reset comes at the EKF's own height, which may lag the truth's on a slow runner, so the heading is compared from
  * `alignedM`, most of the way to the 10 m of the takeoff, and through the whole leg.
+ *
+ * The heading's limit (`yawDeg`) is the compass's, not the gyros': the heading the EKF holds comes from a field it learns in
+ * flight, corrected by ArduPilot's own declination table, while SITL's compass sees its world magnetic model. In steady flight
+ * at 10 m/s that left it up to 1.71 degrees off on GitHub's runners (turning at 0.3 degrees a second: not the timing), and
+ * 0.55 to 0.77 degrees here. 3 degrees is above that and still well below what a wrong heading gives: the declination at
+ * SITL's home (CMAC, Canberra) is about 12 degrees, and a radian taken for a degree is 57.
  */
 const TOLERANCE = {
   timingMs: 250,
@@ -64,7 +72,7 @@ const TOLERANCE = {
   relativeM: 1,
   velocityMs: 0.3,
   attitudeDeg: 1,
-  yawDeg: 1.5,
+  yawDeg: 3,
   alignedM: 8,
 }
 
@@ -177,22 +185,64 @@ async function isAccepted(name: string, payload: unknown = null): Promise<boolea
 }
 
 /**
- * Puts the vehicle in GUIDED and arms it, asking again until it accepts both (both need the position and the EKF).
+ * The number of the last telemetry event the page got.
+ *
+ * @returns it, 0 before any
+ */
+async function lastEvent(): Promise<number> {
+  return (await client().telemetrySince(0)).at(-1)?.n ?? 0
+}
+
+/**
+ * Whether the app says the vehicle is armed (its heartbeat) within a few seconds.
+ *
+ * @returns true when it does
+ */
+async function showsArmed(): Promise<boolean> {
+  try {
+    await client().until('the heartbeat says armed', seen => seen.armed, ARMED_MS)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * One try at a takeoff: GUIDED, an arm, the app saying the vehicle is armed (the backend refuses a takeoff until its heartbeat
+ * says so), and the takeoff. Where it starts (the truth's ground height, the app's last event) is taken first: the vehicle is
+ * on the ground until the takeoff is accepted.
+ *
+ * @param guided the number of GUIDED
+ * @returns whether the takeoff was accepted
+ */
+async function triesToTakeOff(guided: number | undefined): Promise<boolean> {
+  flight.groundAlt = reader().latest().alt
+  flight.from = await lastEvent()
+
+  const armed = await isAccepted('vehicle.setMode', { mode: guided }) && await isAccepted('vehicle.arm') && await showsArmed()
+
+  return armed && isAccepted('vehicle.takeoff', { altitude: 10 })
+}
+
+/**
+ * Takes off in GUIDED, trying again until the vehicle lets it: an arm is refused until the pre-arm checks pass (the EKF is
+ * not ready for a while after the GPS comes on), and a vehicle that disarmed again refuses the takeoff.
  *
  * @throws {Error} when it never does
  */
-async function armInGuided(): Promise<void> {
+async function takesOffInGuided(): Promise<void> {
   const guided = await modeNumber('GUIDED')
   const deadline = Date.now() + READY_MS
   while (Date.now() < deadline) {
     // eslint-disable-next-line no-await-in-loop -- one try after the other
-    if (await isAccepted('vehicle.setMode', { mode: guided }) && await isAccepted('vehicle.arm')) {
+    if (await triesToTakeOff(guided)) {
       return
     }
     // eslint-disable-next-line no-await-in-loop -- one try after the other
     await pause(5000)
   }
-  throw new Error(`the vehicle did not take GUIDED and an arm in ${READY_MS} ms`)
+  throw new Error(`the vehicle did not take GUIDED, an arm and a takeoff in ${READY_MS} ms`)
 }
 
 async function startAll(): Promise<void> {
@@ -501,23 +551,11 @@ function isAt(seen: Seen, latitude: number): boolean {
   return seen.position !== undefined && seen.position.lat > latitude - 2 / METRES_PER_DEGREE
 }
 
-/**
- * The number of the last telemetry event the page got.
- *
- * @returns it, 0 before any
- */
-async function lastEvent(): Promise<number> {
-  return (await client().telemetrySince(0)).at(-1)?.n ?? 0
-}
-
 async function fliesAShortFlight(): Promise<void> {
   await started(sitl, 'SITL').setParam('SIM_GPS1_ENABLE', 1)
   await client().until('a position', seen => seen.position !== undefined, READY_MS)
-  await armInGuided()
-  // on the ground at home: the truth's height there is where the height above home is 0
-  flight.groundAlt = reader().latest().alt
-  flight.from = await lastEvent()
-  await accepted('vehicle.takeoff', { altitude: 10 })
+  // on the ground at home until the takeoff: the truth's height there is where the height above home is 0
+  await takesOffInGuided()
   await client().until('the vehicle is about 10 m up', s => (s.position?.relativeAltitude ?? 0) > 9, LEG_MS)
   const place = await placeAhead()
   await accepted('vehicle.reposition', { ...place, altitude: 15, limits: LIMITS, failsafe: 'warn' })
