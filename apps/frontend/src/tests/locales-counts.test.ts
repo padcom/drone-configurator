@@ -13,8 +13,6 @@ import { describe, expect, it } from 'vitest'
 
 const DIR = fileURLToPath(new URL('../i18n/locales', import.meta.url))
 const FILES = readdirSync(DIR).filter(name => name.endsWith('.json')).map(name => name.replace(/\.json$/u, '')).sort()
-/** The folders of messages that a part of the interface loads when it is first shown (`locales/signing/`). */
-const BUNDLES = readdirSync(DIR, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name)
 
 /** The placeholders that stand for a number of things. */
 const COUNT = /\{(?:count|differ|same|total|shown|missing|matched|described|known)\}/gu
@@ -65,10 +63,7 @@ function load(code: string): Map<string, string> {
       }
     }
   }
-  // (with the messages of the parts that load their own, in a folder each: locales/signing/<code>.json)
-  for (const file of [join(DIR, `${code}.json`), ...BUNDLES.map(bundle => join(DIR, bundle, `${code}.json`))]) {
-    walk(JSON.parse(readFileSync(file, 'utf8')), '')
-  }
+  walk(JSON.parse(readFileSync(join(DIR, `${code}.json`), 'utf8')), '')
 
   return flat
 }

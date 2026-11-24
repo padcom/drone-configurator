@@ -30,7 +30,38 @@
       "udp": "Check that the vehicle or the simulator sends to this host and port, then connect again.",
       "tcp": "Check that the vehicle listens on this address and that nothing else is using it, then connect again.",
       "serial": "Check the cable, that no other program has the port open, and the baud rate, then connect again.",
-      "simulator": "Close the dialog and try again; if it keeps failing, restart the application."
+      "simulator": "Close the dialog and try again; if it keeps failing, restart the application.",
+      "udp-client": "Check that the vehicle listens on this host and port, and that no firewall blocks its replies, then connect again.",
+      "tcp-server": "Check that the vehicle or the forwarder connects to this port, and that nothing else uses it, then connect again."
+    },
+    "role": {
+      "label": "Who starts the link",
+      "udp": "Listen for the vehicle",
+      "udp-client": "Send to the vehicle",
+      "tcp": "Connect to the vehicle",
+      "tcp-server": "Let the vehicle connect",
+      "note": {
+        "udp": "The vehicle or the simulator sends to this computer.",
+        "udp-client": "This computer sends to the vehicle first and takes its replies: for a vehicle, a companion computer or a router that listens.",
+        "tcp": "This computer connects to the vehicle, which listens on the port.",
+        "tcp-server": "This computer listens on the port, and the vehicle or a forwarder connects to it. It waits up to 30 seconds."
+      }
+    },
+    "everywhere": "Listen on every network interface",
+    "loopback": "Only programs on this computer can reach port {port}.",
+    "exposed": "Other computers on your network can reach port {port}. Choose this only on a network you trust.",
+    "found": {
+      "label": "Vehicles on the network",
+      "again": "Look again",
+      "looking": "Looking on the network…",
+      "none": "Nothing on the network announced a MAVLink service. Check that the vehicle is on this network, or connect by address.",
+      "failed": "Couldn't look on the network: {error}. Check the network connection, or connect by address.",
+      "count": "Found {count} service. | Found {count} services.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -943,7 +974,30 @@
       "pathHelp": "Where the parameter metadata file is. A file you load by hand is kept here, and loaded again at start when the switch below is on.",
       "choose": "Choose file…",
       "autoload": "Load the parameter metadata when the application starts",
-      "autoloadHelp": "With this off nothing is loaded at start, and the path above is kept."
+      "autoloadHelp": "With this off nothing is loaded at start, and the path above is kept.",
+      "download": "Download the parameter metadata for the connected vehicle",
+      "downloadHelp": "From ArduPilot's server, for the vehicle's type and firmware version, and kept on this computer for the next time. A file you load is used instead.",
+      "refresh": "Download again",
+      "status": {
+        "downloading": "Downloading the parameter metadata…",
+        "downloadingPart": "Downloading the parameter metadata: {received} of {total} MB…",
+        "file": "A file you loaded is in use. Nothing is downloaded while it is.",
+        "none": "Nothing downloaded yet. It is downloaded when a vehicle is connected.",
+        "failed": "Not downloaded: {error}. Parameters are shown without descriptions.",
+        "exact": "{vehicle} {version} metadata from ArduPilot, downloaded {date}.",
+        "latest": "Latest {vehicle} metadata from ArduPilot, downloaded {date}: the vehicle did not report a released firmware version.",
+        "latestFor": "Latest {vehicle} metadata from ArduPilot, downloaded {date}: ArduPilot has none for {version}.",
+        "fromCache": "Loaded from this computer in {seconds} s.",
+        "stale": "ArduPilot's server could not be reached, so it may be out of date."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Dismiss",
     "title": "Settings",
@@ -1057,7 +1111,8 @@
       "simulator": "Simulator",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Serial"
+      "serial": "Serial",
+      "found": "Found"
     },
     "host": "Host",
     "port": "Port",
@@ -1376,7 +1431,7 @@
   },
   "reason": {
     "notJson": "not JSON",
-    "xml": "an XML file: only JSON is read (ArduPilot's apm.pdef.json, or our own format)",
+    "xml": "an XML file that is not ArduPilot's apm.pdef.xml",
     "notMetadata": "not a parameter metadata file: expected ArduPilot's apm.pdef.json, or our own format",
     "metadataVersion": "metadata version {version} (this app reads version 1)",
     "noParameters": "it describes no parameters",
@@ -1395,6 +1450,9 @@
     "metadataLoad": "Can't load the metadata: {reason}.",
     "metadataLoadFrom": "Can't load the metadata from {path}: {reason}.",
     "metadataReadFrom": "Can't load the metadata from {path}: {error}",
+    "metadataLatest": "The vehicle did not report a released firmware version, so ArduPilot's latest {vehicle} metadata is used. Some parameters may differ.",
+    "metadataLatestFor": "ArduPilot has no metadata for {vehicle} {version}, so the latest is used. Some parameters may differ.",
+    "metadataRefresh": "Can't download the metadata again: {error}. The metadata in use is kept.",
     "metadataPathNotKept": "The path of {path} was not kept: only a .json file is loaded when the application starts.",
     "open": "Couldn't open it: {error}",
     "settingsUnavailable": "The settings are not available: {error}",
@@ -1643,6 +1701,63 @@
     }
   },
   "setup": {
+    "signing": {
+      "summary": "Signing stops anyone without the key from sending commands to this vehicle over the radio.",
+      "fingerprint": "Key fingerprint",
+      "setAt": "Set on",
+      "newHeading": "Set a key",
+      "changeHeading": "Set a new key",
+      "source": "Where the key comes from",
+      "random": "Random key",
+      "fromPassphrase": "From a passphrase",
+      "randomHint": "This computer makes a random key and keeps it. Another ground station cannot be given it.",
+      "passphrase": "Passphrase",
+      "loss": "If this computer loses the key, no ground station can command the vehicle over the radio until its signing is reset over USB.",
+      "turnOn": "Turn signing on",
+      "replace": "Set the new key",
+      "turnOff": "Turn signing off",
+      "confirmTitle": "Vehicle signing",
+      "confirmRandom": "A random key is made, kept on this computer and sent to the vehicle.",
+      "confirmPassphrase": "The key made from the passphrase is kept on this computer and sent to the vehicle.",
+      "confirmOn": "Send the key",
+      "confirmOffWhat": "Signing is turned off on the vehicle and its key is removed from this computer. Any ground station can then command it.",
+      "confirmOff": "Turn signing off",
+      "state": {
+        "off": "Signing is off",
+        "signed": "Signing is on",
+        "noAnswer": "The vehicle does not sign with the key this computer holds",
+        "unknownKey": "The vehicle signs with a key this computer does not have"
+      },
+      "note": {
+        "off": "Any ground station can command this vehicle.",
+        "signed": "This computer and the vehicle share a key. Other ground stations need it too.",
+        "noAnswer": "The key may be wrong, or the vehicle's signing was reset. The link is not signed, and over a radio the vehicle ignores commands. Set a new key over USB, or turn signing off.",
+        "unknownKey": "Another ground station set it. Over a radio the vehicle ignores this computer's commands. Connect over USB to set a new key or turn signing off."
+      },
+      "phraseHint": {
+        "ok": "Other ground stations make the same key from the same passphrase.",
+        "empty": "Type a passphrase.",
+        "long": "A passphrase is at most 256 characters."
+      },
+      "blocked": {
+        "offline": "Connect a vehicle to set up signing.",
+        "unknown": "The vehicle's state is not known. Signing is changed only on a vehicle known to be disarmed.",
+        "armed": "The vehicle is armed. Signing is changed only on the ground, disarmed.",
+        "busy": "A signing change is under way."
+      },
+      "error": {
+        "NOT_CONNECTED": "No vehicle is connected.",
+        "ARMED": "The vehicle is armed. Disarm it, then try again.",
+        "STATE_UNKNOWN": "The vehicle's state is not known. Wait for its heartbeat, then try again.",
+        "BUSY": "Something else is under way: parameters, a plan, logs, a calibration, a motor test or a reboot. Try again when it is done.",
+        "NO_VEHICLE_ID": "The vehicle is not identified yet. Try again in a moment.",
+        "INVALID_VALUE": "A passphrase is 1 to 256 characters.",
+        "NOT_SAVED": "The key could not be saved on this computer, so nothing was sent to the vehicle. Check the app's data folder.",
+        "NOT_CONFIRMED": "The vehicle did not confirm. Check that its firmware supports signing, then try again. Over a radio, a vehicle that signs takes this only with its own key: use USB.",
+        "ABORTED": "The link was lost before the vehicle confirmed. The key is kept, in case the vehicle took it.",
+        "other": "Signing could not be changed. Try again."
+      }
+    },
     "initial": {
       "summary": "Starting values calculated by Mission Planner's Initial Parameter Setup for a multicopter, from the size of its propellers and the kind and cells of its battery. They are suggestions: choose them, look at the list on the side, and write them.",
       "size": "Propeller size (inches)",

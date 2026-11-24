@@ -59,18 +59,6 @@ const TUNE_SECTIONS: readonly Section[] = [
 ]
 const SETUP = () => import('./Setup.vue')
 
-/**
- * The Signing page, with its messages (they are not in the first JavaScript the page loads: src/i18n/signingMessages.ts).
- *
- * @returns the page
- */
-async function loadSigning(): Promise<{ default: Component }> {
-  const { loadSigningMessages } = await import('@/i18n/signingMessages')
-  await loadSigningMessages()
-
-  return import('./setup/SetupSigning.vue')
-}
-
 /** The parts of the Setup screen, in the order of the design's list (the home first). Those that are not built say so. */
 const SETUP_SECTIONS: readonly Section[] = [
   { id: 'home', path: 'home', titleKey: 'setup.section.home', load: () => import('./setup/SetupHome.vue') },
@@ -85,13 +73,7 @@ const SETUP_SECTIONS: readonly Section[] = [
   { id: 'battery', path: 'battery', titleKey: 'setup.section.battery', load: () => import('./setup/SetupBattery.vue') },
   { id: 'initial', path: 'initial', titleKey: 'setup.section.initial', load: () => import('./setup/SetupInitial.vue') },
   { id: 'serial', path: 'serial', titleKey: 'setup.section.serial', load: () => import('./setup/SetupSerial.vue') },
-  {
-    id: 'signing',
-    path: 'signing',
-    titleKey: 'setup.section.signing',
-    // (its messages load with it: src/i18n/signingMessages.ts)
-    load: loadSigning,
-  },
+  { id: 'signing', path: 'signing', titleKey: 'setup.section.signing', load: () => import('./setup/SetupSigning.vue') },
   { id: 'devices', path: 'devices', titleKey: 'setup.section.devices', load: () => import('./setup/SetupDevices.vue') },
   { id: 'bridge', path: 'bridge', titleKey: 'setup.section.bridge', load: () => import('./setup/SetupBridge.vue') },
   { id: 'info', path: 'info', titleKey: 'setup.section.info', load: () => import('./setup/SetupInfo.vue') },

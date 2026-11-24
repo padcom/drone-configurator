@@ -1,11 +1,14 @@
-// The Settings screen's metadata section: the path (written, or kept from a file loaded by hand), the file picker and the switch
-// "Load the parameter metadata when the application starts" (on unless the settings say off).
+// The Settings screen's metadata section: the path (written, or kept from a file loaded by hand), the file picker, the switch
+// "Load the parameter metadata when the application starts" (on unless the settings say off), the switch "Download the parameter
+// metadata for the connected vehicle" (on unless the settings say off), the line that says where the metadata came from, and
+// its button that downloads it again.
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { i18n, setLanguage } from '@/i18n/i18n'
-import { METADATA_AUTOLOAD_KEY, METADATA_PATH_KEY } from '@/lib/params/metadataSettings'
+import { METADATA_AUTOLOAD_KEY, METADATA_DOWNLOAD_KEY, METADATA_PATH_KEY } from '@/lib/params/metadataSettings'
+import type { MetadataFile } from '@/generated/app'
 import { mockBackend } from '@/mock/mock-backend'
 import { useToasts } from '@/composables/toasts'
 import { useMetadataToasts } from '@/lib/params/metadataToasts'
@@ -17,6 +20,17 @@ const FILE = JSON.stringify({
   version: 1,
   params: { RTL_ALT: { description: 'Return altitude' } },
 })
+
+const LATEST: MetadataFile = {
+  vehicle: 'copter',
+  version: '4.5.7',
+  exact: false,
+  format: 'json',
+  text: JSON.stringify({ json: { version: 0 }, ArduCopter: { RTL_ALT: { DisplayName: 'Return height' } } }),
+  fromCache: true,
+  stale: false,
+  fetchedAt: Date.UTC(2026, 10, 20),
+}
 
 let mounted: VueWrapper | undefined
 
@@ -143,4 +157,42 @@ it('shows the stored path ONCE, in its field and not again in Settings\' own tex
   // Settings' own text and markup, with the field's value as the one place: nothing else in the page has it
   expect(timesIn(wrapper.text(), path)).toBe(0)
   expect(timesIn(wrapper.html(), path)).toBe(0)
+})
+
+it('has the download switch on by default, keeps it off, and says where the metadata came from', async () => {
+  const { wrapper, handle } = await screen()
+
+  expect(wrapper.get('#metadata-download').attributes('aria-checked')).toBe('true')
+  const nothingYet = 'Nothing downloaded yet. It is downloaded when a vehicle is connected.'
+  expect(wrapper.get('#metadata-download-status').text()).toBe(nothingYet)
+  // No vehicle: nothing to download again.
+  expect(wrapper.get('#metadata-refresh').attributes('disabled')).toBeDefined()
+
+  await wrapper.get('#metadata-download').trigger('click')
+  await flushPromises()
+  expect(handle.settings.uiValue(METADATA_DOWNLOAD_KEY)).toBe('off')
+  expect(wrapper.get('#metadata-download').attributes('aria-checked')).toBe('false')
+})
+
+it('downloads the connected vehicle\'s metadata again with its button, a button the keyboard reaches', async () => {
+  const handle = createConfigurator(mockBackend({ metadata: [LATEST] }))
+  await vi.waitFor(() => expect(handle.settings.loaded.value).toBe(true))
+  mounted = mount(Settings, { global: { plugins: [i18n] } })
+  await handle.vehicle.connect({ transport: 'simulator' })
+  await vi.waitFor(() => expect(handle.metadata.source.value).toBe('download'))
+  await flushPromises()
+  const status = () => mounted?.get('#metadata-download-status').text()
+  expect(status()).toMatch(
+    /^Latest Copter metadata from ArduPilot, downloaded .*: ArduPilot has none for 4\.5\.7\. Loaded from this computer in /u,
+  )
+
+  const button = mounted.get('#metadata-refresh')
+  expect(button.element.tagName).toBe('BUTTON')
+  expect(button.attributes('disabled')).toBeUndefined()
+  await button.trigger('click')
+  await flushPromises()
+  await vi.waitFor(() => expect(handle.metadata.downloading.value).toBe(false))
+
+  expect(status()).toMatch(/^Latest Copter metadata from ArduPilot/u)
+  await handle.vehicle.disconnect()
 })

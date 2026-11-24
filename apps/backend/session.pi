@@ -101,6 +101,8 @@ class Link {
   public parts: Map<string, SessionPart> = new Map<string, SessionPart>()
   /// How long `vehicle.connect` waits for an autopilot's heartbeat.
   public heartbeatWaitMs: int = 3000
+  /// How long it waits when the backend listens on TCP (#197): the vehicle, or the forwarder, has to connect in first.
+  public serverWaitMs: int = 30000
   /// Aborted when the session ends, or the link is lost: operations still running stop at once.
   public session: AbortController = new AbortController()
   /// What was asked for, kept so that a dropped link can be opened again (reconnect.pi).

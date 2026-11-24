@@ -21,8 +21,7 @@ const i18n = [
     plugins: { '@intlify/vue-i18n': vueI18n },
     settings: {
       'vue-i18n': {
-        // (and the messages a part loads with itself, in a folder each: src/i18n/signingMessages.ts)
-        localeDir: ['src/i18n/locales/*.json', 'src/i18n/locales/*/*.json'],
+        localeDir: 'src/i18n/locales/*.json',
         messageSyntaxVersion: '^11.0.0',
       },
     },

@@ -1,11 +1,12 @@
-// The only place that knows how a vehicle is reached: the simulator, UDP, TCP and a serial port, each
-// as pico-mavlink's byte stream.
+// The only place that knows how a vehicle is reached: the simulator, UDP (listening, or sending to a vehicle that listens),
+// TCP (connecting, or listening for the vehicle to connect) and a serial port, each as pico-mavlink's byte stream.
 import { CommunicatorError } from "pico-desktop/communicator"
 import { SerialPort as SerialDevice, listPorts, openPort } from "padcom/serialport"
-import { bind, connect } from "std/net"
+import { Conn, Listener, bind, connect, listen } from "std/net"
 import { ByteStream, MemoryStream, SimulatedAutopilot, TcpStream, UdpStream } from "padcom/pico-mavlink"
 import { ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { BAUD_RATES, choosePort, detectBaud } from "./autodetect"
+import { localFor } from "./discovery"
 
 /// A serial port as pico-mavlink's byte stream: the same three methods (each library declares its
 /// own interface, so the application adapts one to the other).
@@ -29,12 +30,74 @@ class SerialStream implements ByteStream {
   }
 }
 
+/// A TCP port the backend listens on, as one byte stream (#197): the vehicle, or a forwarder, connects in. One connection at a
+/// time: when it ends, the next one is taken, and the stream goes on (a vehicle that reboots connects again), so the link only
+/// ends when the stream is closed. Until somebody has connected, what is written is dropped (as on a UDP port nobody sent to).
+export class TcpServerStream implements ByteStream {
+  readonly listener: Listener
+  conn: Conn? = null
+  closed: bool = false
+
+  constructor(listener: Listener) {
+    this.listener = listener
+  }
+
+  /// The next bytes from the connection, taking one first when there is none.
+  public async read(): Promise<Uint8Array?> throws Error {
+    while (!closed) {
+      if (conn == null) {
+        conn = await listener.accept()
+        if (conn == null) {
+          return null
+        }
+      }
+      const chunk = await readOrEnd(conn!)
+      if (chunk != null) {
+        return chunk
+      }
+      // That one went: the next is taken.
+      conn!.close()
+      conn = null
+    }
+    return null
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    const c = conn
+    if (c != null) {
+      try {
+        await c!.write(bytes)
+        return
+      } catch (e: Error) {
+        // The peer went: its reads end it.
+      }
+    }
+  }
+
+  public close(): void {
+    closed = true
+    listener.close()
+    conn?.close()
+  }
+}
+
+/// The next bytes of a connection, or null when it ended or failed (a peer that resets it is as gone as one that closes it).
+async function readOrEnd(c: Conn): Promise<Uint8Array?> {
+  try {
+    return await c.read()
+  } catch (e: Error) {
+    return null
+  }
+}
+
 /// What a connection request asks for, in words for the user.
 export function describe(r: ConnectRequest): string {
   match (r.transport) {
     Simulator => "the simulator",
     Udp => `udp ${r.host ?? "127.0.0.1"}:${r.port ?? 14550}`,
+    UdpClient => `udp to ${r.host ?? "127.0.0.1"}:${r.port ?? 14550}`,
     Tcp => `tcp ${r.host ?? "127.0.0.1"}:${r.port ?? 5760}`,
+    TcpServer => `tcp server ${r.host ?? "127.0.0.1"}:${r.port ?? 5760}`,
     Serial => `serial ${r.device ?? "(the likely autopilot)"} ${if (r.baud != null) `at ${r.baud!}` else "(trying the common rates)"}`,
   }
 }
@@ -58,9 +121,20 @@ export async function open(r: ConnectRequest, onSimulator: (sim: SimulatedAutopi
       const s: ByteStream = new UdpStream(socket)
       s
     },
+    UdpClient => {
+      // A port of our own; what is sent (the heartbeats first) goes to the vehicle, which answers that port.
+      const host = r.host ?? "127.0.0.1"
+      const socket = await bind(0, localFor(host))
+      const s: ByteStream = new UdpStream(socket, (r.port ?? 14550) as int, host)
+      s
+    },
     Tcp => {
       const c = await connect((r.port ?? 5760) as int, r.host ?? "127.0.0.1")
       const s: ByteStream = new TcpStream(c)
+      s
+    },
+    TcpServer => {
+      const s: ByteStream = new TcpServerStream(await listen((r.port ?? 5760) as int, r.host ?? "127.0.0.1"))
       s
     },
     Serial => {

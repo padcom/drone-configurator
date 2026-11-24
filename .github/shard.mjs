@@ -3,7 +3,7 @@
 // can be. Deterministic (ties by name), and every file is in exactly one shard. Plain Node, no dependencies; unit-tested in
 // apps/frontend/e2e/shard.test.ts.
 //
-// Usage: node .github/shard.mjs --kind backend|e2e|sitl --shard N --of M [--only "a b c"] [--root DIR]
+// Usage: node .github/shard.mjs --kind backend|e2e|sitl|weekly --shard N --of M [--only "a b c"] [--root DIR]
 //   prints the files of shard N (1-based), one per line: backend tests as `pico test` takes them (`params.test.pi`), specs as
 //   `pnpm e2e` takes them (`e2e/shell.e2e.ts`). `--only` keeps those of the files that are named (the PR's selection; `all`, or
 //   no `--only`, keeps every one). A shard may be empty.
@@ -37,20 +37,20 @@ export function split(files, times, fallback, count) {
  * The files of a kind in the tree.
  *
  * @param {string} root the repository root
- * @param {'backend' | 'e2e' | 'sitl'} kind which
+ * @param {'backend' | 'e2e' | 'sitl' | 'weekly'} kind which (`weekly`: the weekly specs, ci-select.mjs `WEEKLY_SPEC`)
  * @returns {string[]} names as the times file has them (`params.test.pi`, `shell.e2e.ts`)
  */
 function filesOf(root, kind) {
   if (kind === 'backend') {
     return readdirSync(join(root, 'apps/backend')).filter(name => name.endsWith('.test.pi'))
   }
-  return listSpecs(root, kind === 'sitl' ? 'sitl' : 'fake').map(path => path.replace(/^e2e\//u, ''))
+  return listSpecs(root, kind === 'e2e' ? 'fake' : kind).map(path => path.replace(/^e2e\//u, ''))
 }
 
 /**
  * The files of one shard.
  *
- * @param {{ root: string, kind: 'backend' | 'e2e' | 'sitl', shard: number, of: number, only?: string }} options what to split
+ * @param {{ root: string, kind: 'backend' | 'e2e' | 'sitl' | 'weekly', shard: number, of: number, only?: string }} options what to split
  * @returns {string[]} the shard's files, as the runner takes them
  */
 export function shardOf({ root, kind, shard, of, only }) {
@@ -66,7 +66,7 @@ if (process.argv[1] !== undefined && process.argv[1] === fileURLToPath(import.me
   const args = process.argv.slice(2)
   const value = name => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined)
   const kind = value('--kind')
-  if (kind !== 'backend' && kind !== 'e2e' && kind !== 'sitl') throw new Error('--kind takes backend, e2e or sitl')
+  if (!['backend', 'e2e', 'sitl', 'weekly'].includes(kind)) throw new Error('--kind takes backend, e2e, sitl or weekly')
   const files = shardOf({ root: value('--root') ?? '.', kind, shard: Number(value('--shard')), of: Number(value('--of')), only: value('--only') })
   process.stdout.write(files.length > 0 ? `${files.join('\n')}\n` : '')
 }

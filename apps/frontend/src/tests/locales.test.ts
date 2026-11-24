@@ -10,8 +10,6 @@ import { LANGUAGES, LANGUAGE_NAMES } from '@/i18n/i18n'
 
 const DIR = fileURLToPath(new URL('../i18n/locales', import.meta.url))
 const FILES = readdirSync(DIR).filter(name => name.endsWith('.json')).map(name => name.replace(/\.json$/u, '')).sort()
-/** The folders of messages that a part of the interface loads when it is first shown (`locales/signing/`). */
-const BUNDLES = readdirSync(DIR, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name)
 
 /** The messages of a locale file, flat: dotted key → text. */
 type Flat = Map<string, string>
@@ -33,10 +31,7 @@ function load(code: string): Flat {
       }
     }
   }
-  // (with the messages of the parts that load their own, in a folder each: locales/signing/<code>.json)
-  for (const file of [join(DIR, `${code}.json`), ...BUNDLES.map(bundle => join(DIR, bundle, `${code}.json`))]) {
-    walk(JSON.parse(readFileSync(file, 'utf8')), '')
-  }
+  walk(JSON.parse(readFileSync(join(DIR, `${code}.json`), 'utf8')), '')
 
   return flat
 }

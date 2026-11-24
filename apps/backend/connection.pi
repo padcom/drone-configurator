@@ -14,7 +14,7 @@ import {
   VehicleDiscovery,
   defaultRegistry,
 } from "padcom/pico-mavlink"
-import { Connection, ConnectionState, decodeConnectRequest, encodeConnection } from "./generated/app"
+import { Connection, ConnectionState, ConnectRequestTransport, decodeConnectRequest, encodeConnection } from "./generated/app"
 import { GuardedStream } from "./guarded"
 import { APP_COMPID, Beats, GCS_SYSID } from "./heartbeat"
 import { counted } from "./linkstats"
@@ -108,7 +108,8 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   beats.start()
   link.beats = beats
   let waited = 0
-  while (waited <= link.heartbeatWaitMs) {
+  const waitMs = if (request.transport == ConnectRequestTransport.TcpServer) link.serverWaitMs else link.heartbeatWaitMs
+  while (waited <= waitMs) {
     if (link.generation != generation) {
       return encodeConnection(link.state)
     }

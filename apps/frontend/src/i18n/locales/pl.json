@@ -30,7 +30,38 @@
       "udp": "Sprawdź, czy pojazd lub symulator wysyła dane na ten host i port, a potem połącz się ponownie.",
       "tcp": "Sprawdź, czy pojazd nasłuchuje na tym adresie i czy nic innego go nie zajmuje, a potem połącz się ponownie.",
       "serial": "Sprawdź kabel, czy żaden inny program nie otworzył portu oraz prędkość transmisji, a potem połącz się ponownie.",
-      "simulator": "Zamknij okno i spróbuj jeszcze raz; jeśli nadal się nie udaje, uruchom aplikację ponownie."
+      "simulator": "Zamknij okno i spróbuj jeszcze raz; jeśli nadal się nie udaje, uruchom aplikację ponownie.",
+      "udp-client": "Sprawdź, czy pojazd nasłuchuje na tym hoście i porcie oraz czy zapora nie blokuje jego odpowiedzi, a potem połącz ponownie.",
+      "tcp-server": "Sprawdź, czy pojazd lub przekaźnik łączy się z tym portem i czy nic innego go nie używa, a potem połącz ponownie."
+    },
+    "role": {
+      "label": "Kto zaczyna połączenie",
+      "udp": "Nasłuchuj pojazdu",
+      "udp-client": "Wysyłaj do pojazdu",
+      "tcp": "Połącz z pojazdem",
+      "tcp-server": "Pozwól pojazdowi się połączyć",
+      "note": {
+        "udp": "Pojazd lub symulator wysyła do tego komputera.",
+        "udp-client": "Ten komputer pierwszy wysyła do pojazdu i odbiera jego odpowiedzi: dla pojazdu, komputera pokładowego lub routera, który nasłuchuje.",
+        "tcp": "Ten komputer łączy się z pojazdem, który nasłuchuje na porcie.",
+        "tcp-server": "Ten komputer nasłuchuje na porcie, a pojazd lub przekaźnik łączy się z nim. Czeka do 30 sekund."
+      }
+    },
+    "everywhere": "Nasłuchuj na wszystkich interfejsach sieciowych",
+    "loopback": "Port {port} jest dostępny tylko dla programów na tym komputerze.",
+    "exposed": "Inne komputery w Twojej sieci mają dostęp do portu {port}. Wybierz to tylko w zaufanej sieci.",
+    "found": {
+      "label": "Pojazdy w sieci",
+      "again": "Szukaj ponownie",
+      "looking": "Szukanie w sieci…",
+      "none": "Nic w sieci nie ogłosiło usługi MAVLink. Sprawdź, czy pojazd jest w tej sieci, albo połącz się po adresie.",
+      "failed": "Nie udało się szukać w sieci: {error}. Sprawdź połączenie sieciowe albo połącz się po adresie.",
+      "count": "Znaleziono {count} usługę. | Znaleziono {count} usługi. | Znaleziono {count} usług.",
+      "detail": "{kind} {host}:{port}",
+      "kind": {
+        "udp-client": "UDP",
+        "tcp": "TCP"
+      }
     }
   },
   "topBar": {
@@ -943,7 +974,30 @@
       "pathHelp": "Gdzie jest plik metadanych parametrów. Plik wczytany ręcznie jest tu zapamiętywany i wczytywany ponownie przy starcie, gdy przełącznik poniżej jest włączony.",
       "choose": "Wybierz plik…",
       "autoload": "Wczytaj metadane parametrów przy uruchomieniu aplikacji",
-      "autoloadHelp": "Gdy wyłączony, przy starcie nic nie jest wczytywane, a ścieżka powyżej zostaje zapamiętana."
+      "autoloadHelp": "Gdy wyłączony, przy starcie nic nie jest wczytywane, a ścieżka powyżej zostaje zapamiętana.",
+      "download": "Pobieraj metadane parametrów dla podłączonego pojazdu",
+      "downloadHelp": "Z serwera ArduPilota, dla typu pojazdu i wersji firmware'u, i zachowane na tym komputerze na następny raz. Wczytany przez Ciebie plik ma pierwszeństwo.",
+      "refresh": "Pobierz ponownie",
+      "status": {
+        "downloading": "Pobieranie metadanych parametrów…",
+        "downloadingPart": "Pobieranie metadanych parametrów: {received} z {total} MB…",
+        "file": "Używany jest wczytany przez Ciebie plik. Dopóki jest, nic nie jest pobierane.",
+        "none": "Jeszcze nic nie pobrano. Metadane są pobierane po podłączeniu pojazdu.",
+        "failed": "Nie pobrano: {error}. Parametry są pokazane bez opisów.",
+        "exact": "Metadane {vehicle} {version} z ArduPilota, pobrane {date}.",
+        "latest": "Najnowsze metadane {vehicle} z ArduPilota, pobrane {date}: pojazd nie podał wydanej wersji firmware'u.",
+        "latestFor": "Najnowsze metadane {vehicle} z ArduPilota, pobrane {date}: ArduPilot nie ma metadanych dla {version}.",
+        "fromCache": "Wczytane z tego komputera w {seconds} s.",
+        "stale": "Serwer ArduPilota jest nieosiągalny, więc mogą być nieaktualne."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Zamknij",
     "title": "Ustawienia",
@@ -1057,7 +1111,8 @@
       "simulator": "Symulator",
       "udp": "UDP",
       "tcp": "TCP",
-      "serial": "Szeregowy"
+      "serial": "Szeregowy",
+      "found": "Znalezione"
     },
     "host": "Host",
     "port": "Port",
@@ -1376,7 +1431,7 @@
   },
   "reason": {
     "notJson": "to nie jest JSON",
-    "xml": "plik XML: odczytywany jest tylko JSON (apm.pdef.json z ArduPilota lub nasz własny format)",
+    "xml": "plik XML, który nie jest plikiem apm.pdef.xml ArduPilota",
     "notMetadata": "to nie jest plik metadanych parametrów: oczekiwano apm.pdef.json z ArduPilota lub naszego formatu",
     "metadataVersion": "metadane w wersji {version} (ta aplikacja czyta wersję 1)",
     "noParameters": "nie opisuje żadnych parametrów",
@@ -1395,6 +1450,9 @@
     "metadataLoad": "Nie można wczytać metadanych: {reason}.",
     "metadataLoadFrom": "Nie można wczytać metadanych z {path}: {reason}.",
     "metadataReadFrom": "Nie można wczytać metadanych z {path}: {error}",
+    "metadataLatest": "Pojazd nie podał wydanej wersji firmware'u, więc używane są najnowsze metadane {vehicle} z ArduPilota. Niektóre parametry mogą się różnić.",
+    "metadataLatestFor": "ArduPilot nie ma metadanych dla {vehicle} {version}, więc używane są najnowsze. Niektóre parametry mogą się różnić.",
+    "metadataRefresh": "Nie można ponownie pobrać metadanych: {error}. Używane metadane zostają.",
     "metadataPathNotKept": "Nie zapamiętano ścieżki {path}: przy uruchomieniu aplikacji wczytywany jest tylko plik .json.",
     "open": "Nie udało się otworzyć: {error}",
     "settingsUnavailable": "Ustawienia są niedostępne: {error}",
@@ -1643,6 +1701,63 @@
     }
   },
   "setup": {
+    "signing": {
+      "summary": "Podpisywanie nie pozwala nikomu bez klucza wysyłać poleceń do tego pojazdu przez radio.",
+      "fingerprint": "Odcisk klucza",
+      "setAt": "Ustawiony",
+      "newHeading": "Ustaw klucz",
+      "changeHeading": "Ustaw nowy klucz",
+      "source": "Skąd pochodzi klucz",
+      "random": "Losowy klucz",
+      "fromPassphrase": "Z hasła",
+      "randomHint": "Ten komputer tworzy losowy klucz i go przechowuje. Nie można go przekazać innej stacji naziemnej.",
+      "passphrase": "Hasło",
+      "loss": "Jeśli ten komputer zgubi klucz, żadna stacja naziemna nie będzie mogła sterować pojazdem przez radio, dopóki jego podpisywanie nie zostanie zresetowane przez USB.",
+      "turnOn": "Włącz podpisywanie",
+      "replace": "Ustaw nowy klucz",
+      "turnOff": "Wyłącz podpisywanie",
+      "confirmTitle": "Podpisywanie pojazdu",
+      "confirmRandom": "Zostanie utworzony losowy klucz, zapisany na tym komputerze i wysłany do pojazdu.",
+      "confirmPassphrase": "Klucz utworzony z hasła zostanie zapisany na tym komputerze i wysłany do pojazdu.",
+      "confirmOn": "Wyślij klucz",
+      "confirmOffWhat": "Podpisywanie w pojeździe zostanie wyłączone, a jego klucz usunięty z tego komputera. Potem każda stacja naziemna będzie mogła nim sterować.",
+      "confirmOff": "Wyłącz podpisywanie",
+      "state": {
+        "off": "Podpisywanie jest wyłączone",
+        "signed": "Podpisywanie jest włączone",
+        "noAnswer": "Pojazd nie podpisuje kluczem, który ma ten komputer",
+        "unknownKey": "Pojazd podpisuje kluczem, którego ten komputer nie ma"
+      },
+      "note": {
+        "off": "Każda stacja naziemna może sterować tym pojazdem.",
+        "signed": "Ten komputer i pojazd mają wspólny klucz. Inne stacje naziemne też go potrzebują.",
+        "noAnswer": "Klucz może być błędny albo podpisywanie w pojeździe zostało zresetowane. Łącze nie jest podpisane, a przez radio pojazd ignoruje polecenia. Ustaw nowy klucz przez USB albo wyłącz podpisywanie.",
+        "unknownKey": "Ustawiła go inna stacja naziemna. Przez radio pojazd ignoruje polecenia tego komputera. Połącz się przez USB, aby ustawić nowy klucz albo wyłączyć podpisywanie."
+      },
+      "phraseHint": {
+        "ok": "Inne stacje naziemne tworzą ten sam klucz z tego samego hasła.",
+        "empty": "Wpisz hasło.",
+        "long": "Hasło ma najwyżej 256 znaków."
+      },
+      "blocked": {
+        "offline": "Połącz pojazd, aby ustawić podpisywanie.",
+        "unknown": "Stan pojazdu jest nieznany. Podpisywanie zmienia się tylko w pojeździe, o którym wiadomo, że jest rozbrojony.",
+        "armed": "Pojazd jest uzbrojony. Podpisywanie zmienia się tylko na ziemi, po rozbrojeniu.",
+        "busy": "Trwa zmiana podpisywania."
+      },
+      "error": {
+        "NOT_CONNECTED": "Żaden pojazd nie jest połączony.",
+        "ARMED": "Pojazd jest uzbrojony. Rozbrój go i spróbuj ponownie.",
+        "STATE_UNKNOWN": "Stan pojazdu jest nieznany. Poczekaj na jego heartbeat i spróbuj ponownie.",
+        "BUSY": "Trwa coś innego: parametry, plan, logi, kalibracja, test silników albo restart. Spróbuj ponownie, gdy się skończy.",
+        "NO_VEHICLE_ID": "Pojazd nie jest jeszcze rozpoznany. Spróbuj ponownie za chwilę.",
+        "INVALID_VALUE": "Hasło ma od 1 do 256 znaków.",
+        "NOT_SAVED": "Nie udało się zapisać klucza na tym komputerze, więc nic nie zostało wysłane do pojazdu. Sprawdź folder danych aplikacji.",
+        "NOT_CONFIRMED": "Pojazd nie potwierdził. Sprawdź, czy jego oprogramowanie obsługuje podpisywanie, i spróbuj ponownie. Przez radio pojazd, który podpisuje, przyjmuje to tylko z własnym kluczem: użyj USB.",
+        "ABORTED": "Łącze zostało utracone, zanim pojazd potwierdził. Klucz zostaje zachowany na wypadek, gdyby pojazd go przyjął.",
+        "other": "Nie udało się zmienić podpisywania. Spróbuj ponownie."
+      }
+    },
     "initial": {
       "summary": "Wartości początkowe obliczone przez Initial Parameter Setup w Mission Planner dla multikoptera, według wielkości śmigieł oraz rodzaju i liczby ogniw akumulatora. To propozycje: wybierz je, obejrzyj listę z boku i zapisz.",
       "size": "Wielkość śmigieł (cale)",

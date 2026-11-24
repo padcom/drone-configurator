@@ -60,12 +60,7 @@ function entries(value: unknown, prefix = ''): [string, unknown][] {
   return Object.entries(value).flatMap(([name, child]) => entries(child, prefix ? `${prefix}.${name}` : name))
 }
 
-const LOCALES = join(SRC, 'i18n', 'locales')
-// (with the English of the parts that load their own messages, in a folder each: locales/signing/en.json)
-const BUNDLES = readdirSync(LOCALES, { withFileTypes: true })
-  .filter(entry => entry.isDirectory())
-  .map(entry => join(LOCALES, entry.name, 'en.json'))
-const messages = new Map([join(LOCALES, 'en.json'), ...BUNDLES].flatMap(file => entries(JSON.parse(readFileSync(file, 'utf8')))))
+const messages = new Map(entries(JSON.parse(readFileSync(join(SRC, 'i18n', 'locales', 'en.json'), 'utf8'))))
 
 /**
  * The keys a file asks for.

@@ -2,7 +2,7 @@
 // without metadata a parameter is only its wire type, and edits are checked against that type alone. With metadata, edits
 // are also checked against its range and values.
 //
-// Two kinds of file are read:
+// Three kinds of file are read:
 //
 // 1. Our own format (JSON, version 1; every field of a parameter is optional):
 //   { "format": "drone-configurator/param-metadata", "version": 1,
@@ -17,8 +17,12 @@
 //    "Bitmask": { "0": "…" }, "RebootRequired": "True", … } } }. Only what is used is kept (the whole file is several
 //    megabytes). The display name is the short description, ArduPilot's description is the long one; when a name is in more
 //    than one group the first is kept.
+//
+// 3. ArduPilot's definitions of a released version, `apm.pdef.xml` (metadataXml.ts): what the download of the vehicle's metadata
+//    gives (the backend's `metadata.fetch`), as the server has no JSON of a released version.
 
 import { say } from '@/i18n/say'
+import { isPdefXml, parsePdefXml } from './metadataXml'
 
 export const METADATA_FORMAT = 'drone-configurator/param-metadata'
 
@@ -257,6 +261,9 @@ function nonEmpty(metadata: Metadata): Metadata | string {
  * @returns the metadata by parameter name, or why it isn't metadata
  */
 export function parseMetadata(text: string): Metadata | string {
+  if (isPdefXml(text)) {
+    return nonEmpty(parsePdefXml(text))
+  }
   let data: unknown
   try {
     data = JSON.parse(text)

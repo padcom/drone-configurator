@@ -1,8 +1,7 @@
 // What the Signing page and the status bar say of each state of the link's signing, why a change is not possible, the words of
 // the backend's refusals, and what is wrong with a passphrase. Every message they name is in every language.
-import { beforeAll, expect, it } from 'vitest'
+import { expect, it } from 'vitest'
 import { LANGUAGES, i18n } from '@/i18n/i18n'
-import { loadSigningMessages } from '@/i18n/signingMessages'
 import { MAX_PASSPHRASE, type SigningState, passphraseProblem, signingBlocked, signingErrorKey, signingLook } from './signing'
 
 /**
@@ -14,8 +13,6 @@ import { MAX_PASSPHRASE, type SigningState, passphraseProblem, signingBlocked, s
 function missing(key: string): string[] {
   return LANGUAGES.filter(language => !i18n.global.te(key, language))
 }
-
-beforeAll(loadSigningMessages)
 
 const STATES: SigningState[] = ['off', 'signed', 'no-answer', 'unknown-key']
 
