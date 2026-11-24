@@ -439,6 +439,64 @@ export function encodeParamList(v: ParamList): Cbor {
   return Cbor.Dict(m)
 }
 
+export struct ParamDefault {
+  id: string
+  value: f64
+}
+
+export function decodeParamDefault(v: Cbor, path: string): ParamDefault throws InvalidPayload {
+  const m = members(v, path, ["id", "value"])
+  return ParamDefault {
+    id: text(required(m, "id", path), `${path}.id`),
+    value: float(required(m, "value", path), `${path}.value`),
+  }
+}
+
+export function encodeParamDefault(v: ParamDefault): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("id", Cbor.Text(v.id))
+  m.set("value", Cbor.Float(v.value))
+  return Cbor.Dict(m)
+}
+
+function decodeParamDefaultsDefaultsList(v: Cbor, path: string): ParamDefault[] throws InvalidPayload {
+  const out: ParamDefault[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeParamDefault(e, `${path}[${i}]`))
+    i += 1
+  }
+  return out
+}
+
+function encodeParamDefaultsDefaultsList(v: ParamDefault[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeParamDefault(e))
+  }
+  return Cbor.List(out)
+}
+
+export struct ParamDefaults {
+  defaults: ParamDefault[]
+  elapsedMs: u32
+}
+
+export function decodeParamDefaults(v: Cbor, path: string): ParamDefaults throws InvalidPayload {
+  const m = members(v, path, ["defaults", "elapsedMs"])
+  return ParamDefaults {
+    defaults: decodeParamDefaultsDefaultsList(required(m, "defaults", path), `${path}.defaults`),
+    elapsedMs: (uint(required(m, "elapsedMs", path), `${path}.elapsedMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeParamDefaults(v: ParamDefaults): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("defaults", encodeParamDefaultsDefaultsList(v.defaults))
+  m.set("elapsedMs", Cbor.Uint(v.elapsedMs as u64))
+  return Cbor.Dict(m)
+}
+
 export enum ParamsProgressSource { Ftp, List }
 
 export function decodeParamsProgressSource(v: Cbor, path: string): ParamsProgressSource throws InvalidPayload {

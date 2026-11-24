@@ -27,6 +27,7 @@ import { type SerialBridgeModel, useSerialBridge } from './useSerialBridge'
 import { type RecordingModel, useRecording } from './useRecording'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
+import { type CompareModel, useCompare } from './useCompare'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
 import { armedOf } from '@/lib/app/armed'
@@ -64,6 +65,8 @@ export interface ConfiguratorHandle {
   metadata: MetadataModel
   /** The snapshots and their import. */
   snapshots: SnapshotsModel
+  /** The comparison of the parameters with a file, a snapshot or the firmware's defaults. */
+  compare: CompareModel
   /** The settings that survive a restart (the language, the interface's own entries). */
   settings: SettingsModel
   /** The texts the vehicle sends, for the Fly aside, the toasts and the failsafe banner. */
@@ -525,20 +528,28 @@ function logModels(
 }
 
 /** What the snapshots take from the rest of the interface, besides the vehicle. */
-type SnapshotsFrom = Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters' | 'metadata'>
+type SnapshotsFrom = Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters'>
 
 /**
  * The snapshots and parameter files: the parameters are written from them one after the other, and nothing while the vehicle
- * may be armed.
+ * may be armed. And the comparison with a file or the firmware's defaults (#40), whose rows copied across go to their review.
  *
- * @param deps the link to the backend, how a failure is recorded, the questions, the parameters and the metadata
+ * @param deps the link to the backend, how a failure is recorded, the questions and the parameters
  * @param vehicle the vehicle link
- * @returns the snapshots
+ * @param model the parameter metadata
+ * @returns the snapshots and the comparison
  */
-function snapshotsFor(deps: SnapshotsFrom, vehicle: Vehicle): SnapshotsModel {
+function snapshotsFor(
+  deps: SnapshotsFrom,
+  vehicle: Vehicle,
+  model: MetadataModel,
+): Pick<ConfiguratorHandle, 'snapshots' | 'compare'> {
   const { connection } = vehicle
+  const metadata = () => model.metadata.value
+  const snapshots = useSnapshots({ ...deps, connection, metadata, mayBeArmed: () => mayBeArmed(vehicle) })
+  const compare = useCompare({ client: deps.client, params: deps.parameters.params, connection, metadata, snapshots })
 
-  return useSnapshots({ ...deps, connection, mayBeArmed: () => mayBeArmed(vehicle) })
+  return { snapshots, compare }
 }
 
 /**
@@ -630,7 +641,7 @@ export function createConfigurator(
   const metadata = useMetadata({ client, rememberPath: path => keepMetadataPath(settings, path) })
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
-  const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters, metadata: () => metadata.metadata.value }, vehicle)
+  const { snapshots, compare } = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle, metadata)
   const messages = startMessages(client, vehicle)
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   const staged = stagedFor(client, parameters, vehicle, { confirm: askUser, confirmHold: holdOf(confirmWith, vehicle) })
@@ -640,8 +651,8 @@ export function createConfigurator(
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
   const models = {
-    vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
-    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), ...linkModels(client, vehicle),
+    vehicle, parameters, metadata, snapshots, compare, settings, messages, logs, housekeeping, ...linkModels(client, vehicle),
+    staged, ...logModels(client, askUser), setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
     recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }),
   }

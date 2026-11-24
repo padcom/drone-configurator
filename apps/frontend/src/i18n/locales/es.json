@@ -1264,7 +1264,39 @@
       "qgc": "QGroundControl .params"
     }
   },
+  "compare": {
+    "file": "Comparar con archivo",
+    "defaults": "Comparar con valores por defecto",
+    "region": "Comparación",
+    "title": "Comparar",
+    "heading": "Comparado con: {source}",
+    "loading": "Leyendo del vehículo los valores por defecto del firmware…",
+    "defaultsUnsupported": "Este vehículo no puede enviar sus valores por defecto: no tiene MAVLink FTP. Compara con un archivo de parámetros.",
+    "defaultsFailed": "No se pudieron leer los valores por defecto: {error}",
+    "close": "Cerrar",
+    "onlyDifferences": "Solo diferencias",
+    "group": "Grupo",
+    "allGroups": "Todos los grupos",
+    "search": "Buscar",
+    "table": "Parámetros comparados",
+    "help": "Las flechas mueven entre celdas. Espacio marca una fila para copiar su valor.",
+    "copy": "Copiar {id}",
+    "column": {
+      "copy": "Copiar",
+      "status": "Comparación"
+    },
+    "status": {
+      "same": "Igual",
+      "differs": "Distinto",
+      "vehicleOnly": "Solo en el vehículo"
+    },
+    "summary": "Distintos: {differ}; solo en el vehículo: {vehicleOnly}; no están en el vehículo: {otherOnly}; iguales: {same}.",
+    "picked": "Para copiar: {count}. No se escribe nada hasta que revises y confirmes.",
+    "pickSome": "Marca los valores que quieras copiar.",
+    "review": "Revisar marcados: {count}"
+  },
   "import": {
+    "fromDefaults": "Valores por defecto del firmware",
     "from": "Instantánea del {savedAt}",
     "fromFile": "Archivo de parámetros: {format}",
     "notes": "Sobre el archivo",
@@ -1279,6 +1311,7 @@
     "summary": "Distintos: {differ}; ya iguales: {same}. Marca los que quieras escribir.",
     "noValue": "—",
     "column": {
+      "defaults": "Por defecto",
       "apply": "Aplicar",
       "vehicle": "En el vehículo",
       "snapshot": "En la instantánea",
@@ -1474,6 +1507,15 @@
     }
   },
   "palette": {
+    "compare": {
+      "file": {
+        "label": "Comparar parámetros con un archivo o una instantánea…"
+      },
+      "defaults": {
+        "label": "Comparar parámetros con los valores por defecto del firmware"
+      },
+      "keywords": "comparar diferencia defecto archivo instantánea copiar"
+    },
     "logs": {
       "openFile": {
         "label": "Abrir archivo de registro…",

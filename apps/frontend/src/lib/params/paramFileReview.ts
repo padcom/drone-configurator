@@ -32,7 +32,7 @@ function componentProblem(entry: ParamFileEntry, vehicle: VehicleInfo | undefine
  * @param vehicle the connected vehicle
  * @returns the wanted value
  */
-function wantedOf(entry: ParamFileEntry, vehicle: VehicleInfo | undefined): WantedValue {
+export function wantedOf(entry: ParamFileEntry, vehicle: VehicleInfo | undefined): WantedValue {
   const problem = componentProblem(entry, vehicle)
 
   return { id: entry.id, value: entry.value, ...(problem === undefined ? {} : { problem }) }

@@ -12,7 +12,8 @@
 // With VEHICLE_50HZ=1 it sends its position, its radio's channels and its outputs 50 times a second, as a vehicle asked for fast
 // telemetry does, and stays disarmed (idle on the ground): the app must coalesce that for its page (#26).
 // Its serial ports are loopback plugs (SERIAL_CONTROL: what is written comes back); it prints `serial-take <device>` when SERIAL_CONTROL
-// takes a port and `serial-release <device>` when it hands one back (the serial bridge, #198).
+// takes a port and `serial-release <device>` when it hands one back (the serial bridge, #198). It has firmware defaults that
+// differ from its values for RTL_ALT and BATT_CAPACITY, served with its parameter file when they are asked for (#40).
 import { Conn, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
 import {
@@ -89,19 +90,50 @@ class EndWatchingStream implements ByteStream {
   }
 }
 
+/// The firmware defaults it gives with its parameter file when asked (`@PARAM/param.pck?withdefaults=1`, the comparison with the
+/// defaults, #40) where they differ from its values: RTL_ALT 3000 (it has 1500) and BATT_CAPACITY 3300 (it has 5200). The others
+/// are at their defaults.
+function defaultOf(id: string): TypedParamValue? {
+  if (id == "RTL_ALT") {
+    return TypedParamValue.Int(3000, MavParamType.INT32)
+  }
+  if (id == "BATT_CAPACITY") {
+    return TypedParamValue.Int(3300, MavParamType.INT32)
+  }
+  return null
+}
+
+/// The parameters with their firmware defaults.
+function withDefaults(params: SimParam[]): SimParam[] {
+  return params.map((p) => SimParam { id: p.id, value: p.value, firmwareDefault: defaultOf(p.id) })
+}
+
+/// Gives the parameters their defaults again: the simulator makes a parameter anew when it is set, without its default (a
+/// firmware keeps its defaults whatever is written).
+function keepDefaults(sim: SimulatedAutopilot): void {
+  for (let i = 0; i < sim.params.length; i++) {
+    const p = sim.params[i]
+    if (p.firmwareDefault == null && defaultOf(p.id) != null) {
+      sim.params[i] = SimParam { id: p.id, value: p.value, firmwareDefault: defaultOf(p.id) }
+    }
+  }
+}
+
 function serve(conn: Conn): void {
   let sim: SimulatedAutopilot? = null
   const stream = new EndWatchingStream(new TcpStream(conn), () => sim?.stop())
   muted = false
   held.clear()
   const setup = env.get("VEHICLE_SETUP") == "1"
-  sim = new SimulatedAutopilot(stream, if (setup) setupParams() else defaultSimParams())
+  sim = new SimulatedAutopilot(stream, withDefaults(if (setup) setupParams() else defaultSimParams()))
   sim!.conn.on((r: Received) => {
     const m = r.message
     if (m instanceof SerialControl) {
       heldSerial(m)
     }
     if (m instanceof ParamSet) {
+      // After the simulator has set it (it answers in the same turn).
+      setTimeout(() => keepDefaults(sim!), 20)
       stdout.writeText("param-set\n")
     } else if (m instanceof CommandLong && m.command as int == MavCmd.DO_MOTOR_TEST) {
       // a test of a motor begins with a timeout above 0, and ends with one of 0

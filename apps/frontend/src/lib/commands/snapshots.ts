@@ -1,6 +1,6 @@
 // The commands of the Parameters toolbar: download the list again, save a snapshot, save a parameter file (one command per
-// format), load a snapshot or a parameter file. The buttons run these through the registry, as the palette does. (Load
-// metadata is `metadata.load`, in metadata.ts.)
+// format), load a snapshot or a parameter file, compare the parameters with a file or with the firmware's defaults. The buttons
+// run these through the registry, as the palette does. (Load metadata is `metadata.load`, in metadata.ts.)
 import type { Availability, Command, CommandContext, CommandOutcome } from './command'
 import { PARAMETERS_GROUP } from './metadata'
 import { PARAM_FILE_FORMATS, type ParamFileFormat } from '@/lib/params/paramFile'
@@ -180,13 +180,104 @@ export class LoadSnapshot implements Command {
   }
 }
 
+/** Opens a snapshot or a parameter file and compares the parameters with it (#40). */
+export class CompareWithFile implements Command {
+  readonly id = 'params.compare.file'
+
+  readonly labelKey = 'palette.compare.file.label'
+
+  readonly buttonLabelKey = 'compare.file'
+
+  readonly groupKey = PARAMETERS_GROUP
+
+  readonly icon = 'upload'
+
+  readonly keywordKeys = ['palette.compare.keywords']
+
+  /**
+   * Only when there are parameters to compare.
+   *
+   * @param ctx the context
+   * @returns whether it may, and if not why
+   */
+  isEnabled(ctx: CommandContext): Availability {
+    return ctx.params.count() > 0 ? { enabled: true } : no('palette.reason.noParameters')
+  }
+
+  /**
+   * Opens the file dialog (or the file input) and compares with what is chosen.
+   *
+   * @param ctx the context
+   * @returns the focus goes back to what had it
+   */
+  execute(ctx: CommandContext): CommandOutcome {
+    ctx.files.compareFile()
+
+    return { focus: 'restore' }
+  }
+}
+
+/**
+ * Whether the parameters are free: no download and no write is under way.
+ *
+ * @param ctx the context
+ * @returns whether they are, and if not why
+ */
+function notWhileBusy(ctx: CommandContext): Availability {
+  return ctx.vehicle.busy() === 'downloading' || ctx.params.busy() ? no('palette.reason.busy') : { enabled: true }
+}
+
+/** Reads the firmware's defaults from the vehicle and compares the parameters with them (#40). */
+export class CompareWithDefaults implements Command {
+  readonly id = 'params.compare.defaults'
+
+  readonly labelKey = 'palette.compare.defaults.label'
+
+  readonly buttonLabelKey = 'compare.defaults'
+
+  readonly groupKey = PARAMETERS_GROUP
+
+  readonly icon = 'download'
+
+  readonly keywordKeys = ['palette.compare.keywords']
+
+  /**
+   * Only from a connected vehicle whose parameters are there, and not while a download or a write is under way (the vehicle
+   * sends its defaults over the same file transfer).
+   *
+   * @param ctx the context
+   * @returns whether it may, and if not why
+   */
+  isEnabled(ctx: CommandContext): Availability {
+    if (ctx.vehicle.connection().state !== 'connected') {
+      return no('palette.reason.notConnected')
+    }
+
+    return ctx.params.count() === 0 ? no('palette.reason.noParameters') : notWhileBusy(ctx)
+  }
+
+  /**
+   * Reads the defaults and opens the comparison.
+   *
+   * @param ctx the context
+   * @returns the focus stays where it is
+   */
+  execute(ctx: CommandContext): CommandOutcome {
+    ctx.params.compareDefaults()
+
+    return { focus: 'restore' }
+  }
+}
+
 /**
  * The commands of the Parameters toolbar, in the order they are registered.
  *
- * @returns download, save a snapshot, load a snapshot or file, and save a parameter file in each format
+ * @returns download, save a snapshot, load a snapshot or file, save a parameter file in each format, and compare
  */
 export function parameterCommands(): Command[] {
   const saves = PARAM_FILE_FORMATS.map(format => new SaveParamFile(format))
 
-  return [new DownloadParameters(), new SaveSnapshot(), new LoadSnapshot(), ...saves]
+  const compares = [new CompareWithFile(), new CompareWithDefaults()]
+
+  return [new DownloadParameters(), new SaveSnapshot(), new LoadSnapshot(), ...saves, ...compares]
 }
