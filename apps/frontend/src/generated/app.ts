@@ -1269,6 +1269,42 @@ function validateMapClearedInto(value: any, path: string): boolean {
 /** The first problem with `value` as a map-cleared, or null. */
 export const validateMapCleared = (value: unknown) => run(validateMapClearedInto, value)
 
+export type ForwardKind = "udp" | "tcp"
+
+function validateForwardKindInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["udp","tcp"])
+}
+
+/** The first problem with `value` as a forward-kind, or null. */
+export const validateForwardKind = (value: unknown) => run(validateForwardKindInto, value)
+
+export type ForwardState = "off" | "idle" | "connecting" | "up" | "refused" | "dropping"
+
+function validateForwardStateInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["off","idle","connecting","up","refused","dropping"])
+}
+
+/** The first problem with `value` as a forward-state, or null. */
+export const validateForwardState = (value: unknown) => run(validateForwardStateInto, value)
+
+export type ForwardEndpoint = { "kind": ForwardKind, "host": string, "port": number, "on": boolean, "state": ForwardState, "sent": number, "dropped": number, "received": number, "error"?: string }
+
+function validateForwardEndpointInto(value: any, path: string): boolean {
+  return map(value, path, ["kind","host","port","on","state","sent","dropped","received","error"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validateForwardKindInto(value, path))) && (value["host"] === undefined ? fail(`${path}.host`, 'present') : nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined ? fail(`${path}.port`, 'present') : nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["on"] === undefined ? fail(`${path}.on`, 'present') : nested(value["on"], `${path}.on`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => validateForwardStateInto(value, path))) && (value["sent"] === undefined ? fail(`${path}.sent`, 'present') : nested(value["sent"], `${path}.sent`, (value, path) => uint(value, path, 0xffffffff))) && (value["dropped"] === undefined ? fail(`${path}.dropped`, 'present') : nested(value["dropped"], `${path}.dropped`, (value, path) => uint(value, path, 0xffffffff))) && (value["received"] === undefined ? fail(`${path}.received`, 'present') : nested(value["received"], `${path}.received`, (value, path) => uint(value, path, 0xffffffff))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a forward-endpoint, or null. */
+export const validateForwardEndpoint = (value: unknown) => run(validateForwardEndpointInto, value)
+
+export type ForwardStatus = { "endpoints": (ForwardEndpoint)[] }
+
+function validateForwardStatusInto(value: any, path: string): boolean {
+  return map(value, path, ["endpoints"]) && (value["endpoints"] === undefined ? fail(`${path}.endpoints`, 'present') : nested(value["endpoints"], `${path}.endpoints`, (value, path) => list(value, path, (value, path) => validateForwardEndpointInto(value, path))))
+}
+
+/** The first problem with `value` as a forward-status, or null. */
+export const validateForwardStatus = (value: unknown) => run(validateForwardStatusInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -1343,6 +1379,7 @@ export interface Services {
   "map.sources": { kind: 'method', request: null, response: MapSources }
   "map.clear": { kind: 'method', request: null, response: MapCleared }
   "map.status": { kind: 'event', payload: MapStatus }
+  "forward.status": { kind: 'subscription', params: null, value: ForwardStatus }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -1624,6 +1661,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "map.status": {
     payload: (value: any, path: string) => validateMapStatusInto(value, path),
+  },
+  "forward.status": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateForwardStatusInto(value, path),
   },
 }
 

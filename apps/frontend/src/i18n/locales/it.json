@@ -922,6 +922,36 @@
       "noLimit": "Nessun limite",
       "days": "Giorni: {days}"
     },
+    "forward": {
+      "title": "Inoltra MAVLink",
+      "help": "Invia tutto ciò che il veicolo dice ad altri programmi (una seconda stazione di terra, un registratore) e ciò che essi rimandano, al veicolo. Nulla viene inoltrato finché non aggiungi un programma. Un programma lento non trattiene mai il veicolo: ciò che non riesce a ricevere viene scartato e contato.",
+      "none": "Nessun programma. Nulla viene inoltrato.",
+      "on": "Inoltra",
+      "onFor": "Inoltra a {name}",
+      "remove": "Rimuovi",
+      "removeFor": "Rimuovi {name}",
+      "addTitle": "Aggiungi un programma",
+      "kind": "Protocollo",
+      "host": "Host",
+      "port": "Porta",
+      "add": "Aggiungi",
+      "counts": "Inviati {sent} · scartati {dropped} · ricevuti {received}",
+      "refused": "Non raggiunto: {reason}. Un programma TCP viene ritentato ogni 2 s.",
+      "states": {
+        "off": "Spento",
+        "idle": "Attende un veicolo",
+        "connecting": "Connessione",
+        "up": "Attivo",
+        "refused": "Rifiutato",
+        "dropping": "Scarta: troppo lento"
+      },
+      "problems": {
+        "host": "Inserisci un nome host o un indirizzo, senza spazi.",
+        "port": "Inserisci una porta da 1 a 65535.",
+        "duplicate": "Questo programma è già nell'elenco.",
+        "full": "Ci possono essere al massimo {max} programmi. Rimuovine prima uno."
+      }
+    },
     "more": "Unità, mappa e valori predefiniti del veicolo arriveranno con le loro schermate."
   },
   "table": {

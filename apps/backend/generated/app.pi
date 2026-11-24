@@ -6295,3 +6295,129 @@ export function encodeMapCleared(v: MapCleared): Cbor {
   m.set("bytes", Cbor.Uint(v.bytes as u64))
   return Cbor.Dict(m)
 }
+
+export enum ForwardKind { Udp, Tcp }
+
+export function decodeForwardKind(v: Cbor, path: string): ForwardKind throws InvalidPayload {
+  match (text(v, path)) {
+    "udp" => ForwardKind.Udp,
+    "tcp" => ForwardKind.Tcp,
+    _ => throw new InvalidPayload(path, "udp or tcp"),
+  }
+}
+
+export function encodeForwardKind(v: ForwardKind): Cbor {
+  match (v) {
+    Udp => Cbor.Text("udp"),
+    Tcp => Cbor.Text("tcp"),
+  }
+}
+
+export enum ForwardState { Off, Idle, Connecting, Up, Refused, Dropping }
+
+export function decodeForwardState(v: Cbor, path: string): ForwardState throws InvalidPayload {
+  match (text(v, path)) {
+    "off" => ForwardState.Off,
+    "idle" => ForwardState.Idle,
+    "connecting" => ForwardState.Connecting,
+    "up" => ForwardState.Up,
+    "refused" => ForwardState.Refused,
+    "dropping" => ForwardState.Dropping,
+    _ => throw new InvalidPayload(path, "off or idle or connecting or up or refused or dropping"),
+  }
+}
+
+export function encodeForwardState(v: ForwardState): Cbor {
+  match (v) {
+    Off => Cbor.Text("off"),
+    Idle => Cbor.Text("idle"),
+    Connecting => Cbor.Text("connecting"),
+    Up => Cbor.Text("up"),
+    Refused => Cbor.Text("refused"),
+    Dropping => Cbor.Text("dropping"),
+  }
+}
+
+export struct ForwardEndpoint {
+  kind: ForwardKind
+  host: string
+  port: u16
+  on: bool
+  state: ForwardState
+  sent: u32
+  dropped: u32
+  received: u32
+  error?: string
+}
+
+export function decodeForwardEndpoint(v: Cbor, path: string): ForwardEndpoint throws InvalidPayload {
+  const m = members(v, path, ["kind", "host", "port", "on", "state", "sent", "dropped", "received", "error"])
+  const cbor8 = m.get("error")
+  let opt8: string? = null
+  if (cbor8 != null) {
+    opt8 = text(cbor8, `${path}.error`)
+  }
+  return ForwardEndpoint {
+    kind: decodeForwardKind(required(m, "kind", path), `${path}.kind`),
+    host: text(required(m, "host", path), `${path}.host`),
+    port: (uint(required(m, "port", path), `${path}.port`, 65535) as u16),
+    on: boolean(required(m, "on", path), `${path}.on`),
+    state: decodeForwardState(required(m, "state", path), `${path}.state`),
+    sent: (uint(required(m, "sent", path), `${path}.sent`, 4294967295) as u32),
+    dropped: (uint(required(m, "dropped", path), `${path}.dropped`, 4294967295) as u32),
+    received: (uint(required(m, "received", path), `${path}.received`, 4294967295) as u32),
+    error: opt8,
+  }
+}
+
+export function encodeForwardEndpoint(v: ForwardEndpoint): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodeForwardKind(v.kind))
+  m.set("host", Cbor.Text(v.host))
+  m.set("port", Cbor.Uint(v.port as u64))
+  m.set("on", Cbor.Bool(v.on))
+  m.set("state", encodeForwardState(v.state))
+  m.set("sent", Cbor.Uint(v.sent as u64))
+  m.set("dropped", Cbor.Uint(v.dropped as u64))
+  m.set("received", Cbor.Uint(v.received as u64))
+  const opt8 = v.error
+  if (opt8 != null) {
+    m.set("error", Cbor.Text(opt8))
+  }
+  return Cbor.Dict(m)
+}
+
+function decodeForwardStatusEndpointsList(v: Cbor, path: string): ForwardEndpoint[] throws InvalidPayload {
+  const out: ForwardEndpoint[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeForwardEndpoint(e, `${path}[${i}]`))
+    i += 1
+  }
+  return out
+}
+
+function encodeForwardStatusEndpointsList(v: ForwardEndpoint[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeForwardEndpoint(e))
+  }
+  return Cbor.List(out)
+}
+
+export struct ForwardStatus {
+  endpoints: ForwardEndpoint[]
+}
+
+export function decodeForwardStatus(v: Cbor, path: string): ForwardStatus throws InvalidPayload {
+  const m = members(v, path, ["endpoints"])
+  return ForwardStatus {
+    endpoints: decodeForwardStatusEndpointsList(required(m, "endpoints", path), `${path}.endpoints`),
+  }
+}
+
+export function encodeForwardStatus(v: ForwardStatus): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("endpoints", encodeForwardStatusEndpointsList(v.endpoints))
+  return Cbor.Dict(m)
+}

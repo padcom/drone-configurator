@@ -280,6 +280,17 @@ services = {
   ; Deletes every tile of the cache (only the app's own tiles folder; links in it are removed, never followed).
   "map.clear": ["method", null, map-cleared],
   "map.status": ["event", map-status],
+  ; Forwarding the vehicle's MAVLink to other programs (#34). Which programs is the settings document's `ui` entry
+  ; `forward.endpoints`, which the backend reads itself (when a vehicle connects, and after every `settings.set`): a JSON array of
+  ; `{ "kind": "udp" | "tcp", "host": text, "port": 1-65535, "on": bool }`, at most 16, none by default (forwarding is off). While a
+  ; vehicle is connected, every frame it sends goes to each endpoint that is on, and what an endpoint sends goes to the vehicle (and
+  ; on to the other endpoints when it is a broadcast), by MAVLink's routing rules. A UDP endpoint is sent to from a port of the
+  ; backend's own, and what comes back to that port is taken; a TCP endpoint is connected to, and tried again every 2 s while it
+  ; refuses or after it closes. Each endpoint has its own queue of 256 frames: when it is full (the program reads too slowly, or a
+  ; TCP connection has stalled) the frames for THAT endpoint are dropped and counted, and the vehicle's link is never held up.
+  ; `forward.status` gives every configured endpoint, in the settings' order, at once and then whenever something changes (at most
+  ; twice a second while frames flow).
+  "forward.status": ["subscription", null, forward-status],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
@@ -1361,3 +1372,23 @@ map-state = "online" / "offline" / "disabled" / "backing-off"
 map-status = { state: map-state, ? reason: tstr, ? retryAfterMs: uint .size 4 }
 
 map-cleared = { files: uint .size 4, bytes: uint .size 8 }
+
+; An endpoint of the forwarding (see `forward.status`) and what it is doing: "off" (it is turned off), "idle" (no vehicle is
+; connected), "connecting" (a TCP connection is being made), "up" (frames go to it), "refused" (the program refused the connection,
+; closed it, or a send failed: `error` says how; a TCP endpoint is tried again), "dropping" (it is up, and frames for it were dropped
+; in the last 2 s because its queue was full). `sent` and `dropped` count the frames for it, `received` the chunks it sent, since
+; the vehicle connected (or it was turned on).
+forward-kind = "udp" / "tcp"
+forward-state = "off" / "idle" / "connecting" / "up" / "refused" / "dropping"
+forward-endpoint = {
+  kind: forward-kind,
+  host: tstr,
+  port: uint .size 2,
+  on: bool,
+  state: forward-state,
+  sent: uint .size 4,
+  dropped: uint .size 4,
+  received: uint .size 4,
+  ? error: tstr,
+}
+forward-status = { endpoints: [* forward-endpoint] }

@@ -107,6 +107,8 @@ class Store {
   public steps: Migration[] = []
   /// For tests: a file that is not used cannot be moved aside.
   public asideFails: bool = false
+  /// The services that act on an entry themselves (forwarding), by name: told after every `settings.set`.
+  public listeners: Map<string, () => void> = new Map<string, () => void>()
 }
 
 const store = new Store()
@@ -120,6 +122,11 @@ export function register(c: Communicator): void {
   store.communicator = c
   c.handle("settings.get", getSettings)
   c.handle("settings.set", setSettings)
+}
+
+/// Tells `listener` after every `settings.set`, under `name` (registering a name again replaces it: there is one per service).
+export function onSettingsChanged(name: string, listener: () => void): void {
+  store.listeners.set(name, listener)
 }
 
 /// For tests: the directory to keep the settings in (instead of the app's data directory), and the migrations to use.
@@ -583,6 +590,9 @@ async function setSettings(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
   const c = store.communicator
   if (c != null) {
     c!.emit("settings.changed", out)
+  }
+  for (const listener of store.listeners.values()) {
+    listener()
   }
   return out
 }

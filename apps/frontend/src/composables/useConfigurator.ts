@@ -19,6 +19,7 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type AnalysisModel, useAnalysis } from './useAnalysis'
+import { type ForwardingModel, useForwarding } from './useForwarding'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type SetupModel, useSetup } from './useSetup'
@@ -88,6 +89,8 @@ export interface ConfiguratorHandle {
   analysis: AnalysisModel
   /** The map's tile settings, and what the backend says of its tiles and cache. */
   map: MapSettingsModel
+  /** The programs the vehicle's MAVLink is forwarded to, and what the backend says each is doing. */
+  forwarding: ForwardingModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -576,6 +579,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
+    forwarding: useForwarding({ client, settings }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
