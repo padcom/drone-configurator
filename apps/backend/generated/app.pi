@@ -1116,15 +1116,27 @@ export struct LocalLog {
   modified: u64
   crc: string
   source: LocalLogSource
+  started?: u64
+  live?: bool
   summary?: LocalLogSummary
 }
 
 export function decodeLocalLog(v: Cbor, path: string): LocalLog throws InvalidPayload {
-  const m = members(v, path, ["key", "vehicle", "id", "size", "modified", "crc", "source", "summary"])
-  const cbor7 = m.get("summary")
-  let opt7: LocalLogSummary? = null
+  const m = members(v, path, ["key", "vehicle", "id", "size", "modified", "crc", "source", "started", "live", "summary"])
+  const cbor7 = m.get("started")
+  let opt7: u64? = null
   if (cbor7 != null) {
-    opt7 = decodeLocalLogSummary(cbor7, `${path}.summary`)
+    opt7 = (uint(cbor7, `${path}.started`, 18446744073709551615) as u64)
+  }
+  const cbor8 = m.get("live")
+  let opt8: bool? = null
+  if (cbor8 != null) {
+    opt8 = boolean(cbor8, `${path}.live`)
+  }
+  const cbor9 = m.get("summary")
+  let opt9: LocalLogSummary? = null
+  if (cbor9 != null) {
+    opt9 = decodeLocalLogSummary(cbor9, `${path}.summary`)
   }
   return LocalLog {
     key: text(required(m, "key", path), `${path}.key`),
@@ -1134,7 +1146,9 @@ export function decodeLocalLog(v: Cbor, path: string): LocalLog throws InvalidPa
     modified: (uint(required(m, "modified", path), `${path}.modified`, 18446744073709551615) as u64),
     crc: text(required(m, "crc", path), `${path}.crc`),
     source: decodeLocalLogSource(required(m, "source", path), `${path}.source`),
-    summary: opt7,
+    started: opt7,
+    live: opt8,
+    summary: opt9,
   }
 }
 
@@ -1147,9 +1161,17 @@ export function encodeLocalLog(v: LocalLog): Cbor {
   m.set("modified", Cbor.Uint(v.modified as u64))
   m.set("crc", Cbor.Text(v.crc))
   m.set("source", encodeLocalLogSource(v.source))
-  const opt7 = v.summary
+  const opt7 = v.started
   if (opt7 != null) {
-    m.set("summary", encodeLocalLogSummary(opt7))
+    m.set("started", Cbor.Uint(opt7 as u64))
+  }
+  const opt8 = v.live
+  if (opt8 != null) {
+    m.set("live", Cbor.Bool(opt8))
+  }
+  const opt9 = v.summary
+  if (opt9 != null) {
+    m.set("summary", encodeLocalLogSummary(opt9))
   }
   return Cbor.Dict(m)
 }
@@ -6497,4 +6519,110 @@ export function encodeLinkStats(v: LinkStats): Cbor {
   m.set("totalReceived", Cbor.Uint(v.totalReceived as u64))
   m.set("totalLost", Cbor.Uint(v.totalLost as u64))
   return Cbor.Dict(m)
+}
+
+export struct RecordingState {
+  enabled: bool
+  folder: string
+  limitMb: u32
+  key?: string
+  path?: string
+  bytes: u64
+  failure?: RecordingFailure
+  removed: u32
+  removedBytes: u64
+}
+
+export function decodeRecordingState(v: Cbor, path: string): RecordingState throws InvalidPayload {
+  const m = members(v, path, ["enabled", "folder", "limitMb", "key", "path", "bytes", "failure", "removed", "removedBytes"])
+  const cbor3 = m.get("key")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.key`)
+  }
+  const cbor4 = m.get("path")
+  let opt4: string? = null
+  if (cbor4 != null) {
+    opt4 = text(cbor4, `${path}.path`)
+  }
+  const cbor6 = m.get("failure")
+  let opt6: RecordingFailure? = null
+  if (cbor6 != null) {
+    opt6 = decodeRecordingFailure(cbor6, `${path}.failure`)
+  }
+  return RecordingState {
+    enabled: boolean(required(m, "enabled", path), `${path}.enabled`),
+    folder: text(required(m, "folder", path), `${path}.folder`),
+    limitMb: (uint(required(m, "limitMb", path), `${path}.limitMb`, 4294967295) as u32),
+    key: opt3,
+    path: opt4,
+    bytes: (uint(required(m, "bytes", path), `${path}.bytes`, 18446744073709551615) as u64),
+    failure: opt6,
+    removed: (uint(required(m, "removed", path), `${path}.removed`, 4294967295) as u32),
+    removedBytes: (uint(required(m, "removedBytes", path), `${path}.removedBytes`, 18446744073709551615) as u64),
+  }
+}
+
+export function encodeRecordingState(v: RecordingState): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("enabled", Cbor.Bool(v.enabled))
+  m.set("folder", Cbor.Text(v.folder))
+  m.set("limitMb", Cbor.Uint(v.limitMb as u64))
+  const opt3 = v.key
+  if (opt3 != null) {
+    m.set("key", Cbor.Text(opt3))
+  }
+  const opt4 = v.path
+  if (opt4 != null) {
+    m.set("path", Cbor.Text(opt4))
+  }
+  m.set("bytes", Cbor.Uint(v.bytes as u64))
+  const opt6 = v.failure
+  if (opt6 != null) {
+    m.set("failure", encodeRecordingFailure(opt6))
+  }
+  m.set("removed", Cbor.Uint(v.removed as u64))
+  m.set("removedBytes", Cbor.Uint(v.removedBytes as u64))
+  return Cbor.Dict(m)
+}
+
+export struct RecordingFailure {
+  code: RecordingFailureCode
+  message: string
+}
+
+export function decodeRecordingFailure(v: Cbor, path: string): RecordingFailure throws InvalidPayload {
+  const m = members(v, path, ["code", "message"])
+  return RecordingFailure {
+    code: decodeRecordingFailureCode(required(m, "code", path), `${path}.code`),
+    message: text(required(m, "message", path), `${path}.message`),
+  }
+}
+
+export function encodeRecordingFailure(v: RecordingFailure): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("code", encodeRecordingFailureCode(v.code))
+  m.set("message", Cbor.Text(v.message))
+  return Cbor.Dict(m)
+}
+
+export enum RecordingFailureCode { DiskFull, WriteFailed, NoFolder, Limit }
+
+export function decodeRecordingFailureCode(v: Cbor, path: string): RecordingFailureCode throws InvalidPayload {
+  match (text(v, path)) {
+    "disk-full" => RecordingFailureCode.DiskFull,
+    "write-failed" => RecordingFailureCode.WriteFailed,
+    "no-folder" => RecordingFailureCode.NoFolder,
+    "limit" => RecordingFailureCode.Limit,
+    _ => throw new InvalidPayload(path, "disk-full or write-failed or no-folder or limit"),
+  }
+}
+
+export function encodeRecordingFailureCode(v: RecordingFailureCode): Cbor {
+  match (v) {
+    DiskFull => Cbor.Text("disk-full"),
+    WriteFailed => Cbor.Text("write-failed"),
+    NoFolder => Cbor.Text("no-folder"),
+    Limit => Cbor.Text("limit"),
+  }
 }

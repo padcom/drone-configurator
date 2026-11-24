@@ -87,7 +87,7 @@
     >
       <h4 ref="title" class="flight-detail-title" tabindex="-1">{{ detailTitle }}</h4>
       <!-- Every view of a recording carries this; nothing in the page can take it away. -->
-      <Banner v-if="isTlog && !busy" id="flights-imported-mark" tone="info">{{ t('logs.flights.importedMark') }}</Banner>
+      <Banner v-if="isTlog && !busy" id="flights-imported-mark" tone="info">{{ t(markKey) }}</Banner>
       <!-- Reading the file, and then asking for the modes, the review and the charts (two more passes over it): nothing is drawn
            and nothing else is opened until it is through; it can be stopped throughout. -->
       <div v-if="busy" class="flight-reading">
@@ -102,7 +102,7 @@
       <!-- A copy that is not verified is not looked into: the reason, and the way to a checked copy. -->
       <template v-else-if="summary && !summary.verified">
         <Banner id="flights-not-verified" tone="warn">
-          {{ t(isTlog ? 'logs.flights.notVerifiedImported' : 'logs.flights.notVerified') }}
+          {{ t(notVerifiedKey) }}
         </Banner>
         <p v-if="!isTlog" class="muted">
           <a id="flights-download-again" href="#/logs/vehicle">{{ t('logs.flights.downloadAgain') }}</a>
@@ -161,6 +161,7 @@ import { useConfigurator } from '@/composables/useConfigurator'
 import { useFormat } from '@/i18n/useFormat'
 import type { LocalLog, LocalLogSummary } from '@/generated/app'
 import { asNumber, clockOf, lengthOf, modeSpans } from '@/lib/logs/localLogs'
+import { originOf, recordedStateKey, startedText } from '@/lib/recording/recordedLog'
 import { sizeText } from '@/lib/logs/vehicleLogs'
 import FlightModeStrip from './FlightModeStrip.vue'
 import FlightReview from './FlightReview.vue'
@@ -187,6 +188,10 @@ function headingOf(log: LocalLog | undefined): string {
     return ''
   }
 
+  if (originOf(log) === 'recorded') {
+    return t('logs.flights.recordedHeading', { time: startedText(log, locale.value) })
+  }
+
   return t(log.source === 'tlog' ? 'logs.flights.importedHeading' : 'logs.flights.heading', { id: log.id })
 }
 
@@ -203,6 +208,14 @@ const spans = computed(() => (summary.value ? modeSpans(flights.modes.value, sum
 const openLog = computed(() => flights.logs.value.find(log => log.key === flights.open.value))
 const openId = computed(() => openLog.value?.id ?? 0)
 const isTlog = computed(() => openLog.value?.source === 'tlog')
+const isRecorded = computed(() => openLog.value !== undefined && originOf(openLog.value) === 'recorded')
+/** What every view of a recording carries: who wrote it. */
+const markKey = computed(() => (isRecorded.value ? 'logs.flights.recordedMark' : 'logs.flights.importedMark'))
+/** Why a copy that is not verified is not looked into, by where it came from. */
+const NOT_VERIFIED_KEYS = {
+  vehicle: 'logs.flights.notVerified', imported: 'logs.flights.notVerifiedImported', recorded: 'logs.flights.notVerifiedRecorded',
+} as const
+const notVerifiedKey = computed(() => NOT_VERIFIED_KEYS[openLog.value ? originOf(openLog.value) : 'vehicle'])
 const detailTitle = computed(() => (isTlog.value ? headingOf(openLog.value) : t('logs.flights.heading', { id: openId.value })))
 const report = computed(() => summary.value?.report)
 
@@ -257,18 +270,32 @@ const STATE_KEYS: Readonly<Record<LocalLog['source'], readonly [string, string]>
 }
 
 /**
- * What the state cell of a log says: what a read found of the copy, or that it has not been opened.
+ * What the state cell of a copy (downloaded or imported) says: what a read found of it, or that it has not been opened.
  *
  * @param log the log
  * @returns the words
  */
-function stateText(log: LocalLog): string {
+function copyStateText(log: LocalLog): string {
   if (log.summary === undefined) {
     return t('logs.flights.state.unread')
   }
   const keys = STATE_KEYS[log.source]
 
   return t(log.summary.verified ? keys[0] : keys[1])
+}
+
+/**
+ * What the state cell of a log says: what a read found of the copy, or that it has not been opened.
+ *
+ * @param log the log
+ * @returns the words
+ */
+function stateText(log: LocalLog): string {
+  if (originOf(log) === 'recorded') {
+    return t(recordedStateKey(log) ?? 'logs.flights.state.unread')
+  }
+
+  return copyStateText(log)
 }
 
 /**
@@ -297,13 +324,19 @@ function dateText(log: LocalLog): string {
 }
 
 /**
- * What a log is called: its number, and for an imported recording that it is one.
+ * What a log is called: its number; for a recording, that it was imported, or when this app started it.
  *
  * @param log the log
  * @returns the words
  */
 function nameOf(log: LocalLog): string {
-  return log.source === 'tlog' ? t('logs.flights.importedRow', { id: log.id }) : String(log.id)
+  const names = {
+    vehicle: () => String(log.id),
+    imported: () => t('logs.flights.importedRow', { id: log.id }),
+    recorded: () => t('logs.flights.recordedRow', { time: startedText(log, locale.value) }),
+  }
+
+  return names[originOf(log)]()
 }
 
 const rows = computed(() => flights.logs.value.map(log => ({

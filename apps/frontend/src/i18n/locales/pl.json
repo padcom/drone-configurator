@@ -101,6 +101,13 @@
       "stateImportedChanged": "Zaimportowany, kopia zmieniona od importu",
       "importedMark": "Zaimportowany, niesprawdzony względem pojazdu. Wartości są takie, jakie zapisał program, który utworzył plik.",
       "notVerifiedImported": "Ta kopia nie jest plikiem, który zaimportowano (jej suma kontrolna się zmieniła): nic z niej nie bierzemy. Otwórz plik logu ponownie.",
+      "recordedRow": "Nagranie {time}",
+      "recordedHeading": "Nagranie z {time}",
+      "recordedMark": "Nagrane przez tę aplikację z łącza z pojazdem. Wartości są takie, jak wysłał je pojazd.",
+      "notVerifiedRecorded": "To nagranie nie zostało zakończone (trwa albo aplikacja została zamknięta w jego trakcie): na razie nic z niego nie jest brane. Zostanie zamknięte, gdy zacznie się następne nagranie.",
+      "stateRecording": "Trwa nagrywanie",
+      "stateRecorded": "Nagrane, plik nienaruszony",
+      "stateRecordedUnfinished": "Nagrane, niezakończone lub zmienione później",
       "reportRead": "Odczytane rekordy: {records}. Pominięto: {skipped} bajtów uszkodzeń, {crc} ramek z błędną sumą kontrolną, {unknown} ramek typów wiadomości nieznanych tej aplikacji.",
       "reportSegments": "Odcinki czasu w nagraniu: {count}. Przerwa lub cofnięcie zegara zaczyna nowy.",
       "reportCutEnd": "Plik kończy się w środku rekordu. Tak kończy się nagranie, które zostało przerwane (utrata zasilania, zamknięty program): to nie jest uszkodzenie.",
@@ -893,7 +900,33 @@
     "stop": "Awaryjne zatrzymanie",
     "current": "teraz"
   },
+  "recording": {
+    "stopped": "Nagrywanie telemetrii zatrzymane: {reason}.",
+    "linkCarriesOn": "Łącze z pojazdem działa dalej.",
+    "failure": { "disk-full": "dysk jest pełny", "write-failed": "nie udało się zapisać pliku", "no-folder": "nie można użyć folderu", "limit": "samo nagranie osiągnęło limit rozmiaru" },
+    "next": { "disk-full": "Zwolnij miejsce albo wybierz inny folder w Ustawieniach.", "write-failed": "Sprawdź folder w Ustawieniach i połącz się ponownie.", "no-folder": "Wybierz w Ustawieniach folder, do którego można zapisywać.", "limit": "Zwiększ limit w Ustawieniach i połącz się ponownie." },
+    "openSettings": "Otwórz Ustawienia",
+    "removedToast": "Usunięte stare nagrania, by nie przekroczyć limitu: {count}."
+  },
   "settings": {
+    "recording": {
+      "title": "Nagrywanie",
+      "acts": "Każde połączenie jest nagrywane do logu telemetrii (tlog) nazwanego czasem rozpoczęcia. Nagrania są na liście w Logach, w sekcji Loty.",
+      "enabled": "Nagrywaj każde połączenie",
+      "enabledHelp": "Działa od następnego połączenia. Nieudane nagrywanie nigdy nie przerywa łącza.",
+      "folder": "Folder nagrań",
+      "folderHelp": "Zostaw puste, by użyć folderu danych aplikacji. Działa od następnego połączenia.",
+      "folderInUse": "Używany: {path}. Zostaw puste, by użyć folderu danych aplikacji. Działa od następnego połączenia.",
+      "limit": "Limit wszystkich nagrań",
+      "limitHelp": "Gdy nagrania zajęłyby więcej, najstarsze są usuwane. Bieżące nagranie nigdy nie jest usuwane.",
+      "noLimit": "Bez limitu",
+      "now": "Nagrywanie do {file}: dotąd {size}.",
+      "off": "Brak nagrywania: wyłączone.",
+      "idle": "Nagrywanie zacznie się przy następnym połączeniu.",
+      "recording": "Trwa nagrywanie.",
+      "failed": "Nagrywanie zatrzymane.",
+      "removed": "Stare nagrania usunięte od uruchomienia aplikacji, by nie przekroczyć limitu: {count} ({size})."
+    },
     "metadata": {
       "title": "Metadane parametrów",
       "path": "Plik metadanych",

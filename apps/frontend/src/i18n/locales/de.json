@@ -101,6 +101,13 @@
       "stateImportedChanged": "Importiert, Kopie seitdem verändert",
       "importedMark": "Importiert, nicht mit einem Fahrzeug abgeglichen. Die Werte sind so, wie das Programm sie aufgezeichnet hat, das die Datei geschrieben hat.",
       "notVerifiedImported": "Diese Kopie ist nicht die importierte Datei (ihre Prüfsumme hat sich geändert): nichts wird aus ihr verwendet. Öffne die Logdatei erneut.",
+      "recordedRow": "Aufgezeichnet {time}",
+      "recordedHeading": "Aufzeichnung vom {time}",
+      "recordedMark": "Von dieser App aus der Verbindung zum Fahrzeug aufgezeichnet. Die Werte sind so, wie das Fahrzeug sie gesendet hat.",
+      "notVerifiedRecorded": "Diese Aufzeichnung ist nicht beendet (sie läuft noch, oder die App wurde währenddessen beendet): Es wird noch nichts daraus übernommen. Sie wird abgeschlossen, wenn die nächste Aufzeichnung beginnt.",
+      "stateRecording": "Wird aufgezeichnet",
+      "stateRecorded": "Aufgezeichnet, Datei unverändert",
+      "stateRecordedUnfinished": "Aufgezeichnet, nicht beendet oder seitdem geändert",
       "reportRead": "Gelesene Einträge: {records}. Übersprungen: {skipped} Byte Schaden, {crc} Frames mit falscher Prüfsumme, {unknown} Frames von Nachrichtentypen, die diese App nicht kennt.",
       "reportSegments": "Zeitabschnitte in der Aufzeichnung: {count}. Eine Lücke oder ein Rücksprung der Uhr beginnt einen neuen.",
       "reportCutEnd": "Die Datei endet mitten in einem Eintrag. So endet eine Aufzeichnung, die abgebrochen wurde (Stromausfall, Programm beendet): das ist kein Schaden.",
@@ -893,7 +900,33 @@
     "stop": "Not-Aus",
     "current": "jetzt"
   },
+  "recording": {
+    "stopped": "Telemetrieaufzeichnung gestoppt: {reason}.",
+    "linkCarriesOn": "Die Verbindung zum Fahrzeug bleibt bestehen.",
+    "failure": { "disk-full": "der Datenträger ist voll", "write-failed": "die Datei konnte nicht geschrieben werden", "no-folder": "der Ordner kann nicht verwendet werden", "limit": "die Aufzeichnung hat allein die Größengrenze erreicht" },
+    "next": { "disk-full": "Geben Sie Speicherplatz frei oder wählen Sie in den Einstellungen einen anderen Ordner.", "write-failed": "Prüfen Sie den Ordner in den Einstellungen und verbinden Sie sich erneut.", "no-folder": "Wählen Sie in den Einstellungen einen Ordner, in den geschrieben werden kann.", "limit": "Erhöhen Sie die Grenze in den Einstellungen und verbinden Sie sich erneut." },
+    "openSettings": "Einstellungen öffnen",
+    "removedToast": "Alte Aufzeichnungen entfernt, um unter der Grenze zu bleiben: {count}."
+  },
   "settings": {
+    "recording": {
+      "title": "Aufzeichnung",
+      "acts": "Jede Verbindung wird in ein Telemetrie-Log (tlog) aufgezeichnet, benannt nach ihrem Beginn. Die Aufzeichnungen stehen unter Logs, bei den Flügen.",
+      "enabled": "Jede Verbindung aufzeichnen",
+      "enabledHelp": "Gilt ab der nächsten Verbindung. Eine fehlgeschlagene Aufzeichnung unterbricht nie die Verbindung.",
+      "folder": "Ordner für Aufzeichnungen",
+      "folderHelp": "Leer lassen für den Datenordner der App. Gilt ab der nächsten Verbindung.",
+      "folderInUse": "Verwendet: {path}. Leer lassen für den Datenordner der App. Gilt ab der nächsten Verbindung.",
+      "limit": "Grenze für alle Aufzeichnungen",
+      "limitHelp": "Würden die Aufzeichnungen mehr belegen, werden die ältesten entfernt. Die laufende wird nie entfernt.",
+      "noLimit": "Keine Grenze",
+      "now": "Aufzeichnung in {file}: bisher {size}.",
+      "off": "Keine Aufzeichnung: ausgeschaltet.",
+      "idle": "Die Aufzeichnung beginnt mit der nächsten Verbindung.",
+      "recording": "Aufzeichnung läuft.",
+      "failed": "Aufzeichnung gestoppt.",
+      "removed": "Seit dem Start der App entfernte alte Aufzeichnungen: {count} ({size})."
+    },
     "metadata": {
       "title": "Parameter-Metadaten",
       "path": "Metadaten-Datei",
