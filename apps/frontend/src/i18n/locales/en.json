@@ -687,6 +687,7 @@
       "unavailable": "Map tiles are not available: {reason}",
       "backingOffPlain": "Map tiles are paused for a while after trouble with the tile server.",
       "generic": "Map tiles are not available.",
+      "someFailed": "Some map tiles did not load; they are asked for again shortly.",
       "code": {
         "BAD_REQUEST": "The address of the tile source cannot be used.",
         "TOO_BIG": "The tile server sent a tile that is too big.",

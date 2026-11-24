@@ -687,6 +687,7 @@
       "unavailable": "Le tessere della mappa non sono disponibili: {reason}",
       "backingOffPlain": "Le tessere della mappa sono in pausa per un po’ a causa di problemi con il server.",
       "generic": "Le tessere della mappa non sono disponibili.",
+      "someFailed": "Alcune tessere della mappa non sono state caricate; verranno richieste di nuovo a breve.",
       "code": {
         "BAD_REQUEST": "L’indirizzo della fonte delle tessere non è utilizzabile.",
         "TOO_BIG": "Il server ha inviato una tessera troppo grande.",
