@@ -23,6 +23,7 @@ import { type ForwardingModel, useForwarding } from './useForwarding'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type LinkStatsModel, useLinkStats } from './useLinkStats'
+import { type SerialBridgeModel, useSerialBridge } from './useSerialBridge'
 import { type RecordingModel, useRecording } from './useRecording'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
@@ -97,6 +98,8 @@ export interface ConfiguratorHandle {
   staged: StagedModel
   /** The quality of the link to the vehicle: loss, rates and latency. */
   link: LinkStatsModel
+  /** The serial bridge: a port of the vehicle reached through a local TCP port. */
+  serialBridge: SerialBridgeModel
   /** The recording of every connection to a tlog: what it is doing, and its preferences. */
   recording: RecordingModel
   /** The state, field by field. */
@@ -566,6 +569,30 @@ function startLink(client: BackendClient, vehicle: Vehicle): LinkStatsModel {
 }
 
 /**
+ * The serial bridge, started: it follows the backend's state from the start, so a port that is locked is shown on every screen.
+ *
+ * @param client the link to the backend
+ * @returns the bridge
+ */
+function startSerialBridge(client: BackendClient): SerialBridgeModel {
+  const bridge = useSerialBridge({ client })
+  void bridge.watch()
+
+  return bridge
+}
+
+/**
+ * What goes over the link besides the vehicle's own: its quality, and the serial bridge.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the two, started
+ */
+function linkModels(client: BackendClient, vehicle: Vehicle): Pick<ConfiguratorHandle, 'link' | 'serialBridge'> {
+  return { link: startLink(client, vehicle), serialBridge: startSerialBridge(client) }
+}
+
+/**
  * The recording of the connections, started: what the backend is doing is asked once, and followed after.
  *
  * @param client the link to the backend
@@ -611,7 +638,7 @@ export function createConfigurator(
   watch(metadata.metadata, () => parameters.refreshWarning())
   const models = {
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
-    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), link: startLink(client, vehicle),
+    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), ...linkModels(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
     recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }),
   }

@@ -1,0 +1,493 @@
+// The serial bridge (`serial.bridge.*`), over an in-memory link against the simulated vehicle of pico-mavlink, whose serial ports are
+// loopback plugs (SimSerial: what is written comes back, and `feed` makes a device say something by itself): bytes go both ways
+// between a program on a local TCP port and the device; the port is locked while the bridge runs and GIVEN BACK by every way it can
+// end (each has a test that says so); a second program is turned away with a reason; and each refusal sends NOTHING to the vehicle.
+//
+// (A test that ends without ending the session leaves its timers running, which keeps the test process alive: each ends what it began.)
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Conn, connect, listen } from "std/net"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { ByteStream, MavLinkConnection, MemoryStream, SerialControlDev, SerialControlStream, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  Connection,
+  ConnectionState,
+  ConnectRequest,
+  ConnectRequestTransport,
+  SerialBridgeDevice,
+  SerialBridgeStart,
+  SerialBridgeState,
+  SerialBridgeStateState,
+  decodeSerialBridgeState,
+  encodeConnectRequest,
+  encodeSerialBridgeStart,
+} from "./generated/app"
+import { REFUSAL, bridge, deviceId, limits } from "./serialbridge"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+/// A connected simulator, disarmed; and the interval that keeps it disarmed.
+class Rig {
+  public readonly f: Frontend
+  public readonly sim: SimulatedAutopilot
+  public readonly hold: int
+
+  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int) {
+    this.f = f
+    this.sim = sim
+    this.hold = hold
+  }
+
+  /// Ends the bridge and the connection (their timers would keep the test process alive).
+  public async close(): Promise<void> throws Error {
+    clearInterval(hold)
+    await f.call("serial.bridge.stop")
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// Waits for the next heartbeat of the vehicle: the armed state is only known after one.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+async function connected(): Promise<Rig> throws Error {
+  limits.tickMs = 50
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  // The simulator arms itself after three ticks: a port is taken only on the ground.
+  const hold = setInterval(() => {
+    sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
+  }, 50)
+  await afterBeat()
+  new Rig(f, sim, hold)
+}
+
+/// Waits until `done` says so (up to a few seconds), and fails when it never does.
+async function until(what: string, done: () => bool): Promise<void> throws Error {
+  let waited = 0
+  while (!done() && waited < 5000) {
+    await delay(20)
+    waited += 20
+  }
+  if (!done()) {
+    throw new Error(`never: ${what}`)
+  }
+}
+
+function errorOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else "ok"
+}
+
+function stateOf(e: Envelope): SerialBridgeState {
+  decodeSerialBridgeState(e.p ?? Cbor.Null, "$")
+}
+
+function ask(device: SerialBridgeDevice, baudrate: int = 0, port: int = 0): Cbor {
+  const a = SerialBridgeStart { device: device }
+  if (baudrate > 0) {
+    a.baudrate = baudrate as u32
+  }
+  if (port > 0) {
+    a.port = port as u16
+  }
+  encodeSerialBridgeStart(a)
+}
+
+/// Starts a bridge to `device`; its state (the test fails when it is refused).
+async function started(r: Rig, device: SerialBridgeDevice, baudrate: int = 0): Promise<SerialBridgeState> throws Error {
+  const reply = await r.f.call("serial.bridge.start", ask(device, baudrate))
+  expect(errorOf(reply)).toBe("ok")
+  stateOf(reply)
+}
+
+/// The local port of a bridge.
+function portOf(s: SerialBridgeState): int {
+  return (s.port ?? (0 as u16)) as int
+}
+
+function bytesOf(text: string): Uint8Array {
+  new TextEncoder().encode(text)
+}
+
+/// What a program reads from its connection, gathered as it comes (ONE read at a time: a read that is left waiting and another one
+/// begun is a panic of the runtime).
+class Program {
+  public readonly conn: Conn
+  public text: string = ""
+  public ended: bool = false
+
+  constructor(conn: Conn) {
+    this.conn = conn
+    this.gather()
+  }
+
+  async gather(): Promise<void> throws TypeError {
+    while (true) {
+      let got: Uint8Array? = null
+      try {
+        got = await conn.read()
+      } catch (e: Error) {
+        got = null
+      }
+      if (got == null) {
+        ended = true
+        return
+      }
+      text = text + new TextDecoder().decode(got!)
+    }
+  }
+
+  public async says(want: string): Promise<void> throws Error {
+    await until(`the program reads "${want}"`, () => this.text.includes(want))
+  }
+
+  public async write(what: string): Promise<void> throws Error {
+    await conn.write(bytesOf(what))
+  }
+}
+
+async function program(port: int): Promise<Program> throws Error {
+  new Program(await connect(port))
+}
+
+/// Whether the local port takes a connection.
+async function listening(port: int): Promise<bool> {
+  try {
+    const c = await connect(port)
+    c.close()
+    return true
+  } catch (e: Error) {
+    return false
+  }
+}
+
+async function passesBytesBothWaysAndGivesThePortBack(): Promise<void> throws Error {
+  const r = await connected()
+  const gps = SerialControlDev.DEV_GPS1
+  const s = await started(r, SerialBridgeDevice.GPS1, 115200)
+  expect(s.state == SerialBridgeStateState.Running).toBe(true)
+  expect(s.device == SerialBridgeDevice.GPS1).toBe(true)
+  expect(s.address ?? "").toBe("127.0.0.1")
+  expect(portOf(s) > 0).toBe(true)
+  // locked from the start, at the speed asked for
+  await until("the port is locked", () => r.sim.serial.exclusive(gps))
+  expect(r.sim.serial.baudrate(gps)).toBe(115200)
+
+  const p = await program(portOf(s))
+  await until("the program is connected", () => bridge.client != null)
+  // the program to the device (the plug sends it back), and the device to the program
+  await p.write("hello gps")
+  await p.says("hello gps")
+  r.sim.serial.feed(gps, bytesOf("$GPGGA,fix*00\r\n"))
+  await p.says("$GPGGA,fix*00")
+  expect(bridge.toVehicle).toBe(9)
+  expect(bridge.fromVehicle).toBe(9 + 15)
+  // a message carries 70 bytes at most: a longer write goes in pieces, in order
+  const long = "0123456789".repeat(20)
+  await p.write(long)
+  await p.says(long)
+  expect(r.sim.serial.biggest).toBe(70)
+
+  const stopped = stateOf(await r.f.call("serial.bridge.stop"))
+  expect(stopped.state == SerialBridgeStateState.Off).toBe(true)
+  expect(stopped.why ?? "").toBe("STOPPED")
+  expect(stopped.releaseFailed ?? false).toBe(false)
+  expect(stopped.toVehicle as int).toBe(209)
+  expect(r.sim.serial.exclusive(gps)).toBe(false)
+  expect(r.sim.serial.releases).toBe(1)
+  // the program is let go, and the local port is closed
+  await until("the program's connection ends", () => p.ended)
+  expect(await listening(portOf(s))).toBe(false)
+  await r.close()
+}
+
+async function turnsASecondProgramAwayWithAReason(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await started(r, SerialBridgeDevice.TELEM2)
+  const port = portOf(s)
+  const first = await program(port)
+  await until("the first program is connected", () => bridge.client != null)
+  const second = await program(port)
+  await second.says(REFUSAL)
+  await until("the second program is closed", () => second.ended)
+  expect(bridge.refused).toBe(1)
+  // the first goes on as before
+  await first.write("still here")
+  await first.says("still here")
+  // once it leaves, the next one is served
+  first.conn.close()
+  await until("the first program is gone", () => bridge.client == null)
+  const third = await program(port)
+  await until("the third program is connected", () => bridge.client != null)
+  await third.write("my turn")
+  await third.says("my turn")
+  expect(third.text.includes("drone-configurator")).toBe(false)
+  third.conn.close()
+  await r.close()
+}
+
+async function dropsAndCountsWhatComesWithNoProgram(): Promise<void> throws Error {
+  const r = await connected()
+  await started(r, SerialBridgeDevice.SERIAL4)
+  r.sim.serial.feed(SerialControlDev.SERIAL0 + 4, bytesOf("nobody hears this"))
+  await until("it is dropped", () => bridge.dropped == 17)
+  expect(bridge.fromVehicle).toBe(17)
+  await r.close()
+}
+
+/// The first state told (events that came while a reply was awaited first) that `done` says is the one.
+async function toldUntil(f: Frontend, done: (s: SerialBridgeState) => bool): Promise<SerialBridgeState> throws Error {
+  while (f.heard.length > 0) {
+    const e = f.heard[0]
+    f.heard.splice(0, 1)
+    if (e.n == "serial.bridge.status" && done(stateOf(e))) {
+      return stateOf(e)
+    }
+  }
+  while (true) {
+    const s = stateOf(await f.event("serial.bridge.status"))
+    if (done(s)) {
+      return s
+    }
+  }
+}
+
+async function tellsItsStateToWhoWatches(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await r.f.subscribe("serial.bridge.status")
+  expect(stateOf(await r.f.event("serial.bridge.status")).state == SerialBridgeStateState.Off).toBe(true)
+  const st = await started(r, SerialBridgeDevice.GPS2)
+  let told = await toldUntil(r.f, (b: SerialBridgeState) => b.state == SerialBridgeStateState.Running)
+  expect(told.device == SerialBridgeDevice.GPS2).toBe(true)
+  const p = await program(portOf(st))
+  told = await toldUntil(r.f, (b: SerialBridgeState) => b.client)
+  expect((told.clientAddress ?? "").startsWith("127.0.0.1:")).toBe(true)
+  // the counts follow, a tick later
+  await p.write("abc")
+  await p.says("abc")
+  told = await toldUntil(r.f, (b: SerialBridgeState) => (b.toVehicle as int) >= 3 && (b.fromVehicle as int) >= 3)
+  expect(told.toVehicle as int).toBe(3)
+  await r.f.call("serial.bridge.stop")
+  told = await toldUntil(r.f, (b: SerialBridgeState) => b.state == SerialBridgeStateState.Off)
+  expect(told.why ?? "").toBe("STOPPED")
+  expect(told.client).toBe(false)
+  await r.f.unsubscribe(s)
+  await r.close()
+}
+
+/// Ends a bridge to GPS1 by `how`, and says that the port was given back for `why`.
+async function givesThePortBack(r: Rig, why: string): Promise<void> throws Error {
+  await until("the bridge is over", () => bridge.phase == SerialBridgeStateState.Off)
+  expect(bridge.why).toBe(why)
+  expect(bridge.releaseFailed).toBe(false)
+  expect(r.sim.serial.exclusive(SerialControlDev.DEV_GPS1)).toBe(false)
+  expect(r.sim.serial.releases).toBe(1)
+}
+
+async function givesThePortBackWhenTheVehicleIsDisconnected(): Promise<void> throws Error {
+  const r = await connected()
+  await started(r, SerialBridgeDevice.GPS1)
+  await until("the port is locked", () => r.sim.serial.exclusive(SerialControlDev.DEV_GPS1))
+  clearInterval(r.hold)
+  await r.f.call("vehicle.disconnect")
+  await givesThePortBack(r, "DISCONNECTED")
+}
+
+async function givesThePortBackWhenTheAppCloses(): Promise<void> throws Error {
+  const r = await connected()
+  await started(r, SerialBridgeDevice.GPS1)
+  await until("the port is locked", () => r.sim.serial.exclusive(SerialControlDev.DEV_GPS1))
+  clearInterval(r.hold)
+  // what the host says when the app is closing: the backend ends the session
+  await r.f.announceClosing()
+  await givesThePortBack(r, "DISCONNECTED")
+}
+
+async function givesThePortBackWhenTheVehicleArms(): Promise<void> throws Error {
+  const r = await connected()
+  await started(r, SerialBridgeDevice.GPS1)
+  await until("the port is locked", () => r.sim.serial.exclusive(SerialControlDev.DEV_GPS1))
+  clearInterval(r.hold)
+  r.sim.ticks = 5
+  await givesThePortBack(r, "ARMED")
+  await r.f.call("vehicle.disconnect")
+}
+
+async function givesThePortBackWhenTheLinkIsLost(): Promise<void> throws Error {
+  const r = await connected()
+  await started(r, SerialBridgeDevice.GPS1)
+  await until("the port is locked", () => r.sim.serial.exclusive(SerialControlDev.DEV_GPS1))
+  // (the session says the link is lost; the simulator's link is still there, so the release reaches it)
+  link.state = Connection { state: ConnectionState.Lost }
+  await givesThePortBack(r, "LINK_LOST")
+  link.state = Connection { state: ConnectionState.Connected }
+  await r.close()
+}
+
+async function givesThePortBackWhenTheProgramIsConnected(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await started(r, SerialBridgeDevice.GPS1)
+  const p = await program(portOf(s))
+  await until("the program is connected", () => bridge.client != null)
+  await r.f.call("serial.bridge.stop")
+  await givesThePortBack(r, "STOPPED")
+  await until("the program's connection ends", () => p.ended)
+  // stopping again changes nothing, and a new bridge may begin at once, on the same local port
+  expect(stateOf(await r.f.call("serial.bridge.stop")).state == SerialBridgeStateState.Off).toBe(true)
+  expect(r.sim.serial.releases).toBe(1)
+  const again = await r.f.call("serial.bridge.start", ask(SerialBridgeDevice.GPS1, 0, portOf(s)))
+  expect(errorOf(again)).toBe("ok")
+  expect(portOf(stateOf(again))).toBe(portOf(s))
+  await r.close()
+  expect(r.sim.serial.releases).toBe(2)
+}
+
+/// A link whose writes can be made to fail (a link that is down).
+class FlakyStream implements ByteStream {
+  readonly inner: ByteStream
+  public failing: bool = false
+
+  constructor(inner: ByteStream) {
+    this.inner = inner
+  }
+
+  public read(): Promise<Uint8Array?, Error> {
+    return inner.read()
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    if (failing) {
+      throw new Error("the link is down")
+    }
+    await inner.write(bytes)
+  }
+
+  public close(): void {
+    inner.close()
+  }
+}
+
+async function triesAnUnsentReleaseAgainWhenTheLinkIsBack(): Promise<void> throws Error {
+  limits.retryMs = 50
+  const ends = MemoryStream.pair()
+  const sim = new SimulatedAutopilot(ends[1])
+  const flaky = new FlakyStream(ends[0])
+  const gcs = new MavLinkConnection(flaky)
+  gcs.run()
+  sim.start(1000)
+  const gps = SerialControlDev.DEV_GPS1
+  const s = new SerialControlStream(gcs, { system: 1, component: 1 }, { device: gps, pollMs: 20 })
+  try {
+    await until("the port is locked", () => sim.serial.exclusive(gps))
+    // the link goes down: the release cannot go out, and is owed
+    flaky.failing = true
+    await s.release()
+    expect(s.releaseFailed).toBe(true)
+    bridge.owe(s)
+    link.conn = gcs
+    link.state = Connection { state: ConnectionState.Reconnecting }
+    await delay(300)
+    expect(sim.serial.exclusive(gps)).toBe(true)
+    // it is back: the release goes out
+    flaky.failing = false
+    link.state = Connection { state: ConnectionState.Connected }
+    await until("the port is given back", () => !sim.serial.exclusive(gps))
+    expect(sim.serial.releases).toBe(1)
+    expect(bridge.unreleased == null).toBe(true)
+  } finally {
+    link.conn = null
+    link.state = Connection { state: ConnectionState.Disconnected }
+    bridge.detach()
+    sim.stop()
+    gcs.close()
+  }
+}
+
+/// The code a start is refused with, and that NOTHING was sent to the vehicle for it.
+async function refusedWith(r: Rig, payload: Cbor): Promise<string> throws Error {
+  const before = r.sim.serial.requests
+  const code = errorOf(await r.f.call("serial.bridge.start", payload))
+  await delay(150)
+  expect(r.sim.serial.requests).toBe(before)
+  return code
+}
+
+async function sendsNothingToAnArmedVehicle(): Promise<void> throws Error {
+  const r = await connected()
+  clearInterval(r.hold)
+  r.sim.ticks = 5
+  await delay(1500)   // a heartbeat that says armed
+  expect(await refusedWith(r, ask(SerialBridgeDevice.GPS1))).toBe("ARMED")
+  expect(bridge.phase == SerialBridgeStateState.Off).toBe(true)
+  await r.f.call("vehicle.disconnect")
+}
+
+async function sendsNothingWhenTheArmedStateIsNotKnown(): Promise<void> throws Error {
+  const r = await connected()
+  link.heartbeatAt = 0
+  expect(await refusedWith(r, ask(SerialBridgeDevice.GPS1))).toBe("STATE_UNKNOWN")
+  await r.close()
+}
+
+async function sendsNothingWhenNoVehicleIsConnected(): Promise<void> throws Error {
+  const f = await start()
+  link.close()
+  expect(errorOf(await f.call("serial.bridge.start", ask(SerialBridgeDevice.GPS1)))).toBe("NOT_CONNECTED")
+  expect(bridge.phase == SerialBridgeStateState.Off).toBe(true)
+}
+
+async function refusesASecondBridgeABadSpeedAndATakenPort(): Promise<void> throws Error {
+  const r = await connected()
+  expect(await refusedWith(r, ask(SerialBridgeDevice.GPS1, 5000000))).toBe("INVALID_VALUE")
+  await started(r, SerialBridgeDevice.GPS1)
+  expect(errorOf(await r.f.call("serial.bridge.start", ask(SerialBridgeDevice.GPS2)))).toBe("BUSY")
+  expect(r.sim.serial.exclusive(SerialControlDev.DEV_GPS2)).toBe(false)
+  await r.f.call("serial.bridge.stop")
+  // a port that is taken (by a listener of this test): the bridge cannot listen there
+  const other = await listen(0)
+  const taken = other.addr.port
+  expect(await refusedWith(r, ask(SerialBridgeDevice.GPS1, 0, taken))).toBe("PORT_UNAVAILABLE")
+  other.close()
+  await r.close()
+}
+
+async function namesTheDevicesAsTheProtocolDoes(): Promise<void> throws Error {
+  expect(deviceId(SerialBridgeDevice.TELEM1)).toBe(0)
+  expect(deviceId(SerialBridgeDevice.TELEM2)).toBe(1)
+  expect(deviceId(SerialBridgeDevice.GPS1)).toBe(2)
+  expect(deviceId(SerialBridgeDevice.GPS2)).toBe(3)
+  expect(deviceId(SerialBridgeDevice.SERIAL0)).toBe(100)
+  expect(deviceId(SerialBridgeDevice.SERIAL9)).toBe(109)
+}
+
+describe("the serial bridge", () => {
+  it("names the devices as SERIAL_CONTROL_DEV does", namesTheDevicesAsTheProtocolDoes)
+  it("passes bytes both ways, locks the port while it runs, and gives it back when it is stopped", passesBytesBothWaysAndGivesThePortBack)
+  it("turns a second program away with a reason, and serves the next one once the first has gone", turnsASecondProgramAwayWithAReason)
+  it("drops and counts what the device says while no program is connected", dropsAndCountsWhatComesWithNoProgram)
+  it("tells its state to who watches: running, the program, the counts, how it ended", tellsItsStateToWhoWatches)
+})
+
+describe("the ways a serial bridge ends: each gives the port back", () => {
+  it("stopped with a program connected (and stopped again: nothing more)", givesThePortBackWhenTheProgramIsConnected)
+  it("the vehicle disconnected", givesThePortBackWhenTheVehicleIsDisconnected)
+  it("the app closing", givesThePortBackWhenTheAppCloses)
+  it("the vehicle arming", givesThePortBackWhenTheVehicleArms)
+  it("the link lost", givesThePortBackWhenTheLinkIsLost)
+  it("a release that could not go out is sent again when the link is back", triesAnUnsentReleaseAgainWhenTheLinkIsBack)
+})
+
+describe("what the serial bridge refuses (nothing is sent)", () => {
+  it("an armed vehicle", sendsNothingToAnArmedVehicle)
+  it("a vehicle whose armed state is not known", sendsNothingWhenTheArmedStateIsNotKnown)
+  it("no vehicle", sendsNothingWhenNoVehicleIsConnected)
+  it("a second bridge, a speed too high, a local port that is taken", refusesASecondBridgeABadSpeedAndATakenPort)
+})

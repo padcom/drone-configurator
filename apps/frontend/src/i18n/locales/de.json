@@ -87,6 +87,10 @@
       "totalValue": "{lost} von {sent} Paketen verloren",
       "window": "Gemessen über die letzten {seconds} s."
     },
+    "bridge": {
+      "locked": "{port} gesperrt",
+      "open": "Eine serielle Brücke hält diesen Port des Fahrzeugs: anzeigen und beenden"
+    },
     "rebooting": "Neustart…",
     "state": {
       "arm": "Fahrzeug scharf schalten (das Fahrzeug ist entschärft)",
@@ -1528,6 +1532,7 @@
         "initial": "Zu Einrichtung wechseln: Erstabstimmung",
         "serial": "Zu Einrichtung wechseln: Serielle Ports",
         "devices": "Zu Einrichtung wechseln: Geräte",
+        "bridge": "Zu Einrichtung wechseln: Serielle Brücke",
         "info": "Zu Einrichtung wechseln: Fahrzeuginformationen"
       },
       "tune": {
@@ -1705,6 +1710,7 @@
       "initial": "Erstabstimmung",
       "serial": "Serielle Ports",
       "devices": "Geräte",
+      "bridge": "Serielle Brücke",
       "info": "Fahrzeuginformationen"
     },
     "group": {
@@ -2040,6 +2046,55 @@
       "motor": "Motor {number} bei {angle} Grad, dreht {spin}",
       "cw": "im Uhrzeigersinn",
       "ccw": "gegen den Uhrzeigersinn"
+    },
+    "bridge": {
+      "summary": "Erreiche ein Gerät hinter dem Autopiloten, etwa ein GPS oder ein Funkmodul, aus einem anderen Programm auf diesem Computer. Das Programm verbindet sich mit einem lokalen TCP-Port, und der Port des Fahrzeugs ist für die Brücke gesperrt, bis du sie beendest.",
+      "port": "Port des Fahrzeugs",
+      "name": {
+        "gps": "GPS {n}",
+        "telem": "Telemetrie {n}",
+        "serial": "Seriell {n}"
+      },
+      "baud": "Geschwindigkeit",
+      "baudUnchanged": "Unverändert",
+      "baudValue": "{baud} Baud",
+      "localPort": "Lokaler TCP-Port",
+      "portHelp": "Programme auf diesem Computer verbinden sich mit 127.0.0.1 an diesem Port. Leer lassen für einen beliebigen freien Port.",
+      "portInvalid": "Der Port ist eine ganze Zahl von 1 bis 65535, oder leer für einen beliebigen freien Port.",
+      "start": "Brücke starten",
+      "stop": "Beenden und Port freigeben",
+      "locked": "{port} ist für die Brücke gesperrt, bis du sie beendest. Programme verbinden sich mit {address}.",
+      "releasing": "{port} wird an das Fahrzeug zurückgegeben…",
+      "fact": {
+        "program": "Programm",
+        "toVehicle": "Bytes zum Fahrzeug",
+        "fromVehicle": "Bytes vom Fahrzeug",
+        "dropped": "Bytes ohne Programm, das sie annimmt",
+        "refused": "Abgewiesene Programme"
+      },
+      "connected": "Verbunden von {address}",
+      "waiting": "Noch keins. Es kann sich jeweils ein Programm verbinden.",
+      "armed": "Das Fahrzeug ist scharf geschaltet: Ein Port wird nur am Boden übernommen.",
+      "unknown": "Der Zustand des Fahrzeugs ist unbekannt: Ein Port wird nur von einem Fahrzeug übernommen, das sicher entschärft ist.",
+      "released": "{port} gehört wieder dem Fahrzeug.",
+      "releaseFailed": "{port} ist womöglich noch gesperrt: Das Fahrzeug hat die Freigabe nicht erhalten. Sie wird erneut gesendet, sobald die Verbindung zurück ist, und ein Neustart des Fahrzeugs gibt den Port ebenfalls frei.",
+      "refused": {
+        "ARMED": "Nicht gestartet: Das Fahrzeug ist scharf geschaltet. Entschärfe es zuerst.",
+        "STATE_UNKNOWN": "Nicht gestartet: Der Zustand des Fahrzeugs ist unbekannt. Warte auf seinen Heartbeat.",
+        "NOT_CONNECTED": "Nicht gestartet: Kein Fahrzeug ist verbunden.",
+        "BUSY": "Nicht gestartet: Eine Brücke läuft bereits.",
+        "PORT_UNAVAILABLE": "Nicht gestartet: Der lokale Port ist belegt oder nicht erlaubt. Wähle einen anderen.",
+        "INVALID_VALUE": "Nicht gestartet: Die Geschwindigkeit ist zu hoch.",
+        "other": "Nicht gestartet: Die Brücke wurde abgelehnt."
+      },
+      "ended": {
+        "STOPPED": "Die Brücke wurde beendet.",
+        "DISCONNECTED": "Die Brücke endete mit der Verbindung.",
+        "LINK_LOST": "Die Verbindung ging verloren, daher endete die Brücke.",
+        "ARMED": "Das Fahrzeug wurde scharf geschaltet, daher endete die Brücke.",
+        "LISTEN_FAILED": "Der lokale Port ist ausgefallen, daher endete die Brücke.",
+        "other": "Die Brücke endete."
+      }
     },
     "serial": {
       "summary": "Wofür jeder serielle Port des Boards genutzt wird und wie schnell er spricht.",

@@ -87,6 +87,10 @@
       "totalValue": "{lost} de {sent} paquetes perdidos",
       "window": "Medido durante los últimos {seconds} s."
     },
+    "bridge": {
+      "locked": "{port} bloqueado",
+      "open": "Un puente serie tiene este puerto del vehículo: mostrarlo y detenerlo"
+    },
     "rebooting": "Reiniciando…",
     "state": {
       "arm": "Armar el vehículo (el vehículo está desarmado)",
@@ -1528,6 +1532,7 @@
         "initial": "Ir a Configuración: Ajuste inicial",
         "serial": "Ir a Configuración: Puertos serie",
         "devices": "Ir a Configuración: Dispositivos",
+        "bridge": "Ir a Configuración: Puente serie",
         "info": "Ir a Configuración: Información del vehículo"
       },
       "tune": {
@@ -1705,6 +1710,7 @@
       "initial": "Ajuste inicial",
       "serial": "Puertos serie",
       "devices": "Dispositivos",
+      "bridge": "Puente serie",
       "info": "Información del vehículo"
     },
     "group": {
@@ -2040,6 +2046,55 @@
       "motor": "Motor {number} a {angle} grados, gira {spin}",
       "cw": "en sentido horario",
       "ccw": "en sentido antihorario"
+    },
+    "bridge": {
+      "summary": "Accede a un dispositivo detrás del piloto automático, como un GPS o una radio, desde otro programa de este ordenador. El programa se conecta a un puerto TCP local, y el puerto del vehículo queda bloqueado para el puente hasta que lo detengas.",
+      "port": "Puerto del vehículo",
+      "name": {
+        "gps": "GPS {n}",
+        "telem": "Telemetría {n}",
+        "serial": "Serie {n}"
+      },
+      "baud": "Velocidad",
+      "baudUnchanged": "Sin cambiar",
+      "baudValue": "{baud} baudios",
+      "localPort": "Puerto TCP local",
+      "portHelp": "Los programas de este ordenador se conectan a 127.0.0.1 en este puerto. Déjalo vacío para usar cualquier puerto libre.",
+      "portInvalid": "El puerto es un número entero de 1 a 65535, o vacío para cualquier puerto libre.",
+      "start": "Iniciar el puente",
+      "stop": "Detener y liberar el puerto",
+      "locked": "{port} está bloqueado para el puente hasta que lo detengas. Los programas se conectan a {address}.",
+      "releasing": "Devolviendo {port} al vehículo…",
+      "fact": {
+        "program": "Programa",
+        "toVehicle": "Bytes al vehículo",
+        "fromVehicle": "Bytes del vehículo",
+        "dropped": "Bytes sin un programa que los reciba",
+        "refused": "Programas rechazados"
+      },
+      "connected": "Conectado desde {address}",
+      "waiting": "Ninguno todavía. Solo se puede conectar un programa a la vez.",
+      "armed": "El vehículo está armado: un puerto solo se toma en tierra.",
+      "unknown": "No se conoce el estado del vehículo: un puerto solo se toma de un vehículo que se sabe desarmado.",
+      "released": "{port} vuelve a ser del vehículo.",
+      "releaseFailed": "{port} puede seguir bloqueado: el vehículo no recibió la liberación. Se enviará de nuevo cuando vuelva el enlace, y reiniciar el vehículo también libera el puerto.",
+      "refused": {
+        "ARMED": "No se inició: el vehículo está armado. Desármalo primero.",
+        "STATE_UNKNOWN": "No se inició: no se conoce el estado del vehículo. Espera a su heartbeat.",
+        "NOT_CONNECTED": "No se inició: no hay ningún vehículo conectado.",
+        "BUSY": "No se inició: ya hay un puente en marcha.",
+        "PORT_UNAVAILABLE": "No se inició: el puerto local está en uso o no está permitido. Elige otro.",
+        "INVALID_VALUE": "No se inició: la velocidad es demasiado alta.",
+        "other": "No se inició: se rechazó el puente."
+      },
+      "ended": {
+        "STOPPED": "Se detuvo el puente.",
+        "DISCONNECTED": "El puente terminó con la conexión.",
+        "LINK_LOST": "Se perdió el enlace, así que el puente terminó.",
+        "ARMED": "El vehículo se armó, así que el puente terminó.",
+        "LISTEN_FAILED": "Falló el puerto local, así que el puente terminó.",
+        "other": "El puente terminó."
+      }
     },
     "serial": {
       "summary": "Para qué sirve cada puerto serie de la placa y a qué velocidad habla.",

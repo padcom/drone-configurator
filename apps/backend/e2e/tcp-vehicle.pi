@@ -15,6 +15,8 @@
 // last, as a vehicle or a router that listens does (the app's "udp-client"); with VEHICLE_CONNECT_TO=<port> it connects to that
 // TCP port on 127.0.0.1 (the app's "tcp-server"), trying every 100 ms, says `connected to <port>` the first time, and connects
 // again whenever the connection ends.
+// Its serial ports are loopback plugs (SERIAL_CONTROL: what is written comes back); it prints `serial-take <device>` when SERIAL_CONTROL
+// takes a port and `serial-release <device>` when it hands one back (the serial bridge, #198).
 import { Datagram, UdpSocket, bind, connect, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
 import { delay } from "std/timers"
@@ -26,6 +28,8 @@ import {
   ParamSet,
   Received,
   SimParam,
+  SerialControl,
+  SerialControlFlag,
   SimulatedAutopilot,
   StatusText,
   TcpStream,
@@ -126,10 +130,14 @@ function serve(inner: ByteStream): EndWatchingStream {
   let sim: SimulatedAutopilot? = null
   const stream = new EndWatchingStream(inner, () => sim?.stop())
   muted = false
+  held.clear()
   const setup = env.get("VEHICLE_SETUP") == "1"
   sim = new SimulatedAutopilot(stream, if (setup) setupParams() else defaultSimParams())
   sim!.conn.on((r: Received) => {
     const m = r.message
+    if (m instanceof SerialControl) {
+      heldSerial(m)
+    }
     if (m instanceof ParamSet) {
       stdout.writeText("param-set\n")
     } else if (m instanceof CommandLong && m.command as int == MavCmd.DO_MOTOR_TEST) {
@@ -163,6 +171,26 @@ function serve(inner: ByteStream): EndWatchingStream {
     sim!.rateScript = true
   }
   return stream
+}
+
+/// The ports SERIAL_CONTROL holds, as this program has seen the requests.
+const held: Map<int, bool> = new Map<int, bool>()
+
+/// Says when SERIAL_CONTROL takes a port, and when it hands it back.
+function heldSerial(m: SerialControl): void {
+  const flags = m.flags as int
+  const device = m.device as int
+  if ((flags & SerialControlFlag.REPLY) != 0) {
+    return
+  }
+  const was = held.get(device) ?? false
+  const takes = (flags & SerialControlFlag.EXCLUSIVE) != 0
+  held.set(device, takes)
+  if (takes && !was) {
+    stdout.writeText(`serial-take ${device}\n`)
+  } else if (!takes && was) {
+    stdout.writeText(`serial-release ${device}\n`)
+  }
 }
 
 /// A vehicle whose calibrations take a moment (the real ones take seconds to minutes), and that says it is up.

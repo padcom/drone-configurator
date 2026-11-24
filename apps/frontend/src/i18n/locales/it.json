@@ -87,6 +87,10 @@
       "totalValue": "{lost} su {sent} pacchetti persi",
       "window": "Misurato negli ultimi {seconds} s."
     },
+    "bridge": {
+      "locked": "{port} bloccata",
+      "open": "Un ponte seriale tiene questa porta del veicolo: mostrala e fermalo"
+    },
     "rebooting": "Riavvio…",
     "state": {
       "arm": "Arma il veicolo (il veicolo è disarmato)",
@@ -1528,6 +1532,7 @@
         "initial": "Vai a Configurazione: Taratura iniziale",
         "serial": "Vai a Configurazione: Porte seriali",
         "devices": "Vai a Configurazione: Dispositivi",
+        "bridge": "Vai a Configurazione: Ponte seriale",
         "info": "Vai a Configurazione: Informazioni sul veicolo"
       },
       "tune": {
@@ -1705,6 +1710,7 @@
       "initial": "Taratura iniziale",
       "serial": "Porte seriali",
       "devices": "Dispositivi",
+      "bridge": "Ponte seriale",
       "info": "Informazioni sul veicolo"
     },
     "group": {
@@ -2040,6 +2046,55 @@
       "motor": "Motore {number} a {angle} gradi, gira {spin}",
       "cw": "in senso orario",
       "ccw": "in senso antiorario"
+    },
+    "bridge": {
+      "summary": "Raggiungi un dispositivo dietro l'autopilota, come un GPS o una radio, da un altro programma su questo computer. Il programma si collega a una porta TCP locale, e la porta del veicolo resta bloccata per il ponte finché non lo fermi.",
+      "port": "Porta del veicolo",
+      "name": {
+        "gps": "GPS {n}",
+        "telem": "Telemetria {n}",
+        "serial": "Seriale {n}"
+      },
+      "baud": "Velocità",
+      "baudUnchanged": "Invariata",
+      "baudValue": "{baud} baud",
+      "localPort": "Porta TCP locale",
+      "portHelp": "I programmi su questo computer si collegano a 127.0.0.1 su questa porta. Lasciala vuota per una porta libera qualsiasi.",
+      "portInvalid": "La porta è un numero intero da 1 a 65535, oppure vuota per una porta libera qualsiasi.",
+      "start": "Avvia il ponte",
+      "stop": "Ferma e rilascia la porta",
+      "locked": "{port} è bloccata per il ponte finché non lo fermi. I programmi si collegano a {address}.",
+      "releasing": "Restituzione di {port} al veicolo…",
+      "fact": {
+        "program": "Programma",
+        "toVehicle": "Byte verso il veicolo",
+        "fromVehicle": "Byte dal veicolo",
+        "dropped": "Byte senza un programma che li riceva",
+        "refused": "Programmi respinti"
+      },
+      "connected": "Collegato da {address}",
+      "waiting": "Ancora nessuno. Si può collegare un programma alla volta.",
+      "armed": "Il veicolo è armato: una porta si prende solo a terra.",
+      "unknown": "Lo stato del veicolo non è noto: una porta si prende solo da un veicolo che si sa disarmato.",
+      "released": "{port} è di nuovo del veicolo.",
+      "releaseFailed": "{port} potrebbe essere ancora bloccata: il veicolo non ha ricevuto il rilascio. Verrà inviato di nuovo quando torna il collegamento, e anche un riavvio del veicolo libera la porta.",
+      "refused": {
+        "ARMED": "Non avviato: il veicolo è armato. Disarmalo prima.",
+        "STATE_UNKNOWN": "Non avviato: lo stato del veicolo non è noto. Attendi il suo heartbeat.",
+        "NOT_CONNECTED": "Non avviato: nessun veicolo è collegato.",
+        "BUSY": "Non avviato: un ponte è già in funzione.",
+        "PORT_UNAVAILABLE": "Non avviato: la porta locale è in uso o non è consentita. Scegline un'altra.",
+        "INVALID_VALUE": "Non avviato: la velocità è troppo alta.",
+        "other": "Non avviato: il ponte è stato rifiutato."
+      },
+      "ended": {
+        "STOPPED": "Il ponte è stato fermato.",
+        "DISCONNECTED": "Il ponte è terminato con la connessione.",
+        "LINK_LOST": "Il collegamento si è perso, quindi il ponte è terminato.",
+        "ARMED": "Il veicolo si è armato, quindi il ponte è terminato.",
+        "LISTEN_FAILED": "La porta locale ha smesso di funzionare, quindi il ponte è terminato.",
+        "other": "Il ponte è terminato."
+      }
     },
     "serial": {
       "summary": "A cosa serve ogni porta seriale della scheda e a che velocità parla.",
