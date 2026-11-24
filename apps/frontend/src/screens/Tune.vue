@@ -2,8 +2,10 @@
   <section class="tune" :aria-labelledby="`${uid}-title`">
     <h2 :id="`${uid}-title`" class="visually-hidden">{{ t('screen.tune') }}</h2>
     <!-- While the vehicle is armed this stays (tuning is done in flight, and what is written applies at once). The arming and
-         the disarming are announced once, politely, by the status below. -->
-    <Banner v-if="armed" id="tune-armed" tone="warn">{{ t('tune.armed') }}</Banner>
+         the disarming are announced once, politely, by the status below (so the banner is not a live region of its own). Its
+         line is always kept: the tabs and what is tuned below them never move when the vehicle arms, or a heartbeat is late in
+         flight (#562). -->
+    <Banner id="tune-armed" tone="warn" :empty="!armed" :room="[t('tune.armed')]" role="presentation">{{ armedText }}</Banner>
     <p id="tune-armed-status" class="visually-hidden" role="status">{{ announcement }}</p>
     <SectionNav :label="t('tune.sections')" :sections="tabs" />
     <!-- Which part was chosen, said politely (a screen reader hears no change when only the part under the tabs is another). -->
@@ -44,6 +46,8 @@ const tabs = computed(() => sections.map(section => ({
 
 /** Whether the vehicle is known to be armed (a state that is not known is not said to be armed: the panels say so). */
 const armed = computed(() => armedOf(handle.fields.telemetry.value) === true)
+/** What the banner says: that changes apply in flight while armed, nothing otherwise (its line is kept either way). */
+const armedText = computed(() => (armed.value ? t('tune.armed') : ''))
 
 /** Said when the vehicle arms or disarms, and nothing before the first change: empty until then (a change, not an insertion). */
 const announcement = ref('')

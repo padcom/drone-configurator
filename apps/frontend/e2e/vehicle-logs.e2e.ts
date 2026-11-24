@@ -75,12 +75,12 @@ async function waitForOutcome(pattern: string): Promise<void> {
   await window().waitFor(`/^${pattern}/.test(document.querySelector('${OUTCOME}')?.textContent ?? '')`, DOWNLOAD_MS)
 }
 
-/** The page knows the vehicle is disarmed: nothing blocks a download (and the warning above the list is gone). */
-const UNBLOCKED = `document.querySelector('#logs-blocked') === null`
+/** The page knows the vehicle is disarmed: nothing blocks a download (the warning's line above the list is empty). */
+const UNBLOCKED = `document.querySelector('#logs-blocked')?.classList.contains('empty') === true`
 
 /**
  * Waits until nothing blocks a download (the vehicle's state can be unknown for a moment while the backend reads, and the warning
- * that says so comes and goes above the toolbar, moving it).
+ * that says so comes and goes above the toolbar, in a line of its own that is always kept: #562).
  */
 async function whenUnblocked(): Promise<void> {
   await window().waitFor(UNBLOCKED, 30_000)
