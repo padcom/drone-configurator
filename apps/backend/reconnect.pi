@@ -37,14 +37,14 @@ export function delayBefore(attempt: int): int {
   return delays[if (attempt <= delays.length) attempt - 1 else delays.length - 1]
 }
 
-/// Whether any link of the router is up. The router keeps the links of failed tries (it cannot remove one), so they
+/// Whether any link of the router that goes to the vehicle is up (an endpoint of the forwarding is not one). The router keeps the links of failed tries (it cannot remove one), so they
 /// pile up over a long outage: the newest is looked at first (`linkInfo()` lists the links in the order they were added),
 /// and while the session is connected it is the one that is up, so the walk stops at once. (The list itself is still
 /// built on each look, every 250 ms: the router has no way to ask for one link.)
 function anyLinkUp(router: MavLinkRouter): bool {
   const infos = router.linkInfo()
   for (let i = infos.length - 1; i >= 0; i--) {
-    if (infos[i].up) {
+    if (infos[i].up && !link.forwardLinks.includes(infos[i].id)) {
       return true
     }
   }

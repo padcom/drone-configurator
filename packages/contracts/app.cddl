@@ -284,6 +284,31 @@ services = {
   ; Deletes every tile of the cache (only the app's own tiles folder; links in it are removed, never followed).
   "map.clear": ["method", null, map-cleared],
   "map.status": ["event", map-status],
+  ; Recording every connection (#30): from the moment a link is opened until the session ends (a link that drops and comes back
+  ; stays in the same recording), every whole, checked MAVLink frame both ways is written to a `.tlog` (an 8-byte big-endian
+  ; time in microseconds since 1970, then the frame) in the recordings folder, at most a second or 16 KiB behind. It is named
+  ; for when it started, in local time: `YYYY-MM-DD_HH-MM-SS.tlog` while it is made, `YYYY-MM-DD_HH-MM-SS-CCCCCCCC.tlog` (the CRC-32
+  ; of its bytes) once it ended; it is in the library as `recorded/<name>` (`logs.local.list`). What the backend does is set by
+  ; the settings document, read at each connection (`ui` entries `recording.enabled` "true"/"false", default on;
+  ; `recording.folder`, default "" for `<data>/recordings`; `recording.limitMb`, default 2000, "0" for none). When the recordings
+  ; in the folder would hold more than the limit, the oldest are removed (never the one being made), and `removed` says how many.
+  ; A recording that cannot be written (a full disk, a write error, a folder that cannot be made, or the one being made reaching
+  ; the limit by itself) stops, and `failure` says why: the link carries on. `recording.changed` is sent when anything here
+  ; changes (the bytes at most once a second); `recording.dismiss` forgets the failure that is shown.
+  "recording.state": ["method", null, recording-state],
+  "recording.dismiss": ["method", null, recording-state],
+  "recording.changed": ["event", recording-state],
+  ; Forwarding the vehicle's MAVLink to other programs (#34). Which programs is the settings document's `ui` entry
+  ; `forward.endpoints`, which the backend reads itself (when a vehicle connects, and after every `settings.set`): a JSON array of
+  ; `{ "kind": "udp" | "tcp", "host": text, "port": 1-65535, "on": bool }`, at most 16, none by default (forwarding is off). While a
+  ; vehicle is connected, every frame it sends goes to each endpoint that is on, and what an endpoint sends goes to the vehicle (and
+  ; on to the other endpoints when it is a broadcast), by MAVLink's routing rules. A UDP endpoint is sent to from a port of the
+  ; backend's own, and what comes back to that port is taken; a TCP endpoint is connected to, and tried again every 2 s while it
+  ; refuses or after it closes. Each endpoint has its own queue of 256 frames: when it is full (the program reads too slowly, or a
+  ; TCP connection has stalled) the frames for THAT endpoint are dropped and counted, and the vehicle's link is never held up.
+  ; `forward.status` gives every configured endpoint, in the settings' order, at once and then whenever something changes (at most
+  ; twice a second while frames flow).
+  "forward.status": ["subscription", null, forward-status],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
@@ -482,6 +507,11 @@ local-log = {
   ; imported, `verified` in the summary means only that the copy still has that CRC, and nothing is known of where the file
   ; came from ("imported, not checked against a vehicle").
   source: "dataflash" / "tlog",
+  ; A recording this app made of a connection (`recording.state`, key `recorded/<name>`, source `tlog`): `started` is when it
+  ; began (ms since 1970), `live` that it is being made now. It is `verified` once it ended (its CRC-32 is in its name); one that
+  ; did not end (the app stopped during it) is closed when the next recording starts.
+  ? started: uint .size 8,
+  ? live: bool,
   ? summary: local-log-summary,
 }
 
@@ -1372,6 +1402,25 @@ map-status = { state: map-state, ? reason: tstr, ? retryAfterMs: uint .size 4 }
 
 map-cleared = { files: uint .size 4, bytes: uint .size 8 }
 
+; An endpoint of the forwarding (see `forward.status`) and what it is doing: "off" (it is turned off), "idle" (no vehicle is
+; connected), "connecting" (a TCP connection is being made), "up" (frames go to it), "refused" (the program refused the connection,
+; closed it, or a send failed: `error` says how; a TCP endpoint is tried again), "dropping" (it is up, and frames for it were dropped
+; in the last 2 s because its queue was full). `sent` and `dropped` count the frames for it, `received` the chunks it sent, since
+; the vehicle connected (or it was turned on).
+forward-kind = "udp" / "tcp"
+forward-state = "off" / "idle" / "connecting" / "up" / "refused" / "dropping"
+forward-endpoint = {
+  kind: forward-kind,
+  host: tstr,
+  port: uint .size 2,
+  on: bool,
+  state: forward-state,
+  sent: uint .size 4,
+  dropped: uint .size 4,
+  received: uint .size 4,
+  ? error: tstr,
+}
+forward-status = { endpoints: [* forward-endpoint] }
 ; The quality of the link to the vehicle over the last few seconds (`windowMs`, up to 5000 ms: less just after connecting).
 ; `received` packets arrived in the window, and the gaps in their sequence numbers say `lost` more were sent and never arrived
 ; (counted per sender; a sequence number seen twice in a row is a duplicate, not a loss). `rxRate` and `txRate` are packets a
@@ -1391,3 +1440,23 @@ link-stats = {
   totalReceived: uint .size 4,
   totalLost: uint .size 4,
 }
+
+; What the recording of the connections is doing (`recording.state`). `folder` is the folder in use (the setting, or the default),
+; `limitMb` the limit (0: none). `key` and `path` name the recording being made, `bytes` what it holds so far (0 when none is
+; made). `removed` and `removedBytes` count the recordings removed for the limit since the app started.
+recording-state = {
+  enabled: bool,
+  folder: tstr,
+  limitMb: uint .size 4,
+  ? key: tstr,
+  ? path: tstr,
+  bytes: uint .size 8,
+  ? failure: recording-failure,
+  removed: uint .size 4,
+  removedBytes: uint .size 8,
+}
+
+; Why the recording stopped: `disk-full` (the disk has no room), `write-failed` (another error of the disk), `no-folder` (the folder
+; cannot be made or used), `limit` (the recording being made reached the limit by itself). `message` is in English, for people.
+recording-failure = { code: recording-failure-code, message: tstr }
+recording-failure-code = "disk-full" / "write-failed" / "no-folder" / "limit"

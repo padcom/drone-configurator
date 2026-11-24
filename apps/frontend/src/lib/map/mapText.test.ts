@@ -49,5 +49,9 @@ it('says why tiles are missing: none kept offline, the backend\'s reason, and no
     expect(chipOf({ ...FINE, problems: [code] }, say)).toBe(`map.chip.code.${code}`)
   }
   expect(chipOf({ ...FINE, problems: ['SOMETHING_NEW'] }, say)).toBe('map.chip.generic')
+  // (a time-out while other tiles are drawn is a hole that is asked for again, not a map without tiles; a code with a sentence
+  // of its own keeps it)
+  expect(chipOf({ ...FINE, problems: ['TIMEOUT'], someDrawn: true }, say)).toBe('map.chip.someFailed')
+  expect(chipOf({ ...FINE, problems: ['RATE_LIMITED'], someDrawn: true }, say)).toBe('map.chip.code.RATE_LIMITED')
   expect(chipOf({ ...FINE, offline: true }, say)).toBe('map.chip.offline')
 })

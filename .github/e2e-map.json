@@ -5,6 +5,13 @@
   "entries": [
     {
       "when": [
+        "apps/frontend/src/components/settings/RecordingSettings.vue", "apps/frontend/src/components/shell/RecordingNotice.vue",
+        "apps/frontend/src/lib/recording/**", "apps/frontend/src/composables/useRecording.ts", "apps/backend/{recording,locallogs,connection}.pi"
+      ],
+      "specs": ["recording.e2e.ts", "sitl-recording.e2e.ts", "tlog-import.e2e.ts", "shell.e2e.ts"]
+    },
+    {
+      "when": [
         "apps/frontend/src/components/params/**", "apps/frontend/src/components/fields/**", "apps/frontend/src/lib/params/**",
         "apps/frontend/src/composables/{useParam*,useStaged,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
         "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,paramcache,groups,files,settings,tuning}.pi"
@@ -104,6 +111,14 @@
         "apps/frontend/src/components/ui/Toggle.vue"
       ],
       "specs": ["language.e2e.ts", "i18n.e2e.ts", "metadata-autoload.e2e.ts", "switch-label.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/frontend/src/components/settings/ForwardSettings.vue", "apps/frontend/src/composables/useForwarding.ts",
+        "apps/frontend/src/lib/forward/**", "apps/frontend/src/screens/Settings.vue", "apps/frontend/e2e/forward-station.ts",
+        "apps/backend/{forward,connection,reconnect,settings}.pi"
+      ],
+      "specs": ["forward.e2e.ts", "sitl-forward.e2e.ts"]
     },
     {
       "when": [

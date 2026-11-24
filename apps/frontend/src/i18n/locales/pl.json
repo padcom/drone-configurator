@@ -101,6 +101,13 @@
       "stateImportedChanged": "Zaimportowany, kopia zmieniona od importu",
       "importedMark": "Zaimportowany, niesprawdzony względem pojazdu. Wartości są takie, jakie zapisał program, który utworzył plik.",
       "notVerifiedImported": "Ta kopia nie jest plikiem, który zaimportowano (jej suma kontrolna się zmieniła): nic z niej nie bierzemy. Otwórz plik logu ponownie.",
+      "recordedRow": "Nagranie {time}",
+      "recordedHeading": "Nagranie z {time}",
+      "recordedMark": "Nagrane przez tę aplikację z łącza z pojazdem. Wartości są takie, jak wysłał je pojazd.",
+      "notVerifiedRecorded": "To nagranie nie zostało zakończone (trwa albo aplikacja została zamknięta w jego trakcie): na razie nic z niego nie jest brane. Zostanie zamknięte, gdy zacznie się następne nagranie.",
+      "stateRecording": "Trwa nagrywanie",
+      "stateRecorded": "Nagrane, plik nienaruszony",
+      "stateRecordedUnfinished": "Nagrane, niezakończone lub zmienione później",
       "reportRead": "Odczytane rekordy: {records}. Pominięto: {skipped} bajtów uszkodzeń, {crc} ramek z błędną sumą kontrolną, {unknown} ramek typów wiadomości nieznanych tej aplikacji.",
       "reportSegments": "Odcinki czasu w nagraniu: {count}. Przerwa lub cofnięcie zegara zaczyna nowy.",
       "reportCutEnd": "Plik kończy się w środku rekordu. Tak kończy się nagranie, które zostało przerwane (utrata zasilania, zamknięty program): to nie jest uszkodzenie.",
@@ -699,6 +706,7 @@
       "unavailable": "Kafelki mapy są niedostępne: {reason}",
       "backingOffPlain": "Kafelki mapy są wstrzymane na jakiś czas po kłopotach z serwerem kafelków.",
       "generic": "Kafelki mapy są niedostępne.",
+      "someFailed": "Część kafelków mapy się nie wczytała; za chwilę zostaną pobrane ponownie.",
       "code": {
         "BAD_REQUEST": "Adres źródła kafelków jest nieużyteczny.",
         "TOO_BIG": "Serwer kafelków przysłał zbyt duży kafelek.",
@@ -894,7 +902,33 @@
     "stop": "Awaryjne zatrzymanie",
     "current": "teraz"
   },
+  "recording": {
+    "stopped": "Nagrywanie telemetrii zatrzymane: {reason}.",
+    "linkCarriesOn": "Łącze z pojazdem działa dalej.",
+    "failure": { "disk-full": "dysk jest pełny", "write-failed": "nie udało się zapisać pliku", "no-folder": "nie można użyć folderu", "limit": "samo nagranie osiągnęło limit rozmiaru" },
+    "next": { "disk-full": "Zwolnij miejsce albo wybierz inny folder w Ustawieniach.", "write-failed": "Sprawdź folder w Ustawieniach i połącz się ponownie.", "no-folder": "Wybierz w Ustawieniach folder, do którego można zapisywać.", "limit": "Zwiększ limit w Ustawieniach i połącz się ponownie." },
+    "openSettings": "Otwórz Ustawienia",
+    "removedToast": "Usunięte stare nagrania, by nie przekroczyć limitu: {count}."
+  },
   "settings": {
+    "recording": {
+      "title": "Nagrywanie",
+      "acts": "Każde połączenie jest nagrywane do logu telemetrii (tlog) nazwanego czasem rozpoczęcia. Nagrania są na liście w Logach, w sekcji Loty.",
+      "enabled": "Nagrywaj każde połączenie",
+      "enabledHelp": "Działa od następnego połączenia. Nieudane nagrywanie nigdy nie przerywa łącza.",
+      "folder": "Folder nagrań",
+      "folderHelp": "Zostaw puste, by użyć folderu danych aplikacji. Działa od następnego połączenia.",
+      "folderInUse": "Używany: {path}. Zostaw puste, by użyć folderu danych aplikacji. Działa od następnego połączenia.",
+      "limit": "Limit wszystkich nagrań",
+      "limitHelp": "Gdy nagrania zajęłyby więcej, najstarsze są usuwane. Bieżące nagranie nigdy nie jest usuwane.",
+      "noLimit": "Bez limitu",
+      "now": "Nagrywanie do {file}: dotąd {size}.",
+      "off": "Brak nagrywania: wyłączone.",
+      "idle": "Nagrywanie zacznie się przy następnym połączeniu.",
+      "recording": "Trwa nagrywanie.",
+      "failed": "Nagrywanie zatrzymane.",
+      "removed": "Stare nagrania usunięte od uruchomienia aplikacji, by nie przekroczyć limitu: {count} ({size})."
+    },
     "metadata": {
       "title": "Metadane parametrów",
       "path": "Plik metadanych",
@@ -960,6 +994,36 @@
       "never": "Nigdy",
       "noLimit": "Bez limitu",
       "days": "Dni: {days}"
+    },
+    "forward": {
+      "title": "Przekazywanie MAVLink",
+      "help": "Wysyła wszystko, co mówi pojazd, do innych programów (drugiej stacji naziemnej, rejestratora), a to, co one odsyłają, do pojazdu. Nic nie jest przekazywane, dopóki nie dodasz programu. Wolny program nigdy nie wstrzymuje pojazdu: to, czego nie przyjmie, jest odrzucane i liczone.",
+      "none": "Brak programów. Nic nie jest przekazywane.",
+      "on": "Przekazuj",
+      "onFor": "Przekazuj do {name}",
+      "remove": "Usuń",
+      "removeFor": "Usuń {name}",
+      "addTitle": "Dodaj program",
+      "kind": "Protokół",
+      "host": "Host",
+      "port": "Port",
+      "add": "Dodaj",
+      "counts": "Wysłano {sent} · odrzucono {dropped} · odebrano {received}",
+      "refused": "Nieosiągalny: {reason}. Program TCP jest próbowany ponownie co 2 s.",
+      "states": {
+        "off": "Wyłączony",
+        "idle": "Czeka na pojazd",
+        "connecting": "Łączenie",
+        "up": "Działa",
+        "refused": "Odrzucony",
+        "dropping": "Odrzuca: za wolny"
+      },
+      "problems": {
+        "host": "Wpisz nazwę hosta lub adres, bez spacji.",
+        "port": "Wpisz port od 1 do 65535.",
+        "duplicate": "Ten program jest już na liście.",
+        "full": "Może być najwyżej {max} programów. Najpierw usuń jeden."
+      }
     },
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
   },

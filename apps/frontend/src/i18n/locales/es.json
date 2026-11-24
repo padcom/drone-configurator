@@ -101,6 +101,13 @@
       "stateImportedChanged": "Importado, copia modificada desde entonces",
       "importedMark": "Importado, no comprobado con un vehículo. Los valores son los que registró el programa que escribió el archivo.",
       "notVerifiedImported": "Esta copia no es el archivo que se importó (su suma de comprobación cambió): no se toma nada de ella. Abre el archivo de registro otra vez.",
+      "recordedRow": "Grabado {time}",
+      "recordedHeading": "Grabación del {time}",
+      "recordedMark": "Grabado por esta aplicación desde el enlace con el vehículo. Los valores son los que envió el vehículo.",
+      "notVerifiedRecorded": "Esta grabación no ha terminado (se está haciendo, o la aplicación se cerró durante ella): todavía no se toma nada de ella. Se cierra cuando empieza la siguiente grabación.",
+      "stateRecording": "Grabando ahora",
+      "stateRecorded": "Grabado, archivo intacto",
+      "stateRecordedUnfinished": "Grabado, sin terminar o cambiado después",
       "reportRead": "Registros leídos: {records}. Omitidos: {skipped} bytes dañados, {crc} tramas con suma de comprobación errónea, {unknown} tramas de tipos de mensaje que esta aplicación no conoce.",
       "reportSegments": "Tramos de tiempo en la grabación: {count}. Un hueco o un salto atrás del reloj empieza uno nuevo.",
       "reportCutEnd": "El archivo termina en mitad de un registro. Así acaba una grabación que se cortó (corte de corriente, programa cerrado): no es un daño.",
@@ -699,6 +706,7 @@
       "unavailable": "Las teselas del mapa no están disponibles: {reason}",
       "backingOffPlain": "Las teselas del mapa están en pausa un tiempo por problemas con el servidor.",
       "generic": "Las teselas del mapa no están disponibles.",
+      "someFailed": "Algunas teselas del mapa no se cargaron; se volverán a pedir en breve.",
       "code": {
         "BAD_REQUEST": "La dirección de la fuente de teselas no se puede usar.",
         "TOO_BIG": "El servidor envió una tesela demasiado grande.",
@@ -894,7 +902,33 @@
     "stop": "Parada de emergencia",
     "current": "ahora"
   },
+  "recording": {
+    "stopped": "La grabación de telemetría se detuvo: {reason}.",
+    "linkCarriesOn": "El enlace con el vehículo sigue activo.",
+    "failure": { "disk-full": "el disco está lleno", "write-failed": "no se pudo escribir el archivo", "no-folder": "no se puede usar la carpeta", "limit": "la grabación alcanzó por sí sola el límite de tamaño" },
+    "next": { "disk-full": "Libere espacio o elija otra carpeta en Ajustes.", "write-failed": "Revise la carpeta en Ajustes y vuelva a conectar.", "no-folder": "Elija en Ajustes una carpeta en la que se pueda escribir.", "limit": "Suba el límite en Ajustes y vuelva a conectar." },
+    "openSettings": "Abrir Ajustes",
+    "removedToast": "Grabaciones antiguas eliminadas para no pasar del límite: {count}."
+  },
   "settings": {
+    "recording": {
+      "title": "Grabación",
+      "acts": "Cada conexión se graba en un registro de telemetría (tlog), con el nombre de cuándo empezó. Las grabaciones aparecen en Registros, en Vuelos.",
+      "enabled": "Grabar cada conexión",
+      "enabledHelp": "Se aplica desde la siguiente conexión. Una grabación que falla nunca detiene el enlace.",
+      "folder": "Carpeta de grabaciones",
+      "folderHelp": "Déjela vacía para usar la carpeta de datos de la aplicación. Se aplica desde la siguiente conexión.",
+      "folderInUse": "En uso: {path}. Déjela vacía para usar la carpeta de datos de la aplicación. Se aplica desde la siguiente conexión.",
+      "limit": "Límite de todas las grabaciones",
+      "limitHelp": "Si las grabaciones ocuparan más, se eliminan las más antiguas. La que se está haciendo nunca se elimina.",
+      "noLimit": "Sin límite",
+      "now": "Grabando en {file}: {size} hasta ahora.",
+      "off": "No se graba: está desactivado.",
+      "idle": "La grabación empieza con la siguiente conexión.",
+      "recording": "Grabando.",
+      "failed": "La grabación se detuvo.",
+      "removed": "Grabaciones antiguas eliminadas para no pasar del límite desde que se abrió la aplicación: {count} ({size})."
+    },
     "metadata": {
       "title": "Metadatos de parámetros",
       "path": "Archivo de metadatos",
@@ -960,6 +994,36 @@
       "never": "Nunca",
       "noLimit": "Sin límite",
       "days": "Días: {days}"
+    },
+    "forward": {
+      "title": "Reenviar MAVLink",
+      "help": "Envía todo lo que dice el vehículo a otros programas (una segunda estación de tierra, un registrador) y lo que ellos devuelven, al vehículo. No se reenvía nada hasta que añada un programa. Un programa lento nunca retiene al vehículo: lo que no puede recibir se descarta y se cuenta.",
+      "none": "No hay programas. No se reenvía nada.",
+      "on": "Reenviar",
+      "onFor": "Reenviar a {name}",
+      "remove": "Quitar",
+      "removeFor": "Quitar {name}",
+      "addTitle": "Añadir un programa",
+      "kind": "Protocolo",
+      "host": "Host",
+      "port": "Puerto",
+      "add": "Añadir",
+      "counts": "Enviados {sent} · descartados {dropped} · recibidos {received}",
+      "refused": "No se alcanzó: {reason}. Un programa TCP se vuelve a intentar cada 2 s.",
+      "states": {
+        "off": "Apagado",
+        "idle": "Espera un vehículo",
+        "connecting": "Conectando",
+        "up": "Activo",
+        "refused": "Rechazado",
+        "dropping": "Descartando: demasiado lento"
+      },
+      "problems": {
+        "host": "Escriba un nombre de host o una dirección, sin espacios.",
+        "port": "Escriba un puerto de 1 a 65535.",
+        "duplicate": "Este programa ya está en la lista.",
+        "full": "Puede haber como máximo {max} programas. Quite uno primero."
+      }
     },
     "more": "Las unidades, el mapa y los valores predeterminados del vehículo llegarán con sus pantallas."
   },

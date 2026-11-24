@@ -7,6 +7,7 @@ import { register as registerArming } from "./arming"
 import { register as registerCalibration } from "./calibration"
 import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
+import { register as registerForward } from "./forward"
 import { register as registerLinkStats } from "./linkstats"
 import { register as registerLogs } from "./logs"
 import { register as registerLogHousekeeping } from "./loghousekeeping"
@@ -24,6 +25,7 @@ import { register as registerMissions } from "./missions"
 import { register as registerMotors } from "./motors"
 import { register as registerParams } from "./params"
 import { register as registerReboot } from "./reboot"
+import { register as registerRecording } from "./recording"
 import { register as registerSerial } from "./serial"
 import { link } from "./session"
 import { register as registerSettings } from "./settings"
@@ -58,6 +60,7 @@ export function createBackend(transport: Transport): Communicator {
   // flight), so nothing keeps this process alive past the host's grace period.
   c.onClosing = () => link.close()
   registerConnection(c)
+  registerForward(c)
   registerParams(c)
   registerReboot(c)
   registerArming(c)
@@ -83,5 +86,6 @@ export function createBackend(transport: Transport): Communicator {
   registerFiles(c)
   registerSerial(c)
   registerSettings(c)
+  registerRecording(c)
   return c
 }
