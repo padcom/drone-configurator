@@ -1,0 +1,618 @@
+// Forwarding the vehicle's MAVLink to other programs (#34): a second ground station, a logger, a companion tool on this computer
+// or on the network.
+//
+// Which programs is the settings' `ui` entry `forward.endpoints` (see the contract's `forward.status`): a JSON array of endpoints,
+// each UDP or TCP, a host and a port, and on or off. None by default, so nothing is forwarded until the user adds one.
+//
+// Each endpoint that is on becomes one more link of the session's router (pico-mavlink's `MavLinkRouter`, made with `forward`), so
+// MAVLink's routing rules decide what goes where: what the vehicle sends goes to every endpoint, what an endpoint sends goes to
+// the vehicle (and a broadcast to the other endpoints), and never back to the link it came from. The app's own connection reads
+// everything the router delivers, as before.
+//
+// An endpoint never holds the vehicle's link up: its `write` only puts the frame in the endpoint's own queue (at most `QUEUE_MAX`
+// frames) and returns at once, and a writer of its own takes the frames from there to the socket. A program that reads too slowly,
+// a TCP connection that stalls, or a host that does not answer fills that queue, and then the frames for that endpoint (and only
+// for it) are dropped and counted. A TCP endpoint that refuses or closes is tried again every `RETRY_MS`; while it is down its
+// frames are not queued (nothing would take them).
+//
+// The endpoints live as long as the session: they are made when the vehicle is identified, follow every change of the settings
+// while it is connected, and are closed when it ends. A router cannot remove a link, so an endpoint that is turned off is closed
+// (its link is down for good) and turning it on again adds a new one. The session keeps the ids of these links
+// (`link.forwardLinks`) so that the watch on the vehicle's link (reconnect.pi) does not take an endpoint for the vehicle.
+import { Cbor, Communicator, Sink } from "pico-desktop/communicator"
+import { Conn, UdpSocket, bind, connect } from "std/net"
+import { delay } from "std/timers"
+import { ByteStream, MavLinkConnection, MavLinkRouter } from "padcom/pico-mavlink"
+import { ForwardEndpoint, ForwardKind, ForwardState, ForwardStatus, encodeForwardStatus } from "./generated/app"
+import { SessionPart, link } from "./session"
+import { onSettingsChanged, uiValue } from "./settings"
+
+/// The settings entry that lists the endpoints.
+export const ENDPOINTS_KEY: string = "forward.endpoints"
+
+/// How many endpoints are taken from the settings (the rest are ignored).
+export const MAX_ENDPOINTS: int = 16
+
+/// How many frames wait for one endpoint at the most; past that its frames are dropped.
+export const QUEUE_MAX: int = 256
+
+/// How long after the last dropped frame an endpoint still says it is dropping (ms).
+const DROPPING_MS: int = 2000
+
+/// How long a TCP endpoint waits before it tries again (ms).
+const RETRY_MS: int = 2000
+
+/// How often the subscribers are told what changed, at the most (ms).
+const TICK_MS: int = 500
+
+/// What a slot of the queue holds once its frame was taken.
+const EMPTY: Uint8Array = new Uint8Array(0)
+
+/// One endpoint as the settings keep it.
+export struct EndpointSetting {
+  kind: string
+  host: string
+  port: int
+  on: bool
+}
+
+/// The endpoints in the settings' text, in order: the ones that make sense (a kind of "udp" or "tcp", a host, a port of 1 to
+/// 65535), at most `MAX_ENDPOINTS`. Text that is not such a list is no endpoints at all.
+export function parseEndpoints(text: string?): EndpointSetting[] {
+  if (text == null) {
+    return []
+  }
+  let all: EndpointSetting[] = []
+  try {
+    all = JSON.parse<EndpointSetting[]>(text!)
+  } catch (e: Error) {
+    return []
+  }
+  const out: EndpointSetting[] = []
+  for (const e of all) {
+    if (out.length < MAX_ENDPOINTS && usable(e)) {
+      out.push(e)
+    }
+  }
+  return out
+}
+
+function usable(e: EndpointSetting): bool {
+  return (e.kind == "udp" || e.kind == "tcp") && e.host.length > 0 && e.host.length <= 253 && e.port >= 1 && e.port <= 65535
+}
+
+/// What tells one endpoint from another.
+export function keyOf(e: EndpointSetting): string {
+  return `${e.kind}:${e.host}:${e.port}`
+}
+
+/// Whether a host is this computer: a UDP endpoint there is sent to from a socket only this computer can reach.
+function local(host: string): bool {
+  return host == "localhost" || host.startsWith("127.") || host == "::1"
+}
+
+/// An endpoint: a byte stream for the router, with a queue of its own in front of the socket.
+export class Endpoint implements ByteStream {
+  public readonly setting: EndpointSetting
+  public state: ForwardState = ForwardState.Connecting
+  public error: string? = null
+  public sent: int = 0
+  public dropped: int = 0
+  public received: int = 0
+  /// When a frame for it was last dropped (ms since 1970; 0: never).
+  public droppedAt: int = 0
+  closed: bool = false
+  tcp: Conn? = null
+  udp: UdpSocket? = null
+  queue: Uint8Array[] = []
+  head: int = 0
+  /// The writer, while it waits for a frame or a socket.
+  writerWaits: ((value: bool) => void)? = null
+  /// The reader, while it waits for a socket.
+  readerWaits: ((value: bool) => void)? = null
+  /// Aborted when it is closed: the wait before a new try ends at once.
+  readonly stop: AbortController = new AbortController()
+
+  constructor(setting: EndpointSetting) {
+    this.setting = setting
+  }
+
+  /// Opens the socket (and keeps a TCP endpoint connected), and starts the writer.
+  public start(): void {
+    if (setting.kind == "udp") {
+      openUdp()
+    } else {
+      keepConnected()
+    }
+    pumpOut()
+  }
+
+  /// How many frames wait to be sent.
+  public queued(): int {
+    return queue.length - head
+  }
+
+  /// Whether frames can go now.
+  public up(): bool {
+    return !closed && (tcp != null || udp != null)
+  }
+
+  /// Takes a frame for the endpoint: queued, or dropped and counted when the queue is full. Never waits.
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    if (up()) {
+      if (queued() >= QUEUE_MAX) {
+        dropped += 1
+        droppedAt = Date.now() as int
+      } else {
+        queue.push(bytes)
+        wakeWriter()
+      }
+    }
+  }
+
+  /// What the endpoint sends, as it comes; null once it is closed.
+  public async read(): Promise<Uint8Array?> throws Error {
+    while (!closed) {
+      const c = tcp
+      const u = udp
+      if (c != null) {
+        const chunk = await readTcp(c!)
+        if (chunk != null) {
+          return chunk
+        }
+      } else if (u != null) {
+        const chunk = await readUdp(u!)
+        if (chunk != null) {
+          return chunk
+        }
+      } else {
+        const _woken = await waitForReader()
+      }
+    }
+    return null
+  }
+
+  /// Closes it: the socket, the writer, the tries. What was queued is not sent.
+  public close(): void {
+    if (closed) {
+      return
+    }
+    closed = true
+    stop.abort()
+    queue = []
+    head = 0
+    drop()
+    wakeWriter()
+    wakeReader()
+  }
+
+  async readTcp(c: Conn): Promise<Uint8Array?> {
+    try {
+      const chunk = await c.read()
+      if (chunk != null) {
+        received += 1
+        return chunk
+      }
+    } catch (e: Error) {
+      lost(c, e.message)
+      return null
+    }
+    lost(c, "the program closed the connection")
+    return null
+  }
+
+  /// A datagram from the endpoint's port (another sender is not the program the user named, and is ignored).
+  async readUdp(u: UdpSocket): Promise<Uint8Array?> {
+    try {
+      const d = await u.receive()
+      if (d == null) {
+        udp = null
+        return null
+      }
+      if (d!.addr.port != setting.port) {
+        return null
+      }
+      received += 1
+      return d!.data
+    } catch (e: Error) {
+      refused(e.message)
+      return null
+    }
+  }
+
+  async openUdp(): Promise<void> {
+    try {
+      const socket = await bind(0, if (local(setting.host)) "127.0.0.1" else "0.0.0.0")
+      if (closed) {
+        socket.close()
+        return
+      }
+      udp = socket
+      state = ForwardState.Up
+      wakeReader()
+      wakeWriter()
+    } catch (e: Error) {
+      refused(e.message)
+    }
+  }
+
+  /// Connects, and again every `RETRY_MS` after a refusal or after the connection ended, until it is closed.
+  async keepConnected(): Promise<void> {
+    while (!closed) {
+      if (tcp == null) {
+        state = ForwardState.Connecting
+        try {
+          const c = await connect(setting.port, setting.host)
+          if (closed) {
+            c.close()
+            return
+          }
+          tcp = c
+          state = ForwardState.Up
+          error = null
+          wakeReader()
+          wakeWriter()
+        } catch (e: Error) {
+          refused(e.message)
+        }
+      }
+      try {
+        await delay(RETRY_MS, stop.signal)
+      } catch (e: Error) {
+        return
+      }
+    }
+  }
+
+  /// Resolves when the writer is woken (a frame, a socket, the end).
+  waitForWriter(): Promise<bool, Error> {
+    new Promise<bool, Error>((resolve: (value: bool) => void, _reject: (error: Error) => void) => {
+      this.writerWaits = resolve
+    })
+  }
+
+  /// Resolves when the reader is woken (a socket, the end).
+  waitForReader(): Promise<bool, Error> {
+    new Promise<bool, Error>((resolve: (value: bool) => void, _reject: (error: Error) => void) => {
+      this.readerWaits = resolve
+    })
+  }
+
+  /// Sends what is queued, one frame at a time, for as long as it is open.
+  async pumpOut(): Promise<void> throws Error {
+    while (!closed) {
+      if (queued() == 0 || !up()) {
+        const _woken = await waitForWriter()
+      } else {
+        const frame = queue[head]
+        queue[head] = EMPTY
+        head += 1
+        if (head == queue.length) {
+          queue = []
+          head = 0
+        }
+        await send(frame)
+      }
+    }
+  }
+
+  async send(frame: Uint8Array): Promise<void> {
+    const c = tcp
+    const u = udp
+    try {
+      if (c != null) {
+        await c!.write(frame)
+      } else if (u != null) {
+        await u!.send(frame, setting.port, setting.host)
+      } else {
+        return
+      }
+      sent += 1
+      if (state == ForwardState.Refused && !closed) {
+        state = ForwardState.Up
+        error = null
+      }
+    } catch (e: Error) {
+      if (c != null) {
+        lost(c!, e.message)
+      } else {
+        refused(e.message)
+      }
+    }
+  }
+
+  /// The TCP connection `c` ended (if it is still the one): what was queued for it goes, and a new one is tried.
+  lost(c: Conn, why: string): void {
+    if (tcp == null || closed) {
+      return
+    }
+    refused(why)
+    drop()
+  }
+
+  refused(why: string): void {
+    if (closed) {
+      return
+    }
+    state = ForwardState.Refused
+    error = why
+  }
+
+  /// Lets go of the socket and of what was queued for it.
+  drop(): void {
+    const c = tcp
+    tcp = null
+    if (c != null) {
+      c!.close()
+    }
+    const u = udp
+    udp = null
+    if (u != null) {
+      u!.close()
+    }
+    queue = []
+    head = 0
+  }
+
+  wakeWriter(): void {
+    const w = writerWaits
+    if (w != null) {
+      writerWaits = null
+      w!(true)
+    }
+  }
+
+  wakeReader(): void {
+    const w = readerWaits
+    if (w != null) {
+      readerWaits = null
+      w!(true)
+    }
+  }
+
+  /// What it is doing now.
+  public stateNow(): ForwardState {
+    if (state == ForwardState.Up && droppedAt > 0 && (Date.now() as int) - droppedAt < DROPPING_MS) {
+      return ForwardState.Dropping
+    }
+    return state
+  }
+}
+
+/// The forwarding: the endpoints the settings name, the ones running on the session's router, and who is listening.
+class Forwarding implements SessionPart {
+  public settings: EndpointSetting[] = []
+  /// The endpoints running on the router, by key.
+  public running: Map<string, Endpoint> = new Map<string, Endpoint>()
+  public router: MavLinkRouter? = null
+  public sinks: Sink[] = []
+  /// What the subscribers were told last.
+  public told: string = ""
+  public ticking: bool = false
+  /// Whether the settings are being read, and whether they changed meanwhile (they are read again then).
+  public busy: bool = false
+  public again: bool = false
+
+  /// The vehicle is identified: the endpoints are added to its router.
+  public attach(_c: MavLinkConnection): void {
+    const r = link.router
+    if (r == null || r == router) {
+      return
+    }
+    closeAll()
+    router = r
+    follow()
+  }
+
+  /// The session is over: the endpoints are closed.
+  public detach(): void {
+    router = null
+    closeAll()
+    tell()
+  }
+
+  closeAll(): void {
+    for (const e of running.values()) {
+      e.close()
+    }
+    running.clear()
+    link.forwardLinks = []
+  }
+
+  /// Reads the settings and makes the running endpoints what they say (again, when they change while it reads).
+  public async follow(): Promise<void> {
+    if (busy) {
+      again = true
+      return
+    }
+    busy = true
+    try {
+      again = false
+      settings = parseEndpoints(await uiValue(ENDPOINTS_KEY))
+      apply()
+    } catch (e: Error) {
+      // The settings cannot be read: the endpoints stay as they are.
+    }
+    busy = false
+    tell()
+    if (sinks.length > 0 && running.size > 0) {
+      tick()
+    }
+    if (again) {
+      follow()
+    }
+  }
+
+  /// Closes the endpoints that are not wanted any more, and starts the ones that are and are not running.
+  apply(): void {
+    const wanted = new Map<string, bool>()
+    for (const s of settings) {
+      if (s.on) {
+        wanted.set(keyOf(s), true)
+      }
+    }
+    const gone: string[] = []
+    for (const [key, e] of running) {
+      if (!wanted.has(key) || router == null) {
+        e.close()
+        gone.push(key)
+      }
+    }
+    for (const key of gone) {
+      running.delete(key)
+    }
+    const r = router
+    if (r == null) {
+      return
+    }
+    for (const s of settings) {
+      if (s.on && !running.has(keyOf(s))) {
+        const e = new Endpoint(s)
+        e.start()
+        running.set(keyOf(s), e)
+        link.forwardLinks.push(r!.addLink(e))
+      }
+    }
+  }
+
+  /// Every endpoint of the settings, in their order, and what it is doing.
+  public status(): ForwardStatus {
+    const out: ForwardEndpoint[] = []
+    for (const s of settings) {
+      out.push(endpointStatus(s))
+    }
+    return ForwardStatus { endpoints: out }
+  }
+
+  endpointStatus(s: EndpointSetting): ForwardEndpoint {
+    const kind = if (s.kind == "tcp") ForwardKind.Tcp else ForwardKind.Udp
+    const e = if (s.on) running.get(keyOf(s)) else null
+    if (e == null) {
+      const state = if (!s.on) ForwardState.Off else ForwardState.Idle
+      return ForwardEndpoint { kind: kind, host: s.host, port: s.port as u16, on: s.on, state: state, sent: 0, dropped: 0, received: 0 }
+    }
+    const r = e!
+    return ForwardEndpoint {
+      kind: kind,
+      host: s.host,
+      port: s.port as u16,
+      on: s.on,
+      state: r.stateNow(),
+      sent: counter(r.sent),
+      dropped: counter(r.dropped),
+      received: counter(r.received),
+      error: if (r.stateNow() == ForwardState.Refused) r.error else null,
+    }
+  }
+
+  /// Tells the subscribers, if anything changed since they were told.
+  public tell(): void {
+    if (sinks.length == 0) {
+      return
+    }
+    const now = status()
+    const text = summaryOf(now)
+    if (text == told) {
+      return
+    }
+    told = text
+    const payload = encodeForwardStatus(now)
+    for (const s of sinks) {
+      s.next(payload)
+    }
+  }
+
+  /// Looks again every `TICK_MS` while someone listens and an endpoint runs (the counters move, a TCP endpoint comes up).
+  public tick(): void {
+    if (ticking) {
+      return
+    }
+    ticking = true
+    const _next = setTimeout(() => this.ticked(), TICK_MS)
+  }
+
+  ticked(): void {
+    ticking = false
+    tell()
+    if (sinks.length > 0 && running.size > 0) {
+      tick()
+    }
+  }
+}
+
+/// A counter as the contract carries it (32 bits, and it stops there).
+function counter(n: int): u32 {
+  if (n > 4294967295) 4294967295 as u32 else n as u32
+}
+
+function stateName(s: ForwardState): string {
+  match (s) {
+    Off => "off",
+    Idle => "idle",
+    Connecting => "connecting",
+    Up => "up",
+    Refused => "refused",
+    Dropping => "dropping",
+  }
+}
+
+/// A status in a line, to tell whether it changed.
+function summaryOf(s: ForwardStatus): string {
+  const parts: string[] = []
+  for (const e of s.endpoints) {
+    parts.push(`${e.host}:${e.port}:${e.on}:${stateName(e.state)}:${e.sent}:${e.dropped}:${e.received}:${e.error ?? ""}`)
+  }
+  return parts.join("|")
+}
+
+const forwarding = new Forwarding()
+
+/// For tests: the endpoints running now, by key.
+export function runningForTests(): Map<string, Endpoint> {
+  return forwarding.running
+}
+
+/// For tests: what `forward.status` says now (after the settings were read).
+export async function statusForTests(): Promise<ForwardStatus> throws Error {
+  await forwarding.follow()
+  while (forwarding.busy) {
+    await delay(5)
+  }
+  return forwarding.status()
+}
+
+/// Registers the subscription on `c`, the part of the session, and the watch on the settings.
+export function register(c: Communicator): void {
+  link.parts.set("forward", forwarding)
+  onSettingsChanged("forward", () => forwarding.follow())
+  c.publish("forward.status", watchForward)
+}
+
+function watchForward(_params: Cbor?, sink: Sink): void throws Error {
+  forwarding.sinks.push(sink)
+  sink.onClose = () => {
+    forwarding.sinks = forwarding.sinks.filter((w: Sink) => w.id != sink.id)
+  }
+  // The first answer is what the settings say now (read first), then every change.
+  forwarding.told = ""
+  sendFirst(sink)
+}
+
+async function sendFirst(sink: Sink): Promise<void> {
+  try {
+    await forwarding.follow()
+  } catch (e: Error) {
+    // (follow does not fail: it keeps what it had)
+  }
+  try {
+    while (forwarding.busy) {
+      await delay(5)
+    }
+  } catch (e: Error) {
+    // (a delay with no signal is not aborted)
+  }
+  const now = forwarding.status()
+  forwarding.told = summaryOf(now)
+  sink.next(encodeForwardStatus(now))
+  forwarding.tick()
+}

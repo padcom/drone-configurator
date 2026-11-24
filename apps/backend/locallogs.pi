@@ -32,6 +32,7 @@ import {
 import { IMPORTED, entryOf, hexValue } from "./importednames"
 import { DataflashReader, LogReader } from "./logreader"
 import { copyNumbers, hex8 } from "./logs"
+import { RECORDED, liveRecording, recordingNameOf, recordingsFolder } from "./recording"
 import { dataDirectory } from "./settings"
 import { TlogDecoder } from "./tlogdecoder"
 
@@ -159,6 +160,20 @@ async function root(): Promise<string> throws CommunicatorError {
   }
 }
 
+/// The recordings folder (recording.pi).
+async function folderOfRecordings(): Promise<string> throws CommunicatorError {
+  try {
+    return await recordingsFolder()
+  } catch (e: Error) {
+    throw new CommunicatorError("NO_STORAGE", `can't use the folder for recordings: ${e.message}`)
+  }
+}
+
+/// The path of the file of a key's parts (`partsOfKey`): in the recordings folder for a recording, else in the logs folder.
+async function pathOf(parts: string[]): Promise<string> throws CommunicatorError {
+  if (parts[0] == RECORDED) join(await folderOfRecordings(), parts[1]) else join(await root(), parts[0], parts[1])
+}
+
 /// The key of a log: its vehicle's folder and its file.
 export function keyOf(vehicle: string, file: string): string {
   return `${vehicle}/${file}`
@@ -171,7 +186,7 @@ export function partsOfKey(key: string): string[] {
   if (parts.length != 2 || parts[0] == "" || parts[0].startsWith(".") || parts[0].includes("\\")) {
     return []
   }
-  const named = if (parts[0] == IMPORTED) entryOf(parts[1]) != null else copyNumbers(parts[1])[0] >= 0
+  const named = if (parts[0] == IMPORTED) entryOf(parts[1]) != null else if (parts[0] == RECORDED) recordingNameOf(parts[1]) != null else copyNumbers(parts[1])[0] >= 0
   if (!named) {
     return []
   }
@@ -204,6 +219,56 @@ export function describeImported(file: string, size: int, mtime: int): LocalLog 
     log.summary = known!.summary
   }
   return log
+}
+
+/// A recording this app made (recording.pi), found in the recordings folder: its facts, when it started, whether it is the one being
+/// made, and the cached summary when the file is still the one read.
+export function describeRecorded(file: string, size: int, mtime: int): LocalLog {
+  const named = recordingNameOf(file)
+  const key = keyOf(RECORDED, file)
+  const crc = if (named == null || named!.crc < 0) "" else hex8(named!.crc)
+  const started = if (named == null || named!.started < 0) 0 else named!.started
+  const log = LocalLog {
+    key: key,
+    vehicle: RECORDED,
+    id: 0 as u32,
+    size: size as u64,
+    modified: (if (mtime < 0) 0 else mtime) as u64,
+    crc: crc,
+    source: LocalLogSource.Tlog,
+    started: started as u64,
+    live: liveRecording() == file,
+  }
+  const known = state.known.get(key)
+  if (known != null && known!.size == size && known!.mtime == mtime) {
+    log.summary = known!.summary
+  }
+  return log
+}
+
+/// The recordings in the recordings folder, put into `list`; how many files were looked at.
+async function listRecorded(list: LocalLog[]): Promise<int> {
+  let seen = 0
+  try {
+    const folder = await recordingsFolder()
+    if (!await folderExists(folder)) {
+      return 0
+    }
+    for await (const entry of readDir(folder)) {
+      if (!entry.isFile || recordingNameOf(entry.name) == null) {
+        continue
+      }
+      seen += 1
+      if (seen > MAX_LOOKED_AT) {
+        break
+      }
+      const info = await stat(join(folder, entry.name))
+      insertNewest(list, describeRecorded(entry.name, info.size, info.mtime))
+    }
+  } catch (e: Error) {
+    // A folder that cannot be read lists nothing; the recording itself says what is wrong with it.
+  }
+  return seen
 }
 
 /// A copy found in a folder: its facts, and the cached summary when the file is still the one that was read.
@@ -260,6 +325,7 @@ async function listLocal(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
       }
     }
   }
+  seen += await listRecorded(list)
   encodeLocalLogs(LocalLogs { logs: list, truncated: truncated || seen > MAX_LISTED })
 }
 
@@ -420,10 +486,15 @@ export async function locate(key: string): Promise<LogFile> throws CommunicatorE
   if (parts.length == 0) {
     throw new CommunicatorError("NOT_FOUND", "there is no such log")
   }
-  const path = join(await root(), parts[0], parts[1])
+  const recorded = parts[0] == RECORDED
+  const path = await pathOf(parts)
   const facts = await statOf(path)
   if (facts == null) {
     throw new CommunicatorError("NOT_FOUND", "there is no such log")
+  }
+  if (recorded) {
+    // (A recording that has not ended has no CRC in its name: -1 is none, and it is not verified.)
+    return new LogFile(path, facts!, recordingNameOf(parts[1])!.crc, true)
   }
   const imported = parts[0] == IMPORTED
   new LogFile(path, facts!, if (imported) hexValue(entryOf(parts[1])!.crc) else copyNumbers(parts[1])[1], imported)
@@ -434,7 +505,7 @@ export class LogFile {
   public readonly facts: FileFacts
   /// The CRC-32 in the file's name (for an imported recording: the one taken when it was imported).
   public readonly named: int
-  /// Whether it is an imported recording (a `.tlog`).
+  /// Whether it is a recording (a `.tlog`: imported, or recorded by this app).
   public readonly imported: bool
 
   constructor(path: string, facts: FileFacts, named: int, imported: bool) {
@@ -614,7 +685,7 @@ async function modesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
   if (parts.length == 0) {
     throw new CommunicatorError("NOT_FOUND", "there is no such log")
   }
-  const now = await statOf(join(await root(), parts[0], parts[1]))
+  const now = await statOf(await pathOf(parts))
   if (now == null) {
     throw new CommunicatorError("NOT_FOUND", "there is no such log")
   }

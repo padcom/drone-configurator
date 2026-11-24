@@ -105,6 +105,13 @@
       "stateImportedChanged": "Imported, copy changed since",
       "importedMark": "Imported, not checked against a vehicle. Values are as recorded by the program that wrote the file.",
       "notVerifiedImported": "This copy is not the file that was imported (its checksum has changed): nothing is taken from it. Open the log file again.",
+      "recordedRow": "Recorded {time}",
+      "recordedHeading": "Recording of {time}",
+      "recordedMark": "Recorded by this app from the link to the vehicle. Values are as the vehicle sent them.",
+      "notVerifiedRecorded": "This recording has not ended (it is being made, or the app stopped during it): nothing is taken from it yet. It is closed when the next recording starts.",
+      "stateRecording": "Recording now",
+      "stateRecorded": "Recorded, file intact",
+      "stateRecordedUnfinished": "Recorded, not ended or changed since",
       "reportRead": "Records read: {records}. Skipped: {skipped} bytes of damage, {crc} frames with a wrong checksum, {unknown} frames of message types this app does not know.",
       "reportSegments": "Stretches of time in the recording: {count}. A gap or a step back of the clock starts a new one.",
       "reportCutEnd": "The file ends in the middle of a record. That is how a recording ends when it is cut (power loss, a program closed): it is not damage.",
@@ -897,7 +904,33 @@
     "stop": "Emergency stop",
     "current": "now"
   },
+  "recording": {
+    "stopped": "Telemetry recording stopped: {reason}.",
+    "linkCarriesOn": "The link to the vehicle carries on.",
+    "failure": { "disk-full": "the disk is full", "write-failed": "the file could not be written", "no-folder": "the folder cannot be used", "limit": "the recording reached the size limit by itself" },
+    "next": { "disk-full": "Free some space, or choose another folder in Settings.", "write-failed": "Check the folder in Settings, then connect again.", "no-folder": "Choose a folder that can be written to in Settings.", "limit": "Raise the limit in Settings, then connect again." },
+    "openSettings": "Open Settings",
+    "removedToast": "Old recordings removed to stay under the limit: {count}."
+  },
   "settings": {
+    "recording": {
+      "title": "Recording",
+      "acts": "Every connection is recorded to a telemetry log (tlog), named for when it started. The recordings are listed in Logs, under Flights.",
+      "enabled": "Record every connection",
+      "enabledHelp": "Applies from the next connection. A recording that fails never stops the link.",
+      "folder": "Folder for recordings",
+      "folderHelp": "Leave empty for the app's data folder. Applies from the next connection.",
+      "folderInUse": "In use: {path}. Leave empty for the app's data folder. Applies from the next connection.",
+      "limit": "Limit for all recordings",
+      "limitHelp": "When the recordings would take more, the oldest are removed. The one being made is never removed.",
+      "noLimit": "No limit",
+      "now": "Recording to {file}: {size} so far.",
+      "off": "Not recording: turned off.",
+      "idle": "Recording starts with the next connection.",
+      "recording": "Recording.",
+      "failed": "Recording stopped.",
+      "removed": "Old recordings removed to stay under the limit since the app started: {count} ({size})."
+    },
     "metadata": {
       "title": "Parameter metadata",
       "path": "Metadata file",
@@ -963,6 +996,36 @@
       "never": "Never",
       "noLimit": "No limit",
       "days": "Days: {days}"
+    },
+    "forward": {
+      "title": "Forward MAVLink",
+      "help": "Sends everything the vehicle says to other programs (a second ground station, a logger), and what they send back to the vehicle. Nothing is forwarded until you add a program. A slow program never holds up the vehicle: what it cannot take is dropped and counted.",
+      "none": "No programs. Nothing is forwarded.",
+      "on": "Forward",
+      "onFor": "Forward to {name}",
+      "remove": "Remove",
+      "removeFor": "Remove {name}",
+      "addTitle": "Add a program",
+      "kind": "Protocol",
+      "host": "Host",
+      "port": "Port",
+      "add": "Add",
+      "counts": "Sent {sent} · dropped {dropped} · received {received}",
+      "refused": "Not reached: {reason}. A TCP program is tried again every 2 s.",
+      "states": {
+        "off": "Off",
+        "idle": "Waits for a vehicle",
+        "connecting": "Connecting",
+        "up": "Up",
+        "refused": "Refused",
+        "dropping": "Dropping: too slow"
+      },
+      "problems": {
+        "host": "Enter a host name or address, with no spaces.",
+        "port": "Enter a port from 1 to 65535.",
+        "duplicate": "This program is in the list already.",
+        "full": "There can be at most {max} programs. Remove one first."
+      }
     },
     "more": "Units, the map and the vehicle's defaults come with their screens."
   },

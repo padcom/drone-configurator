@@ -5,6 +5,8 @@
 // kept); the folder goes when the file's process does.
 // The map's tiles are OFF in that folder unless the test's own settings say otherwise: the app starts on the Flight data screen,
 // whose map would ask a tile server for its tiles, and no test ever calls a real one (flight-map.e2e.ts has a server of its own).
+// The recording of every connection (#30) is OFF too unless the test's settings say otherwise (`presetSettings`): a recording
+// is a log in Flights, and the specs that look at Flights count on the logs they made themselves.
 // The last connection is the built-in simulator unless the test's own settings say otherwise: a new install opens the Connect
 // dialog on UDP (#27), and the tests that only press Connect mean the simulator (one-key.e2e.ts starts from what it chooses).
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -28,20 +30,42 @@ interface Entry {
   value: string
 }
 
-/** What the settings of a test hold unless it says otherwise: the map's tiles off, and the simulator as the last connection. */
-const DEFAULTS: readonly Entry[] = [
+/** What the settings of a test hold when the test says nothing of them. */
+const QUIET: readonly Entry[] = [
   { key: 'map.enabled', value: 'false' },
+  { key: 'recording.enabled', value: 'false' },
   { key: 'connect.last', value: JSON.stringify({ transport: 'simulator', host: '', port: '', device: '', baud: '' }) },
 ]
 
-/** Makes sure the settings hold the defaults above, for each that the test's own settings do not set. */
-function keepDefaults(): void {
-  const found = existsSync(SETTINGS) ? JSON.parse(readFileSync(SETTINGS, 'utf8')) as { version: number, ui: Entry[] } : null
-  const document = found ?? { version: 1, ui: [] }
-  const missing = DEFAULTS.filter(entry => !document.ui.some(kept => kept.key === entry.key))
+/**
+ * The settings document in the folder (an empty one when there is none yet).
+ *
+ * @returns the document
+ */
+function settingsDocument(): { version: number, ui: Entry[] } {
+  const empty = { version: 1, ui: [] }
+
+  return existsSync(SETTINGS) ? JSON.parse(readFileSync(SETTINGS, 'utf8')) as { version: number, ui: Entry[] } : empty
+}
+
+/**
+ * Puts entries into the settings the next launch starts with (an entry with the same key is replaced).
+ *
+ * @param entries the entries
+ */
+export function presetSettings(entries: readonly Entry[]): void {
+  const document = settingsDocument()
+  const kept = document.ui.filter(entry => !entries.some(one => one.key === entry.key))
+  mkdirSync(dirname(SETTINGS), { recursive: true })
+  writeFileSync(SETTINGS, `${JSON.stringify({ ...document, ui: [...kept, ...entries] })}\n`)
+}
+
+/** Makes sure the settings hold the defaults above (tiles and recording off, the simulator last) the test does not set. */
+function keepQuiet(): void {
+  const document = settingsDocument()
+  const missing = QUIET.filter(entry => !document.ui.some(one => one.key === entry.key))
   if (missing.length > 0) {
-    mkdirSync(dirname(SETTINGS), { recursive: true })
-    writeFileSync(SETTINGS, `${JSON.stringify({ ...document, ui: [...document.ui, ...missing] })}\n`)
+    presetSettings(missing)
   }
 }
 
@@ -52,7 +76,7 @@ function keepDefaults(): void {
  * @returns the app
  */
 export function launchApp(options?: LaunchOptions): Promise<E2eApp> {
-  keepDefaults()
+  keepQuiet()
 
   return launch(options)
 }

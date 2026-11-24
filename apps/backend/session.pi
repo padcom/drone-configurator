@@ -102,6 +102,8 @@ class Link {
   public request: ConnectRequest? = null
   /// The router under the connection: it outlives a dropped link, and a new link is added to it.
   public router: MavLinkRouter? = null
+  /// The router's links that are endpoints of the forwarding (forward.pi), not the vehicle: reconnect.pi does not count them.
+  public forwardLinks: int[] = []
   /// The stream last given to the router that reconnect.pi may open again (TCP, serial): closed before the next try opens
   /// one, and when a try hears nothing, so that no socket or port is held without being used.
   public stream: ByteStream? = null
@@ -176,6 +178,7 @@ class Link {
     abortOperations()
     request = null
     router = null
+    forwardLinks = []
     stream = null
     identity = ""
     board = ""

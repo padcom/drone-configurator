@@ -19,10 +19,12 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type AnalysisModel, useAnalysis } from './useAnalysis'
+import { type ForwardingModel, useForwarding } from './useForwarding'
 import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type LinkStatsModel, useLinkStats } from './useLinkStats'
 import { type SerialBridgeModel, useSerialBridge } from './useSerialBridge'
+import { type RecordingModel, useRecording } from './useRecording'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -90,12 +92,16 @@ export interface ConfiguratorHandle {
   analysis: AnalysisModel
   /** The map's tile settings, and what the backend says of its tiles and cache. */
   map: MapSettingsModel
+  /** The programs the vehicle's MAVLink is forwarded to, and what the backend says each is doing. */
+  forwarding: ForwardingModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The quality of the link to the vehicle: loss, rates and latency. */
   link: LinkStatsModel
   /** The serial bridge: a port of the vehicle reached through a local TCP port. */
   serialBridge: SerialBridgeModel
+  /** The recording of every connection to a tlog: what it is doing, and its preferences. */
+  recording: RecordingModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
@@ -576,6 +582,31 @@ function startSerialBridge(client: BackendClient): SerialBridgeModel {
 }
 
 /**
+ * What goes over the link besides the vehicle's own: its quality, and the serial bridge.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the two, started
+ */
+function linkModels(client: BackendClient, vehicle: Vehicle): Pick<ConfiguratorHandle, 'link' | 'serialBridge'> {
+  return { link: startLink(client, vehicle), serialBridge: startSerialBridge(client) }
+}
+
+/**
+ * The recording of the connections, started: what the backend is doing is asked once, and followed after.
+ *
+ * @param client the link to the backend
+ * @param settings the settings
+ * @returns the recording
+ */
+function startRecording(client: BackendClient, settings: SettingsModel): RecordingModel {
+  const recording = useRecording({ client, settings })
+  void recording.refresh()
+
+  return recording
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -607,9 +638,9 @@ export function createConfigurator(
   watch(metadata.metadata, () => parameters.refreshWarning())
   const models = {
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
-    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), link: startLink(client, vehicle),
-    serialBridge: startSerialBridge(client),
+    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), ...linkModels(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
+    recording: startRecording(client, settings), forwarding: useForwarding({ client, settings }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

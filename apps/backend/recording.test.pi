@@ -1,0 +1,396 @@
+// Recording every connection (#30): a connection to the simulator is recorded both ways into a timestamped tlog that reads back
+// whole and verified from the library; the settings turn it off and move it; the oldest recordings go when the folder would hold
+// more than the limit, never the one being made; a full disk or the limit stops the recording and says why, and the link carries
+// on; a recording the app never ended is closed at the next one.
+import { describe, it, expect } from "std/test"
+import { mkdir, readBytes, readDir, remove, writeBytes } from "std/fs"
+import { tmpDir } from "std/os"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { delay } from "std/timers"
+import { Cbor } from "pico-desktop/communicator"
+import { TlogReader, TlogRecord, crc32Of } from "padcom/pico-mavlink"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  LocalLog,
+  LogsLocalRead,
+  RecordingFailureCode,
+  RecordingState,
+  SettingsPatch,
+  UiEntry,
+  decodeLocalLogSummary,
+  decodeLocalLogs,
+  decodeRecordingState,
+  encodeConnectRequest,
+  encodeLogsLocalRead,
+  encodeSettingsPatch,
+} from "./generated/app"
+import { forgetLocalReads } from "./locallogs"
+import {
+  DEFAULT_FOLDER,
+  ENABLED_KEY,
+  FOLDER_KEY,
+  LIMIT_KEY,
+  fillDiskForTests,
+  finishedName,
+  flushForTests,
+  isDiskFull,
+  leftoversForTests,
+  limitForTests,
+  liveName,
+  recordForTests,
+  recordingNameOf,
+  resetForTests,
+  stemOf,
+} from "./recording"
+import { link } from "./session"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+
+  public get folder(): string {
+    join(root, DEFAULT_FOLDER)
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = join(tmpDir(), `drone-configurator-recording-${pid}-${Date.now() as int}`)
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  const f = await start()
+  recordForTests(true)
+  resetForTests()
+  flushForTests(50)
+  leftoversForTests(60000)
+  new Rig(f, root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await r.f.call("vehicle.disconnect")
+  await settle()
+  fillDiskForTests(-1)
+  await remove(r.root, true)
+}
+
+/// Time for the recorder to write what waits, and for a recording that ends to be renamed.
+async function settle(): Promise<void> throws Error {
+  await delay(300)
+}
+
+async function setting(r: Rig, key: string, value: string): Promise<void> throws Error {
+  await r.f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: key, value: value }] }))
+}
+
+async function connect(r: Rig): Promise<void> throws Error {
+  await r.f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  expect(link.state.state).toBe(ConnectionState.Connected)
+}
+
+async function recordingNow(r: Rig): Promise<RecordingState> throws Error {
+  decodeRecordingState((await r.f.call("recording.state")).p ?? Cbor.Null, "$")
+}
+
+/// The names of the files in a folder (none when there is no folder).
+async function namesIn(dir: string): Promise<string[]> throws Error {
+  const out: string[] = []
+  try {
+    for await (const e of readDir(dir)) {
+      out.push(e.name)
+    }
+  } catch (e: Error) {
+  }
+  out.sort((a: string, b: string) => if (a < b) -1 else if (a > b) 1 else 0)
+  return out
+}
+
+/// Every record of a tlog file.
+async function recordsOf(path: string): Promise<TlogRecord[]> throws Error {
+  const reader = new TlogReader()
+  reader.push(await readBytes(path))
+  reader.finish()
+  const out: TlogRecord[] = []
+  while (true) {
+    const r = reader.next()
+    if (r == null) {
+      break
+    }
+    out.push(r!)
+  }
+  return out
+}
+
+async function recordedLogs(r: Rig): Promise<LocalLog[]> throws Error {
+  const all = decodeLocalLogs((await r.f.call("logs.local.list")).p ?? Cbor.Null, "$").logs
+  all.filter((l: LocalLog) => l.key.startsWith("recorded/"))
+}
+
+/// Waits until the recording being made holds something.
+async function untilRecorded(r: Rig): Promise<RecordingState> throws Error {
+  for (let i = 0; i < 100; i++) {
+    const s = await recordingNow(r)
+    if (s.bytes as int > 0) {
+      return s
+    }
+    await delay(50)
+  }
+  throw new Error("nothing was recorded")
+}
+
+async function untilFailed(r: Rig): Promise<RecordingState> throws Error {
+  for (let i = 0; i < 100; i++) {
+    const s = await recordingNow(r)
+    if (s.failure != null) {
+      return s
+    }
+    await delay(50)
+  }
+  throw new Error("the recording did not fail")
+}
+
+function namesAndTimes(): void throws Error {
+  const ms = new Date(2026, 10, 24, 9, 5, 7).getTime() as int
+  const stem = stemOf(ms)
+  expect(stem).toBe("2026-11-24_09-05-07")
+  const live = recordingNameOf(liveName(stem))!
+  expect(live.started).toBe(ms)
+  expect(live.crc).toBe(-1)
+  const ended = recordingNameOf(finishedName(stem, 0xdeadbeef))!
+  expect(ended.crc).toBe(0xdeadbeef)
+  expect(ended.stem).toBe(stem)
+  expect(finishedName(stem, 0xdeadbeef)).toBe("2026-11-24_09-05-07-deadbeef.tlog")
+  for (const bad of ["2026-11-24_09-05-07.bin", "2026-13-24_09-05-07.tlog", "2026-11-24 09-05-07.tlog", "2026-11-24_09-05-07-xyz12345.tlog",
+                     "2026-11-24_09-05-07_deadbeef.tlog", "00000001-deadbeef.tlog", "", "../2026-11-24_09-05.tlog"]) {
+    expect(recordingNameOf(bad) == null).toBe(true)
+  }
+  expect(isDiskFull("No space left on device (os error 28)")).toBe(true)
+  expect(isDiskFull("There is not enough space on the disk. (os error 112)")).toBe(true)
+  expect(isDiskFull("Permission denied (os error 13)")).toBe(false)
+}
+
+async function recordsAConnectionBothWaysAndReadsItBack(): Promise<void> throws Error {
+  const r = await rig()
+  await connect(r)
+  const live = await untilRecorded(r)
+  expect(live.enabled).toBe(true)
+  expect(live.folder).toBe(r.folder)
+  expect(live.limitMb as int).toBe(2000)
+  expect(live.failure == null).toBe(true)
+  const key = live.key!
+  expect(key.startsWith("recorded/")).toBe(true)
+  // Listed while it is made: live, not yet verified.
+  const listed = await recordedLogs(r)
+  expect(listed.length).toBe(1)
+  expect(listed[0].live ?? false).toBe(true)
+  expect(listed[0].crc).toBe("")
+  await delay(1500)
+  await r.f.call("vehicle.disconnect")
+  await settle()
+  const names = await namesIn(r.folder)
+  expect(names.length).toBe(1)
+  const named = recordingNameOf(names[0])!
+  const bytes = await readBytes(join(r.folder, names[0]))
+  expect(named.crc).toBe(crc32Of(bytes))
+  expect(names[0].startsWith(key.slice(9, 28))).toBe(true)
+  const records = await recordsOf(join(r.folder, names[0]))
+  let fromVehicle = 0
+  let fromUs = 0
+  let previous = 0
+  for (const rec of records) {
+    if (rec.sysid == 1) {
+      fromVehicle += 1
+    }
+    if (rec.sysid == 255) {
+      fromUs += 1
+    }
+    // dated, in order, within the test's time
+    expect(rec.timeUs >= previous).toBe(true)
+    expect(rec.timeUs > named.started * 1000 - 2000000).toBe(true)
+    previous = rec.timeUs
+  }
+  expect(fromVehicle > 2).toBe(true)
+  expect(fromUs > 0).toBe(true)
+  // In the library: ended, verified, read as a tlog.
+  const after = await recordedLogs(r)
+  expect(after.length).toBe(1)
+  expect(after[0].live ?? true).toBe(false)
+  expect(after[0].started! as int).toBe(named.started)
+  const e = await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: after[0].key }))
+  const s = decodeLocalLogSummary(e.p ?? Cbor.Null, "$")
+  expect(s.verified).toBe(true)
+  expect(s.report!.records as int).toBe(records.length)
+  expect(s.report!.crcFailures as int).toBe(0)
+  const state = await recordingNow(r)
+  expect(state.key == null).toBe(true)
+  expect(state.bytes as int).toBe(0)
+  await done(r)
+}
+
+async function recordsNothingWhenTurnedOffAndUsesTheChosenFolder(): Promise<void> throws Error {
+  const r = await rig()
+  await setting(r, ENABLED_KEY, "false")
+  await connect(r)
+  await delay(500)
+  const off = await recordingNow(r)
+  expect(off.enabled).toBe(false)
+  expect(off.key == null).toBe(true)
+  await r.f.call("vehicle.disconnect")
+  expect((await namesIn(r.folder)).length).toBe(0)
+  const chosen = join(r.root, "chosen", "deeper")
+  await setting(r, ENABLED_KEY, "true")
+  await setting(r, FOLDER_KEY, chosen)
+  expect((await recordingNow(r)).folder).toBe(chosen)
+  await connect(r)
+  await untilRecorded(r)
+  await r.f.call("vehicle.disconnect")
+  await settle()
+  expect((await namesIn(chosen)).length).toBe(1)
+  expect((await recordedLogs(r)).length).toBe(1)
+  await done(r)
+}
+
+/// An older recording of `size` bytes that started `hoursAgo`.
+async function older(r: Rig, hoursAgo: int, size: int): Promise<string> throws Error {
+  await mkdir(r.folder, true)
+  const stem = stemOf((Date.now() as int) - hoursAgo * 3600000)
+  const name = finishedName(stem, 0x12345678)
+  await writeBytes(join(r.folder, name), new Uint8Array(size))
+  return name
+}
+
+async function removesTheOldestToKeepUnderTheLimit(): Promise<void> throws Error {
+  const r = await rig()
+  const oldest = await older(r, 3, 450000)
+  const middle = await older(r, 2, 450000)
+  const newest = await older(r, 1, 150000)
+  await setting(r, LIMIT_KEY, "1")
+  await connect(r)
+  await untilRecorded(r)
+  const s = await recordingNow(r)
+  expect(s.removed as int).toBe(1)
+  expect(s.removedBytes as int).toBe(450000)
+  expect(s.failure == null).toBe(true)
+  const names = await namesIn(r.folder)
+  expect(names.includes(oldest)).toBe(false)
+  expect(names.includes(middle)).toBe(true)
+  expect(names.includes(newest)).toBe(true)
+  expect(names.length).toBe(3)
+  await done(r)
+}
+
+async function stopsARecordingThatReachesTheLimitByItself(): Promise<void> throws Error {
+  const r = await rig()
+  const kept = await older(r, 1, 900)
+  limitForTests(3000)
+  await connect(r)
+  const s = await untilFailed(r)
+  expect(s.failure!.code).toBe(RecordingFailureCode.Limit)
+  // The older one went to make room first; the one being made is never removed, it stops at the limit.
+  const names = await namesIn(r.folder)
+  expect(names.includes(kept)).toBe(false)
+  expect(names.length).toBe(1)
+  expect(s.bytes as int <= 3000).toBe(true)
+  expect(s.removed as int).toBe(1)
+  await delay(500)
+  expect(link.state.state).toBe(ConnectionState.Connected)
+  await done(r)
+}
+
+async function aFullDiskStopsTheRecordingAndTheLinkCarriesOn(): Promise<void> throws Error {
+  const r = await rig()
+  fillDiskForTests(2000)
+  await connect(r)
+  const s = await untilFailed(r)
+  expect(s.failure!.code).toBe(RecordingFailureCode.DiskFull)
+  expect(s.failure!.message.includes("No space")).toBe(true)
+  const failedAt = Date.now() as int
+  // The link carries on: the vehicle is still connected, and still heard.
+  await delay(1500)
+  expect(link.state.state).toBe(ConnectionState.Connected)
+  expect(link.heartbeatAt > failedAt).toBe(true)
+  // What was written before the disk filled up reads back, and is verified once the recording is closed.
+  await r.f.call("vehicle.disconnect")
+  await settle()
+  const names = await namesIn(r.folder)
+  expect(names.length).toBe(1)
+  const named = recordingNameOf(names[0])!
+  expect(named.crc).toBe(crc32Of(await readBytes(join(r.folder, names[0]))))
+  expect((await recordsOf(join(r.folder, names[0]))).length > 0).toBe(true)
+  // The failure is still said until it is dismissed, or the next recording starts.
+  expect((await recordingNow(r)).failure != null).toBe(true)
+  const dismissed = decodeRecordingState((await r.f.call("recording.dismiss")).p ?? Cbor.Null, "$")
+  expect(dismissed.failure == null).toBe(true)
+  await done(r)
+}
+
+async function aFolderThatCannotBeMadeIsSaid(): Promise<void> throws Error {
+  const r = await rig()
+  // a file where the folder would be
+  await writeBytes(join(r.root, "blocked"), new Uint8Array(1))
+  await setting(r, FOLDER_KEY, join(r.root, "blocked", "recordings"))
+  await connect(r)
+  const s = await untilFailed(r)
+  expect(s.failure!.code).toBe(RecordingFailureCode.NoFolder)
+  await delay(500)
+  expect(link.state.state).toBe(ConnectionState.Connected)
+  await done(r)
+}
+
+async function closesARecordingThatNeverEnded(): Promise<void> throws Error {
+  const r = await rig()
+  await mkdir(r.folder, true)
+  const stem = stemOf((Date.now() as int) - 7200000)
+  const cut = new Uint8Array(10)
+  for (let i = 0; i < 10; i++) {
+    cut.set(i, i)
+  }
+  await writeBytes(join(r.folder, liveName(stem)), cut)
+  leftoversForTests(0)
+  await connect(r)
+  await untilRecorded(r)
+  await settle()
+  const names = await namesIn(r.folder)
+  expect(names.includes(finishedName(stem, crc32Of(cut)))).toBe(true)
+  expect(names.includes(liveName(stem))).toBe(false)
+  await done(r)
+}
+
+async function oneRecordingPerConnection(): Promise<void> throws Error {
+  const r = await rig()
+  await connect(r)
+  await untilRecorded(r)
+  // (a second later: the names are by the second)
+  await delay(1100)
+  await connect(r)
+  await untilRecorded(r)
+  await r.f.call("vehicle.disconnect")
+  await settle()
+  const names = await namesIn(r.folder)
+  expect(names.length).toBe(2)
+  for (const n of names) {
+    expect(recordingNameOf(n)!.crc >= 0).toBe(true)
+  }
+  await done(r)
+}
+
+describe("recording every connection", () => {
+  it("names a recording for when it started, and reads the names back", namesAndTimes)
+  it("records a connection both ways into a tlog that reads back whole and verified", recordsAConnectionBothWaysAndReadsItBack)
+  it("records nothing when turned off, and records into the chosen folder", recordsNothingWhenTurnedOffAndUsesTheChosenFolder)
+  it("removes the oldest recordings to keep under the limit, never the one being made", removesTheOldestToKeepUnderTheLimit)
+  it("stops a recording that reaches the limit by itself, and keeps it", stopsARecordingThatReachesTheLimitByItself)
+  it("stops on a full disk and says so, while the link carries on", aFullDiskStopsTheRecordingAndTheLinkCarriesOn)
+  it("says so when the folder cannot be made", aFolderThatCannotBeMadeIsSaid)
+  it("closes a recording that never ended at the next one", closesARecordingThatNeverEnded)
+  it("makes one recording for each connection", oneRecordingPerConnection)
+})

@@ -5,6 +5,7 @@ import { delay } from "std/timers"
 import { Cbor, Transport, memoryPair } from "pico-desktop/communicator"
 import { MemoryStream, SimulatedAutopilot, StatusMessage, defaultSimParams, splitStatusText } from "padcom/pico-mavlink"
 import { createBackend, simulatorForTests } from "./app"
+import { recordForTests } from "./recording"
 import {
   ConnectRequest,
   ConnectRequestTransport,
@@ -157,6 +158,7 @@ class SlowTransport implements Transport {
 /// A backend on a slow link, and the frontend's end of it.
 async function startSlow(): Promise<Frontend> throws Error {
   const ends = memoryPair()
+  recordForTests(false)
   createBackend(new SlowTransport(ends[0])).run()
   await ends[1].receive()
   new Frontend(ends[1])

@@ -2,6 +2,7 @@
   <div class="app" data-l="app">
     <TopBar />
     <SettingsNotice />
+    <RecordingNotice />
     <div class="app-row">
       <Rail />
       <main class="app-main" tabindex="-1">
@@ -43,6 +44,7 @@ import ConnectDialog from './ConnectDialog.vue'
 import KeyHelp from './KeyHelp.vue'
 import Rail from './Rail.vue'
 import SettingsNotice from './SettingsNotice.vue'
+import RecordingNotice from './RecordingNotice.vue'
 import ToastHost from './ToastHost.vue'
 import TopBar from './TopBar.vue'
 
