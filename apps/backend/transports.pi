@@ -3,7 +3,17 @@
 import { CommunicatorError } from "pico-desktop/communicator"
 import { SerialPort as SerialDevice, listPorts, openPort } from "padcom/serialport"
 import { Conn, Listener, bind, connect, listen } from "std/net"
-import { ByteStream, MemoryStream, SimulatedAutopilot, TcpStream, UdpStream } from "padcom/pico-mavlink"
+import {
+  ByteStream,
+  MavParamType,
+  MemoryStream,
+  SimParam,
+  SimulatedAutopilot,
+  TcpStream,
+  TypedParamValue,
+  UdpStream,
+  defaultSimParams,
+} from "padcom/pico-mavlink"
 import { ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { BAUD_RATES, choosePort, detectBaud } from "./autodetect"
 import { localFor } from "./discovery"
@@ -102,13 +112,43 @@ export function describe(r: ConnectRequest): string {
   }
 }
 
+/// The simulated vehicle's parameters: pico-mavlink's Copter-like set, a few of them away from the firmware's default (which
+/// the parameter file gives when it is asked for the defaults), as a vehicle that was set up has them: "modified from default".
+/// The frontend's mock has the same (DEFAULTS in fixtures.ts).
+export function simulatorParams(): SimParam[] {
+  const out: SimParam[] = []
+  for (const p of defaultSimParams()) {
+    const firmware = firmwareDefaultOf(p.id)
+    if (firmware != null) {
+      out.push({ id: p.id, value: p.value, firmwareDefault: firmware! })
+    } else {
+      out.push(p)
+    }
+  }
+  return out
+}
+
+/// The firmware's default of a simulated parameter that the simulated vehicle has away from it, or null.
+function firmwareDefaultOf(id: string): TypedParamValue? {
+  if (id == "BATT_CAPACITY") {
+    return TypedParamValue.Int(3300, MavParamType.INT32)
+  }
+  if (id == "FENCE_RADIUS") {
+    return TypedParamValue.Real(300.0, MavParamType.REAL32)
+  }
+  if (id == "WPNAV_SPEED") {
+    return TypedParamValue.Real(500.0, MavParamType.REAL32)
+  }
+  return null
+}
+
 /// Opens the link a request asks for. For the simulator, `onSimulator` is given the simulated vehicle
 /// (before the stream is returned), so its owner can stop it with the link.
 export async function open(r: ConnectRequest, onSimulator: (sim: SimulatedAutopilot) => void): Promise<ByteStream> throws Error {
   match (r.transport) {
     Simulator => {
       const ends = MemoryStream.pair()
-      const sim = new SimulatedAutopilot(ends[1])
+      const sim = new SimulatedAutopilot(ends[1], simulatorParams())
       // Set up before it starts: its first heartbeat is already as it should be (signed, when it holds a key).
       onSimulator(sim)
       sim.start(1000)

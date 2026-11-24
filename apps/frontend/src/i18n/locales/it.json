@@ -1309,7 +1309,37 @@
     "metadata": "Metadati per {count} parametro | Metadati per {count} parametri",
     "metadataLoaded": "Descrizioni caricate: {described} su {total} parametri",
     "metadataSome": "Parametri corrispondenti: {matched} su {total}; con descrizione: {described}",
-    "metadataNone": "Corrispondenze: 0 su {total} parametri. Parametri descritti dal file: {known}, nessuno su questo veicolo."
+    "metadataNone": "Corrispondenze: 0 su {total} parametri. Parametri descritti dal file: {known}, nessuno su questo veicolo.",
+    "also": "Anche: {words}",
+    "recent": {
+      "group": "Usati di recente",
+      "emptyTitle": "Ancora nulla di usato",
+      "emptyHelp": "I parametri che apri o modifichi restano qui, i più recenti per primi."
+    },
+    "modified": {
+      "label": "Modificati rispetto al predefinito",
+      "unknown": "Predefiniti sconosciuti: arrivano solo col trasferimento file.",
+      "noMatch": "Nessun parametro modificato corrisponde a «{query}»",
+      "noneHere": "Nessun parametro modificato qui",
+      "hiddenHelp": "«Modificati rispetto al predefinito» è attivo, quindi il resto dell’elenco è nascosto.",
+      "showAll": "Mostra tutti i parametri"
+    },
+    "groupBy": {
+      "label": "Raggruppa per",
+      "name": "Nome",
+      "metadata": "Metadati"
+    },
+    "guide": {
+      "setup": "Configura in {section}",
+      "tune": "Regola in {section}"
+    },
+    "filters": {
+      "label": "Filtri"
+    },
+    "files": {
+      "label": "Istantanea",
+      "title": "Istantanee e confronto"
+    }
   },
   "snapshot": {
     "save": "Salva istantanea",

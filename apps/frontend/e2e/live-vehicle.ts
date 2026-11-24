@@ -15,6 +15,7 @@ import {
   showAllParameters,
   showParameter,
   showScreen,
+  showSnapshotTools,
   waitForQueuedWritten,
 } from './click'
 import type { Endpoint } from './endpoint'
@@ -132,6 +133,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   /** Loads `text` as a parameter file (the backend opens `open.param` of the test folder), and waits for its review. */
   async function loadParamFile(text: string): Promise<void> {
     writeFileSync(join(files, 'open.param'), text)
+    await showSnapshotTools(app)
     await app.click('#load-button')
     await app.waitForText('#import', 'Parameter file: ')
   }
@@ -262,6 +264,8 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     onTestFinished(() => putBack(original))
     const changed = original + vehicle.paramStep
 
+    await showSnapshotTools(app)
+
     await app.click('#save')
     const snapshot = await savedSnapshot('params-')
     expect(valueIn(snapshot)).toBe(original)
@@ -271,6 +275,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
       entry.value = changed
     }
     writeFileSync(join(files, 'open.json'), JSON.stringify(snapshot))
+    await showSnapshotTools(app)
     await app.click('#load-button')
     await app.waitForText('#import', new RegExp(`${vehicle.param}\\s+${original}\\s+→ ${changed}`, 'u'))
 
@@ -350,6 +355,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
 
   /** Opens the comparison with the firmware's defaults, and narrows it to the parameter of these checks, every row of it shown. */
   async function compareWithDefaults(): Promise<void> {
+    await showSnapshotTools(app)
     await app.click('#compare-defaults')
     await app.waitForText('#compare h3', 'Compared with: Firmware defaults', vehicle.downloadTimeoutMs)
     await app.click('#compare-only-differences')
@@ -393,6 +399,8 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await showAllParameters(app)
     const count = Number((await app.waitForText('#list-status', /^\d+ parameters$/u)).split(' ')[0])
     writeFileSync(join(files, 'open.param'), `${vehicle.param},${original + vehicle.paramStep}\nNOT_ON_VEHICLE,1\n`)
+
+    await showSnapshotTools(app)
 
     await app.click('#compare-file')
     await app.waitForText('#compare h3', 'Compared with: Parameter file: ')

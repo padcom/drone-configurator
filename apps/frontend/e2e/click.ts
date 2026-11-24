@@ -286,6 +286,34 @@ export async function showGroups(app: E2eApp): Promise<void> {
   await app.waitFor(`document.querySelector('.param-groups') !== null`)
 }
 
+/**
+ * Opens the Filters panel of the Parameters screen's toolbar ("Modified from default", the View), unless it is open: its controls
+ * are in the page only while it is.
+ *
+ * @param app the running app
+ */
+export async function showFilters(app: E2eApp): Promise<void> {
+  const open = `document.querySelector('#param-filters .panel') !== null`
+  if (!await app.evaluate<boolean>(open)) {
+    await app.click('#param-filters > .trigger')
+  }
+  await app.waitFor(open)
+}
+
+/**
+ * Opens the Snapshot panel of the Parameters screen's toolbar (Save and Load snapshot, the comparisons with a file and with the
+ * defaults), unless it is open: its buttons are in the page only while it is.
+ *
+ * @param app the running app
+ */
+export async function showSnapshotTools(app: E2eApp): Promise<void> {
+  const open = `document.querySelector('#param-files .panel') !== null`
+  if (!await app.evaluate<boolean>(open)) {
+    await app.click('#param-files > .trigger')
+  }
+  await app.waitFor(open)
+}
+
 /** How long the page ignores presses on a confirmation after it appears (IGNORE_MS in src/lib/app/safety.ts), and a margin. */
 const CONFIRMATION_ARMS_MS = 400 + 150
 

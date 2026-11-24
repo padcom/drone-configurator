@@ -41,10 +41,25 @@ export const PARAMS: Param[] = [
 ].map((param, index) => ({ ...param, index }))
 
 /**
- * The firmware's defaults the mock vehicle gives (`params.defaults`, #40) where they differ from its values: a vehicle sends its
- * defaults with its packed parameter file, and a parameter it sends none for is at its default.
+ * The firmware's defaults the mock vehicle gives (`params.defaults`, #40, and with a list by file transfer, #36) where they
+ * differ from its values: a vehicle sends its defaults with its packed parameter file, and a parameter it sends none for is at
+ * its default. The backend's simulated vehicle has the same (transports.pi).
  */
 export const DEFAULTS: Record<string, number> = { BATT_CAPACITY: 3300, FENCE_RADIUS: 300, WPNAV_SPEED: 500 }
+
+/**
+ * A list as a download by file transfer gives it: each parameter that is away from its firmware default carries the default.
+ *
+ * @param params the parameters
+ * @returns the same, with their defaults
+ */
+export function withDefaults(params: Param[]): Param[] {
+  return params.map(param => {
+    const value = DEFAULTS[param.id]
+
+    return value === undefined || value === param.value ? param : { ...param, default: value }
+  })
+}
 
 /**
  * A Copter that was set up, as far as the Setup pages can see: the usual parameters and those of its frame, accelerometer,

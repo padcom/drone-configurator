@@ -73,6 +73,21 @@ async function reportsHowTheListCame(): Promise<void> throws Error {
   await fe.call("vehicle.disconnect")
 }
 
+async function givesTheFirmwareDefaults(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  // By file transfer the defaults come with the list: only where they differ from the value, and the list says it has them.
+  const e = await fe.call("params.list", encodeParamListRequest(ParamListRequest {}))
+  const list = decodeParamList(e.p ?? Cbor.Null, "$")
+  const differing = list.params.filter((p) => p.default != null).map((p) => `${p.id}=${p.default!}`)
+  expect(`${list.defaults ?? false} ${differing.join(",")}`).toBe("true BATT_CAPACITY=3300,FENCE_RADIUS=300,WPNAV_SPEED=500")
+  // By the list they are not known: the list does not say it has them, and no parameter has one.
+  const l = await fe.call("params.list", encodeParamListRequest(ParamListRequest { method: ParamListRequestMethod.List }))
+  const byList = decodeParamList(l.p ?? Cbor.Null, "$")
+  expect(`${byList.defaults ?? false} ${byList.params.filter((p) => p.default != null).length}`).toBe("false 0")
+  await fe.call("vehicle.disconnect")
+}
+
 async function reportsTheListDownload(): Promise<void> throws Error {
   const fe = await start()
   await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
@@ -306,6 +321,7 @@ async function takesNoRequestAsAuto(): Promise<void> throws Error {
 
 describe("the params service", () => {
   it("downloads by file transfer, says so, and reports progress in parameters", reportsHowTheListCame)
+  it("gives the firmware's defaults with a download by file transfer, and none by the list", givesTheFirmwareDefaults)
   it("downloads by list when asked to, and reports its progress", reportsTheListDownload)
   it("falls back to the list, remembers a file the vehicle does not have, and forgets it on a new connection", fallsBackAndRemembersWhatItShould)
   it("remembers a timeout for one download only, and a protocol failure not at all", doesNotRememberAFailureThatMayPass)

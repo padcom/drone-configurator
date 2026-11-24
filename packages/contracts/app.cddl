@@ -433,13 +433,15 @@ vehicle-info = {
 }
 
 ; A parameter as the autopilot reports it. Integers and reals stay apart: `value` is exact for
-; every integer type a PARAM_VALUE can carry (up to 32 bits).
+; every integer type a PARAM_VALUE can carry (up to 32 bits). `default` is the firmware's default, only in a list that has
+; `defaults` and only where it differs from `value` (ArduPilot's parameter file says no more).
 param = {
   id: tstr,
   index: uint .size 2,
   kind: "int" / "real",
   type: tstr,
   value: float,
+  ? default: float,
 }
 
 ; `method` is for tests and diagnostics, not a choice for the user: "auto" (the default) uses the file transfer where the vehicle has
@@ -465,6 +467,9 @@ param-list = {
   ? elapsedMs: uint .size 4,
   ; Set on a resume (`param-list-request`) that reused what was kept: how many parameters were not asked for again.
   ? reused: uint .size 2,
+  ; True when the firmware's defaults came with the list (by file transfer, from a vehicle that has them): a parameter with no
+  ; `default` is at its default. Absent when they are not known (the list was asked for, a resume, an older firmware).
+  ? defaults: bool,
 }
 
 ; A vehicle's list as its last complete download left it: `savedAt` is when that download ended (ms since 1970), `source` how

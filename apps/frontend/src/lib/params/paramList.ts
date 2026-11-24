@@ -1,7 +1,7 @@
 // What the parameter list shows, from plain values (no DOM). Vue's templates escape the text; the words come from
 // the translations.
 import type { Param } from '@/generated/app'
-import { inGroup } from './paramGroups'
+import { type Grouping, groupOf, inGroup } from './paramGroups'
 import type { State } from '@/state/state'
 import type { Translate } from '@/lib/fly/telemetryCards'
 
@@ -11,11 +11,12 @@ import type { Translate } from '@/lib/fly/telemetryCards'
  * @param params every parameter
  * @param filter what the user typed
  * @param group the chosen group, or an empty string for all of them
+ * @param grouping the group of a parameter (by its name, unless the metadata's is asked for)
  * @returns the matching parameters, in their order
  */
-export function visibleParams(params: Param[], filter: string, group = ''): Param[] {
+export function visibleParams(params: Param[], filter: string, group = '', grouping?: Grouping): Param[] {
   const needle = filter.trim().toUpperCase()
-  const wanted = (param: Param) => param.id.includes(needle) && inGroup(param.id, group)
+  const wanted = (param: Param) => param.id.includes(needle) && inGroup(param.id, group, grouping ?? groupOf)
 
   return needle === '' && group === '' ? params : params.filter(wanted)
 }

@@ -58,16 +58,17 @@ describe('ArduPilot definition files (apm.pdef.json)', () => {
       max: 300000,
       increment: 1,
       user: 'standard',
+      group: 'ArduCopter',
     })
     expect(m.get('FRAME_CLASS')).toMatchObject({ rebootRequired: true, values: { 1: 'Quad', 2: 'Hexa' } })
     expect(m.get('ARMING_CHECK')).toMatchObject({ bits: { 0: 'All', 3: 'GPS lock' } })
-    expect(m.get('BATT_CAPACITY')).toMatchObject({ units: 'mAh', increment: 50 })
+    expect(m.get('BATT_CAPACITY')).toMatchObject({ units: 'mAh', increment: 50, group: 'BATT_' })
   })
 
   it('can have only a text description, or no parameters', () => {
     const only = { json: { version: 0 }, G: { A: { Description: 'Text only' }, B: 'not an object' } }
 
-    expect(parseMetadata(JSON.stringify(only))).toEqual(new Map([['A', { description: 'Text only' }]]))
+    expect(parseMetadata(JSON.stringify(only))).toEqual(new Map([['A', { description: 'Text only', group: 'G' }]]))
   })
 
   it('say so when they have no parameters, rather than loading nothing', () => {
@@ -81,7 +82,13 @@ describe('who a parameter is for', () => {
     const pdef = { json: { version: 0 }, G: { A: { User: 'Advanced' }, B: { user: 'STANDARD' }, C: { User: 'Expert' }, D: {} } }
     const own = file({ E: { user: 'advanced', description: 'x' }, F: { user: 3, description: 'y' } })
 
-    const expected = new Map([['A', { user: 'advanced' }], ['B', { user: 'standard' }], ['C', {}], ['D', {}]])
+    const g = { group: 'G' }
+    const expected = new Map<string, object>([
+      ['A', { user: 'advanced', ...g }],
+      ['B', { user: 'standard', ...g }],
+      ['C', g],
+      ['D', g],
+    ])
 
     expect(parseMetadata(JSON.stringify(pdef))).toEqual(expected)
     expect(parseMetadata(own)).toEqual(new Map([['E', { user: 'advanced', description: 'x' }], ['F', { description: 'y' }]]))
@@ -119,7 +126,7 @@ describe('ArduPilot definition files, in the case of their keys', () => {
     const lower = { json: { version: 0 }, G: { A: a } }
 
     expect(parseMetadata(JSON.stringify(lower))).toEqual(new Map([
-      ['A', { description: 'Short', longDescription: 'Long', units: 'cm', min: 1, max: 2 }],
+      ['A', { description: 'Short', longDescription: 'Long', units: 'cm', min: 1, max: 2, group: 'G' }],
     ]))
     // The keys of the real file, as jsonemit.py dumps a parameter's own attributes: nothing is lost to the case.
     const real = parseMetadata(JSON.stringify(APM_PDEF)) as Map<string, { description?: string, longDescription?: string }>
@@ -130,7 +137,7 @@ describe('ArduPilot definition files, in the case of their keys', () => {
 
 describe('ArduPilot definition files, recognised and refused', () => {
   it('are recognised by their first key, `json`, with or without a version number', () => {
-    expect(parseMetadata('{"json":{},"G":{"A":{"Description":"x"}}}')).toEqual(new Map([['A', { description: 'x' }]]))
+    expect(parseMetadata('{"json":{},"G":{"A":{"Description":"x"}}}')).toEqual(new Map([['A', { description: 'x', group: 'G' }]]))
   })
 
   it('say why a file is not metadata: an XML file, JSON of another kind, text', () => {

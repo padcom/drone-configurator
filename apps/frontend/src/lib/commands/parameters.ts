@@ -70,8 +70,8 @@ export class GoToParameter implements Command {
   }
 }
 
-/** How the reasons of a hit rank: by name, then by description, then a close match. */
-const REASON_ORDER = { name: 0, description: 1, close: 2 } as const
+/** How the reasons of a hit rank: by name, then by description, then by the everyday words, then a close match. */
+const REASON_ORDER = { name: 0, description: 1, everyday: 2, close: 3 } as const
 
 /**
  * The hits with the starred parameters first within each kind of match (a starred parameter that matches by its description does

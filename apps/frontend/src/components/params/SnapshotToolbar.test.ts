@@ -1,10 +1,23 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import SnapshotToolbar from './SnapshotToolbar.vue'
 import { mockBackend } from '@/mock/mock-backend'
 import { feed, withI18n } from '@/testing/testing'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { PARAMS } from '@/mock/fixtures'
+
+/**
+ * Presses a button of the Snapshot panel, opening the panel first when it is closed (it closes when an action is pressed).
+ *
+ * @param wrapper the toolbar
+ * @param selector the button
+ */
+async function pressInPanel(wrapper: VueWrapper, selector: string): Promise<void> {
+  if (!wrapper.find('#param-files .panel').exists()) {
+    await wrapper.get('#param-files > .trigger').trigger('click')
+  }
+  await wrapper.get(selector).trigger('click')
+}
 
 afterEach(() => {
   delete window.picoDesktop
@@ -25,8 +38,10 @@ async function toolbarWithSpies() {
     loadSnapshot: vi.spyOn(handle.snapshots, 'load').mockImplementation(() => undefined),
     loadMetadata: vi.spyOn(handle.metadata, 'load').mockImplementation(() => undefined),
   }
-  const wrapper = mount(SnapshotToolbar, withI18n)
+  const wrapper = mount(SnapshotToolbar, { ...withI18n, attachTo: document.body })
   await flushPromises()
+  // Save, Load and the comparisons are in the Snapshot panel: it is opened, as a user does.
+  await wrapper.get('#param-files > .trigger').trigger('click')
 
   return { wrapper, handle, ...spies }
 }
@@ -57,12 +72,12 @@ it('saves only once there are parameters, through the host in Pico Desktop', asy
   const { wrapper, handle, saveFile } = await toolbarWithSpies()
   expect(wrapper.get('#save').attributes('aria-disabled')).toBe('true')
   window.picoDesktop = {} as never
-  await wrapper.get('#save').trigger('click')
+  await pressInPanel(wrapper, '#save')
   expect(saveFile).not.toHaveBeenCalled()
   feed(handle, { params: PARAMS })
   await wrapper.vm.$nextTick()
 
-  await wrapper.get('#save').trigger('click')
+  await pressInPanel(wrapper, '#save')
 
   expect(saveFile).toHaveBeenCalledWith(expect.stringMatching(/^params-vehicle-.*\.json$/u), expect.stringContaining('"params"'))
 })
@@ -74,7 +89,7 @@ it('downloads the snapshot in a browser', async () => {
   feed(handle, { params: PARAMS })
   await wrapper.vm.$nextTick()
 
-  await wrapper.get('#save').trigger('click')
+  await pressInPanel(wrapper, '#save')
 
   expect(click).toHaveBeenCalledTimes(1)
   expect(saveFile).not.toHaveBeenCalled()
@@ -85,7 +100,7 @@ it('opens the host\'s dialog for a click on Load in Pico Desktop, and leaves the
   window.picoDesktop = {} as never
 
   const inputClick = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
-  await wrapper.get('#load-button').trigger('click')
+  await pressInPanel(wrapper, '#load-button')
   await wrapper.get('#metadata-button').trigger('click')
 
   expect(openSnapshotFile).toHaveBeenCalledTimes(1)
@@ -97,7 +112,7 @@ it('presses the file input for a button press when there is no host', async () =
   const { wrapper, openSnapshotFile, openMetadataFile } = await toolbarWithSpies()
   const inputClick = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
 
-  await wrapper.get('#load-button').trigger('click')
+  await pressInPanel(wrapper, '#load-button')
   await wrapper.get('#metadata-button').trigger('click')
 
   expect(openSnapshotFile).not.toHaveBeenCalled()
@@ -128,9 +143,9 @@ it('says why Save snapshot cannot be pressed, in words a screen reader reads wit
 it('loads the file the browser\'s input gives, and nothing when none was chosen', async () => {
   const { wrapper, loadSnapshot, loadMetadata } = await toolbarWithSpies()
   const press = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
-  await wrapper.get('#load-button').trigger('click')
+  await pressInPanel(wrapper, '#load-button')
   await wrapper.get('#metadata-button').trigger('click')
-  await wrapper.get('#load-button').trigger('click')
+  await pressInPanel(wrapper, '#load-button')
   const [forSnapshot, forMetadata, cancelled] = press.mock.contexts as HTMLInputElement[]
 
   await choose(forSnapshot as Element, '{"snapshot":true}')

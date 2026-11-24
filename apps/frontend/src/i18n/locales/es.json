@@ -1309,7 +1309,37 @@
     "metadata": "Metadatos de {count} parámetro | Metadatos de {count} parámetros",
     "metadataLoaded": "Descripciones cargadas para {described} de {total} parámetros",
     "metadataSome": "Parámetros que coinciden: {matched} de {total}; con descripción: {described}",
-    "metadataNone": "Coinciden 0 de {total} parámetros. Parámetros que describe el archivo: {known}, ninguno de este vehículo."
+    "metadataNone": "Coinciden 0 de {total} parámetros. Parámetros que describe el archivo: {known}, ninguno de este vehículo.",
+    "also": "También: {words}",
+    "recent": {
+      "group": "Usados recientemente",
+      "emptyTitle": "Nada usado todavía",
+      "emptyHelp": "Los parámetros que abres o cambias se guardan aquí, los más recientes primero."
+    },
+    "modified": {
+      "label": "Cambiados del valor por defecto",
+      "unknown": "Valores por defecto desconocidos: solo llegan por transferencia de archivos.",
+      "noMatch": "Ningún parámetro cambiado coincide con «{query}»",
+      "noneHere": "Aquí no hay ningún parámetro cambiado",
+      "hiddenHelp": "«Cambiados del valor por defecto» está activado, así que el resto de la lista está oculto.",
+      "showAll": "Mostrar todos los parámetros"
+    },
+    "groupBy": {
+      "label": "Agrupar por",
+      "name": "Nombre",
+      "metadata": "Metadatos"
+    },
+    "guide": {
+      "setup": "Configurar en {section}",
+      "tune": "Ajustar en {section}"
+    },
+    "filters": {
+      "label": "Filtros"
+    },
+    "files": {
+      "label": "Instantánea",
+      "title": "Instantáneas y comparación"
+    }
   },
   "snapshot": {
     "save": "Guardar instantánea",

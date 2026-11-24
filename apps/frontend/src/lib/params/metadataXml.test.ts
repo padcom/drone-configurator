@@ -62,6 +62,7 @@ describe('ArduPilot\'s XML definition file', () => {
       max: 300000,
       increment: 1,
       user: 'standard',
+      group: 'ArduCopter',
     })
     expect(m.get('FRAME_CLASS')).toEqual({
       description: 'Frame',
@@ -69,10 +70,11 @@ describe('ArduPilot\'s XML definition file', () => {
       values: { 0: 'Undefined', 1: 'Quad' },
       rebootRequired: true,
       user: 'advanced',
+      group: 'ArduCopter',
     })
     const bits = { 0: 'All', 1: 'Barometer' }
-    expect(m.get('CHECKS')).toEqual({ description: 'Checks', longDescription: 'What is checked.', bits })
-    expect(m.get('SERVO_RATE')).toMatchObject({ units: 'Hz', min: 25, max: 400 })
+    expect(m.get('CHECKS')).toEqual({ description: 'Checks', longDescription: 'What is checked.', bits, group: 'ArduCopter' })
+    expect(m.get('SERVO_RATE')).toMatchObject({ units: 'Hz', min: 25, max: 400, group: 'SERVO' })
   })
 
   it('keeps the first group that names a parameter, and ignores a range that is not numbers', () => {
@@ -85,6 +87,7 @@ describe('ArduPilot\'s XML definition file', () => {
       readOnly: true,
       volatile: true,
       user: 'standard',
+      group: 'ArduCopter',
     })
     expect(m.size).toBe(5)
   })

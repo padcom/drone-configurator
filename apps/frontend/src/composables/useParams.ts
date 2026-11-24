@@ -7,6 +7,7 @@ import { type BackendClient, describeError, toBackendError } from '@/backend/cli
 import type { Param, ParamList, ParamListRequest, ParamsProgress, SavedParams } from '@/generated/app'
 import { type DownloadToast, startDownloadToast } from '@/lib/params/downloadToast'
 import { type Toasts, useToasts } from './toasts'
+import { type Defaults, defaultsOf, modifiedIds } from '@/lib/params/defaults'
 import { type Initial, changedIds, initialOf } from '@/lib/params/initialValues'
 import { sortedByName, withInPlace } from '@/lib/params/naturalOrder'
 import { visibleParams } from '@/lib/params/paramList'
@@ -81,6 +82,10 @@ export interface ParamsModel {
    * where a value enters (a download, a write, another ground station), never with a telemetry tick.
    */
   readonly changed: ComputedRef<ReadonlySet<string>>
+  /** The firmware's default of each parameter, when the last download brought them (else null: they are not known). */
+  readonly defaults: ShallowRef<Defaults | null>
+  /** The parameters whose value is not the firmware's default now (none while the defaults are not known). */
+  readonly modified: ComputedRef<ReadonlySet<string>>
   /** The selected parameter's id, or null. */
   readonly selected: ShallowRef<string | null>
   /** The new value as typed. */
@@ -152,6 +157,8 @@ class Parameters implements ParamsModel {
   readonly filter = shallowRef('')
   readonly initial = shallowRef<Initial | null>(null)
   readonly changed = computed(() => changedIds(this.params.value, this.initial.value))
+  readonly defaults = shallowRef<Defaults | null>(null)
+  readonly modified = computed(() => modifiedIds(this.params.value, this.defaults.value))
   readonly selected = shallowRef<string | null>(null)
   readonly draft = shallowRef('')
   readonly draftError = shallowRef<string | null>(null)
@@ -197,6 +204,21 @@ class Parameters implements ParamsModel {
     const kept = keepInitial && this.initial.value !== null
     if (complete && !kept) {
       this.initial.value = initialOf(params, this.now())
+    }
+  }
+
+  /**
+   * The firmware's defaults of a list that brought them. A resume (the link came back to the same vehicle) brings none, and keeps
+   * the ones there are; any other download without them means they are not known.
+   *
+   * @param params the downloaded list
+   * @param known whether the list says it came with the defaults
+   * @param keepInitial whether this is the automatic download of a link that came back
+   */
+  private takeDefaults(params: Param[], known: boolean | undefined, keepInitial: boolean): void {
+    const defaults = defaultsOf(params, known)
+    if (defaults !== null || !keepInitial) {
+      this.defaults.value = defaults
     }
   }
 
@@ -297,6 +319,7 @@ class Parameters implements ParamsModel {
     const params = sortedByName(downloaded.params.map(canonParam))
     this.fromCache.value = null
     this.takeInitial(params, downloaded.complete, keepInitial)
+    this.takeDefaults(params, downloaded.defaults, keepInitial)
     this.params.value = params
     this.missing.value = downloaded.missing
     this.list.value = downloaded.complete ? 'complete' : 'incomplete'
@@ -360,6 +383,7 @@ class Parameters implements ParamsModel {
 
   clearInitial(): void {
     this.initial.value = null
+    this.defaults.value = null
   }
 
   setFilter(filter: string): void {

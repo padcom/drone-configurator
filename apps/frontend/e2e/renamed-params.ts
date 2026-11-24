@@ -6,7 +6,15 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, expect, it } from 'vitest'
-import { chooseConnection, clickConnect, confirmWrite, showAllParameters, showParameter, showScreen } from './click'
+import {
+  chooseConnection,
+  clickConnect,
+  confirmWrite,
+  showAllParameters,
+  showParameter,
+  showScreen,
+  showSnapshotTools,
+} from './click'
 import type { Endpoint } from './endpoint'
 import { type E2eApp, launchApp } from './launch'
 
@@ -106,6 +114,7 @@ class Window {
    */
   async load(text: string): Promise<void> {
     writeFileSync(this.opened, text)
+    await showSnapshotTools(this.page)
     await this.page.click('#load-button')
     await this.page.waitForText('#import', 'Parameter file: ')
   }
@@ -193,6 +202,7 @@ class Window {
     const centimetres = Math.round((original + 1) * 100)
     writeFileSync(this.opened, `${OLD},${centimetres}\n`)
 
+    await showSnapshotTools(this.page)
     await this.page.click('#compare-file')
     await this.page.waitForText('#compare h3', 'Compared with: Parameter file: ')
     expect(await this.page.text('#compare-summary'))

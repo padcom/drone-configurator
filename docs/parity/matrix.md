@@ -52,7 +52,7 @@ under the last table and are not counted.
 | Capability | Issue | Status | What remains |
 |---|---|---|---|
 | Download and cache ArduPilot parameter metadata | #35 | Done | downloaded per vehicle type and version (exact or latest, said in Settings), cached with refresh, fetched in 128 KiB parts with progress (a slow link that makes progress gets it); `metadata-download.e2e.ts`, `sitl-metadata.e2e.ts` (local stand-in, every PR), `weekly-metadata-server.e2e.ts` (the real server, weekly); `metadataCachedLoad` budget |
-| Full table with groups and fast search | #36 | Partial | no everyday-words list, no "recently used" group, no budget test |
+| Full table with groups and fast search | #36 | Done | groups by name or by ArduPilot's groups, everyday words, typos, "Modified from default" (firmware defaults by MAVFTP), Recently used, guided links; `param-table.e2e.ts`, `sitl-params.e2e.ts`; `paramFilterKeystroke` budget |
 | Batch edit with verified writes | #37 | Partial | implemented; not confirmed: one rejected value, rounding, the override callout, discard |
 | Parameter download over MAVFTP, cached per vehicle | #38 | Done | FTP with list fallback; last complete list kept per vehicle and shown while the next download runs; same 1,370 values both ways and `paramDownloadFtp` budget in `sitl-param-speed.e2e.ts` |
 | Import and export parameter files | #39 | Partial | the app's snapshot format only; no plain `.param` file |

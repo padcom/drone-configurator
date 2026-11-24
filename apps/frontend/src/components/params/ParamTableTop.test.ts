@@ -17,6 +17,22 @@ afterEach(() => {
 })
 
 /**
+ * Scrolls the box as a user does: the scroll event, which the list follows (once a frame), comes with it.
+ *
+ * @param box the scroll box
+ * @param tops where it is scrolled to
+ * @param tops.at the place
+ * @param at where to
+ */
+async function scrolled(box: Element, tops: { at: number }, at: number): Promise<void> {
+  tops.at = at
+  box.dispatchEvent(new Event('scroll'))
+  await new Promise(resolve => {
+    requestAnimationFrame(resolve)
+  })
+}
+
+/**
  * The list, its search and its groups on a Configurator with the fixture parameters; the scroll box has a height of 200 px and
  * counts how many times it is set to the top.
  *
@@ -42,15 +58,15 @@ async function screen() {
     },
   })
 
-  return { table, filter, groups, handle, tops }
+  return { table, filter, groups, handle, tops, scrollTo: (at: number) => scrolled(box, tops, at) }
 }
 
 it('selects the first match and scrolls to the top, once, when the search changes', async () => {
-  const { handle, tops, filter } = await screen()
+  const { handle, tops, filter, scrollTo } = await screen()
   handle.parameters.select('WPNAV_SPEED')
   await flushPromises()
+  await scrollTo(300)
   tops.count = 0
-  tops.at = 300
   const search = filter.get<HTMLInputElement>('#filter')
   search.element.focus()
 
@@ -64,8 +80,8 @@ it('selects the first match and scrolls to the top, once, when the search change
 })
 
 it('selects the first parameter and scrolls to the top when a group is chosen', async () => {
-  const { handle, tops, groups } = await screen()
-  tops.at = 300
+  const { handle, tops, groups, scrollTo } = await screen()
+  await scrollTo(300)
   tops.count = 0
 
   await groups.get('button[data-group="FENCE"]').trigger('click')
@@ -101,11 +117,11 @@ it('says nothing politely while the first match changes with every key typed, an
 })
 
 it('does it again when the search is cleared, and when a search finds nothing the list is still left at the top', async () => {
-  const { handle, tops, filter } = await screen()
+  const { handle, tops, filter, scrollTo } = await screen()
   const search = filter.get<HTMLInputElement>('#filter')
   await search.setValue('NO_SUCH_PARAMETER')
   await flushPromises()
-  tops.at = 300
+  await scrollTo(300)
 
   await search.setValue('')
   await flushPromises()

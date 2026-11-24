@@ -292,6 +292,17 @@
   letter-spacing: var(--letter-spacing-label);
 }
 
+/* DropPanel: the controls of the panel, one under the other; the badge on the button counts the ones in force. */
+.kit-drop-panel .drop-panel-body {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.kit-drop-panel .trigger .count {
+  padding: 0 var(--space-2);
+}
+
 /* Tooltip: inverted, light on dark. */
 .kit-tooltip-host {
   position: relative;

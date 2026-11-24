@@ -3,7 +3,7 @@
 import { type BitOption, bitOptions } from './bitmask'
 import type { EnumOption } from './enumField'
 import type { Param } from '@/generated/app'
-import { OTHER, groupOf } from './paramGroups'
+import { type Grouping, OTHER, groupOf } from './paramGroups'
 import { plainNumber } from './paramValue'
 import type { ParamMeta } from './metadata'
 import type { Translate } from '@/lib/fly/telemetryCards'
@@ -144,20 +144,27 @@ export function bitNamesOf(param: Param | null | undefined, bits: ParamMeta['bit
 }
 
 /** How many related parameters the detail lists. */
-export const RELATED_SHOWN = 6
+export const RELATED_SHOWN = 3
 
 /**
- * The parameters related to one: the others of its group, in the list's order (none for those with no group of their own).
+ * The parameters related to one: the others of its group nearest to it in the list's order (the ones after it first), so that
+ * FLTMODE3 has FLTMODE4, FLTMODE5 and FLTMODE2 rather than the first three of the group. None for those with no group of their
+ * own.
  *
  * @param params every parameter
  * @param id the selected parameter's name
- * @returns the names of up to RELATED_SHOWN of them
+ * @param grouping the group of a parameter (by its name, unless the metadata's is asked for)
+ * @returns the names of up to RELATED_SHOWN of them, in the list's order
  */
-export function relatedTo(params: Param[], id: string): string[] {
-  const group = groupOf(id)
+export function relatedTo(params: Param[], id: string, grouping: Grouping = groupOf): string[] {
+  const group = grouping(id)
   if (group === OTHER) {
     return []
   }
+  const members = params.filter(param => grouping(param.id) === group).map(param => param.id)
+  const at = members.indexOf(id)
+  const others = members.filter(member => member !== id)
+  const start = Math.max(0, Math.min(at < 0 ? 0 : at - 1, others.length - RELATED_SHOWN))
 
-  return params.filter(param => param.id !== id && groupOf(param.id) === group).map(param => param.id).slice(0, RELATED_SHOWN)
+  return others.slice(start, start + RELATED_SHOWN)
 }

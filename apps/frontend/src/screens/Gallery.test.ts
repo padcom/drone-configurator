@@ -37,6 +37,7 @@ const CONTROLS = [
   '.kit-toggle',
   '.kit-badge',
   '.kit-segmented',
+  '.kit-drop-panel',
   '.kit-tabs',
   '.kit-split',
 ]

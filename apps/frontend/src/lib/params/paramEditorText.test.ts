@@ -40,11 +40,14 @@ it('tells a metadata load in a toast: success, a warning for a partial match, an
   expect(metadataToast(counts(0, 0, 5, 0), translate)).toBeNull()
 })
 
-it('relates a parameter to the others of its group, at most six, and to none when it has no group of its own', () => {
+it('relates a parameter to the others of its group, at most three, and to none when it has no group of its own', () => {
   const many = Array.from({ length: 9 }, (_, i) => ({ ...param, id: `X_${i}`, index: i }))
 
   expect(relatedTo(PARAMS, 'BATT_CAPACITY')).toEqual(['BATT_LOW_VOLT'])
-  expect(relatedTo(many, 'X_0')).toEqual(['X_1', 'X_2', 'X_3', 'X_4', 'X_5', 'X_6'])
+  // Up to three, the nearest in the list's order: after it first, then before it at the end of the group.
+  expect(relatedTo(many, 'X_0')).toEqual(['X_1', 'X_2', 'X_3'])
+  expect(relatedTo(many, 'X_4')).toEqual(['X_3', 'X_5', 'X_6'])
+  expect(relatedTo(many, 'X_8')).toEqual(['X_5', 'X_6', 'X_7'])
   expect(relatedTo([{ ...param, id: 'FRAME' }, { ...param, id: 'RC' }], 'FRAME')).toEqual([])
   expect(relatedTo(PARAMS, 'RTL_ALT')).toEqual([])
 })

@@ -9,7 +9,18 @@ import type {
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
   PresetAsk,
 } from '@/generated/app'
-import { COPTER_MODES, DEFAULTS, DISCOVERED, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
+import {
+  COPTER_MODES,
+  DEFAULTS,
+  DISCOVERED,
+  PARAMS,
+  SCRIPTED_MESSAGES,
+  SERIAL_PORTS,
+  VEHICLE,
+  VEHICLE_DETAILS,
+  telemetryAt,
+  withDefaults,
+} from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
 import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
@@ -515,11 +526,13 @@ class MockVehicle {
     const steps = this.options.progress?.steps ?? 0
     const intervalMs = this.options.progress?.intervalMs ?? 0
     const result = {
-      params: this.params,
+      // By file transfer the firmware's defaults come too, as the real backend gives them (where they differ from the value).
+      params: byFtp ? withDefaults(this.params) : this.params,
       count: this.params.length,
       complete: true,
       missing: [] as number[],
       source,
+      ...byFtp ? { defaults: true } : {},
       ...fallback ? { fallback } : {},
       elapsedMs: steps > 0 ? steps * intervalMs : byFtp ? 800 : 6200,
     }

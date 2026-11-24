@@ -14,6 +14,7 @@ const META = new Map<string, ParamMeta>([
   ['SERIAL0_BAUD', {}],
 ])
 const IDS = [...META.keys()]
+// The search by the name and the description alone (no everyday words): the tests of the everyday words give their own.
 const index = buildIndex(IDS, META)
 const found = (query: string) => search(index, query).map(hit => hit.id)
 
@@ -59,8 +60,8 @@ describe('the search by what a parameter does', () => {
     expect(search(index, 'fence breached').map(hit => hit.reason)).toEqual(['description'])
   })
 
-  it('searches the names only when there are no descriptions, and looks for no typo', () => {
-    const bare = buildIndex(['RTL_ALT', 'RTL_SPEED'], new Map())
+  it('searches the names only when there are no descriptions, and a word of three letters is no typo', () => {
+    const bare = buildIndex(['RTL_ALT', 'RTL_SPEED'], new Map(), {})
 
     expect(bare.described).toBe(false)
     expect(search(bare, 'return height')).toEqual([])
@@ -87,6 +88,10 @@ describe('a close match', () => {
     expect([withinOneEdit('battery', 'batery'), withinOneEdit('battery', 'batteery')]).toEqual([true, true])
     expect([withinOneEdit('battery', 'battary'), withinOneEdit('battery', 'battery')]).toEqual([true, true])
     expect([withinOneEdit('battery', 'bttry'), withinOneEdit('', 'a'), withinOneEdit('abc', 'axy')]).toEqual([false, true, false])
+    // Two letters swapped are two edits; a letter added or taken out at either end, or changed at the end, is one.
+    expect(['retrun', 'ab'].map(word => withinOneEdit(word, word === 'ab' ? 'ba' : 'return'))).toEqual([false, false])
+    expect([withinOneEdit('xbattery', 'battery'), withinOneEdit('batteryx', 'battery'), withinOneEdit('abc', 'abd')])
+      .toEqual([true, true, true])
   })
 })
 
@@ -99,9 +104,25 @@ describe('the index, for a close match', () => {
     const kept = own.entries.map(entry => entry.words)
     search(own, 'capacty')
 
-    expect(kept.every(words => Array.isArray(words))).toBe(true)
+    expect(kept.every(words => words instanceof Set)).toBe(true)
+    // And every word of the list once, what a typo is looked up in.
+    expect(own.vocabulary).toContain('battery')
+    expect(new Set(own.vocabulary).size).toBe(own.vocabulary?.length)
     expect(own.entries.map(entry => entry.words)).toEqual(kept)
     expect(own.entries.every((entry, i) => entry.words === kept[i])).toBe(true)
+  })
+})
+
+describe('a search that narrows the last one', () => {
+  it('looks only at what the last one matched, and finds what a search from scratch finds', () => {
+    const own = buildIndex(IDS, META)
+    const fresh = (query: string) => search(buildIndex(IDS, META), query).map(hit => hit.id)
+
+    for (const query of ['r', 'rt', 'rtl', 'rtl a', 'rtl al', 'rtl alt', 'rtl', 'b', 'ba', 'bat', 'batt cap']) {
+      expect(search(own, query).map(hit => hit.id)).toEqual(fresh(query))
+    }
+    search(own, 'rtl')
+    expect(own.last?.matched.map(entry => entry.id)).toEqual(['RTL_ALT', 'RTL_SPEED'])
   })
 })
 
