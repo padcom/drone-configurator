@@ -1322,6 +1322,7 @@
     }
   },
   "compare": {
+    "renamed": "{value} (было {from} {old}, переименован в {since})",
     "file": "Сравнить с файлом",
     "defaults": "Сравнить с умолчаниями",
     "region": "Сравнение",
@@ -1367,6 +1368,8 @@
     "itWas": "Он был {warning}.",
     "summary": "Отличаются: {differ}, уже совпадают: {same}. Отметьте те, что нужно записать.",
     "noValue": "—",
+    "renamed": "{from} → {to} (переименован в {since})",
+    "converted": "Пересчитано: {from} → {to}",
     "column": {
       "defaults": "По умолчанию",
       "apply": "Применить",

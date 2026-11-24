@@ -36,9 +36,12 @@
                     @change="snapshots.toggle(row.change.id)"
                   >
                 </td>
-                <th scope="row" class="name">{{ row.change.id }}</th>
+                <th scope="row" class="name">{{ row.renamed?.name ?? row.change.id }}</th>
                 <td class="num old">{{ row.change.from === null ? t('import.noValue') : showNumber(row.change.from) }}</td>
-                <td class="new">→ {{ showNumber(row.change.to) }}</td>
+                <td class="new">
+                  → {{ showNumber(row.change.to) }}
+                  <span v-if="row.renamed?.value" class="review-converted">{{ row.renamed.value }}</span>
+                </td>
                 <td class="result" :class="row.result.tone">{{ row.result.text }}</td>
               </tr>
             </tbody>
@@ -67,6 +70,7 @@ import { saveText, snapshotFileName } from '@/lib/app/files'
 import Button from '@/components/ui/Button.vue'
 import { showNumber } from '@/lib/params/paramValue'
 import { canApply, panelShown, resultOf, sourceWords, statusOf, stoppedEarly } from '@/lib/params/snapshotImport'
+import { renamedWords } from '@/lib/params/renameWords'
 import { useConfigurator } from '@/composables/useConfigurator'
 
 // A snapshot or a parameter file under review, as the design's review has it: a table of what it would change (the value on
@@ -74,6 +78,8 @@ import { useConfigurator } from '@/composables/useConfigurator'
 // is not a change (notes), a line that says what is ticked or how it ended, and the buttons. Nothing is ticked at first; the
 // changes that cannot be made say why and cannot be ticked, and a value the metadata finds unusual says so but can be ticked.
 // A write goes one by one, is refused while the vehicle may be armed, and stops at the first the vehicle does not read back.
+// A value the file names as an older firmware did is under the vehicle's name, with the old name and the release that renamed
+// it, and both values when the firmware converts it (#202).
 const { t } = useI18n()
 const { snapshots, fields, parameters } = useConfigurator()
 const review = computed(() => fields.importReview.value)
@@ -85,7 +91,9 @@ const stopped = computed(() => stoppedEarly(fields.applied.value, fields.applyin
 const rows = computed(() => (review.value?.changes ?? []).map(change => {
   const progress = { applied: fields.applied.value, stopped: stopped.value, picked: fields.picked.value.includes(change.id) }
 
-  return { change, result: resultOf(change, progress, t) }
+  const renamed = change.renamed ? renamedWords(change.id, change.to, change.renamed, t) : null
+
+  return { change, result: resultOf(change, progress, t), renamed }
 }))
 const status = computed(() => statusOf({
   picked: fields.picked.value,

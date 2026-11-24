@@ -1322,6 +1322,7 @@
     }
   },
   "compare": {
+    "renamed": "{value} (war {from} {old}, umbenannt in {since})",
     "file": "Mit Datei vergleichen",
     "defaults": "Mit Standardwerten vergleichen",
     "region": "Vergleich",
@@ -1367,6 +1368,8 @@
     "itWas": "Es war {warning}.",
     "summary": "Abweichend: {differ}; schon gleich: {same}. Hake die zu schreibenden an.",
     "noValue": "—",
+    "renamed": "{from} → {to} (umbenannt in {since})",
+    "converted": "Umgerechnet: {from} → {to}",
     "column": {
       "defaults": "Standard",
       "apply": "Anwenden",

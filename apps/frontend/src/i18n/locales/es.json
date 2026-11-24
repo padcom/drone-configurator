@@ -1322,6 +1322,7 @@
     }
   },
   "compare": {
+    "renamed": "{value} (era {from} {old}, renombrado en {since})",
     "file": "Comparar con archivo",
     "defaults": "Comparar con valores por defecto",
     "region": "Comparación",
@@ -1367,6 +1368,8 @@
     "itWas": "Era {warning}.",
     "summary": "Distintos: {differ}; ya iguales: {same}. Marca los que quieras escribir.",
     "noValue": "—",
+    "renamed": "{from} → {to} (renombrado en {since})",
+    "converted": "Convertido: {from} → {to}",
     "column": {
       "defaults": "Por defecto",
       "apply": "Aplicar",
